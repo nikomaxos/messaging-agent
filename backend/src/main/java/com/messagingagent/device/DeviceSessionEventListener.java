@@ -5,20 +5,22 @@ import com.messagingagent.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Listens for STOMP WebSocket connect/disconnect events.
  *
  * On CONNECT: reads "deviceToken" from STOMP headers → marks device ONLINE
- *             and maps sessionId → deviceToken for the disconnect lookup.
- * On DISCONNECT: uses the sessionId map to find the device and marks it OFFLINE.
+ *             broadcasts status event to /topic/devices for admin panel live updates.
+ * On DISCONNECT: uses sessionId map → marks device OFFLINE and broadcasts again.
  */
 @Component
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DeviceSessionEventListener {
 
     private final DeviceRepository deviceRepository;
+    private final SimpMessagingTemplate broker;
 
     /** Maps STOMP sessionId → deviceToken for disconnect lookup. */
     private final ConcurrentHashMap<String, String> sessionTokenMap = new ConcurrentHashMap<>();
@@ -48,7 +51,10 @@ public class DeviceSessionEventListener {
             device.setSessionId(sessionId);
             device.setLastHeartbeat(Instant.now());
             deviceRepository.save(device);
-            log.info("Device '{}' (id={}) connected — sessionId={}", device.getName(), device.getId(), sessionId);
+            log.info("Device '{}' (id={}) ONLINE — sessionId={}", device.getName(), device.getId(), sessionId);
+            broker.convertAndSend("/topic/devices",
+                Map.of("id", device.getId(), "name", device.getName(),
+                       "status", "ONLINE", "lastHeartbeat", device.getLastHeartbeat().toString()));
         }, () -> log.warn("CONNECT from unknown deviceToken={}", deviceToken));
     }
 
@@ -63,7 +69,10 @@ public class DeviceSessionEventListener {
             device.setStatus(Device.Status.OFFLINE);
             device.setSessionId(null);
             deviceRepository.save(device);
-            log.info("Device '{}' (id={}) disconnected — sessionId={}", device.getName(), device.getId(), sessionId);
+            log.info("Device '{}' (id={}) OFFLINE — sessionId={}", device.getName(), device.getId(), sessionId);
+            broker.convertAndSend("/topic/devices",
+                Map.of("id", device.getId(), "name", device.getName(),
+                       "status", "OFFLINE", "lastHeartbeat", ""));
         });
     }
 }

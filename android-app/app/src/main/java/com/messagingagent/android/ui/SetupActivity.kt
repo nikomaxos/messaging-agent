@@ -223,12 +223,19 @@ fun GroupPickStep(vm: SetupViewModel) {
 
 @Composable
 fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) {
-    val scope = rememberCoroutineScope()
+    // Shared HTTP client — do NOT create a new one on every poll
+    val httpClient = remember {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
 
-    // Live status: poll GET /api/devices/{id} every 10 seconds
-    var liveStatus by remember { mutableStateOf("Checking…") }
-    var isOnline   by remember { mutableStateOf(false) }
-    var lastSeen   by remember { mutableStateOf<String?>(null) }
+    // Live status: poll GET /api/devices/register/status/{token} every 10 s.
+    // Keep last known status visible between polls (no "Checking" flash loop).
+    var isOnline    by remember { mutableStateOf(false) }
+    var isChecking  by remember { mutableStateOf(true) }   // only true on very first poll
+    var liveDetail  by remember { mutableStateOf("") }
 
     LaunchedEffect(state.deviceToken) {
         val token = state.deviceToken ?: return@LaunchedEffect
@@ -239,23 +246,23 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
             try {
                 val reqUrl = "${url.trimEnd('/')}/api/devices/register/status/$token"
                 val resp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    okhttp3.OkHttpClient().newCall(
+                    httpClient.newCall(
                         okhttp3.Request.Builder().url(reqUrl).build()
                     ).execute()
                 }
                 if (resp.isSuccessful) {
                     val body = resp.body?.string() ?: ""
-                    isOnline   = body.contains("\"ONLINE\"")
-                    lastSeen   = if (body.contains("\"lastHeartbeat\":null")) null else "Has heartbeat"
-                    liveStatus = if (isOnline) "Online" else "Offline"
+                    isOnline  = body.contains("\"ONLINE\"")
+                    liveDetail = if (isOnline) "Connected to backend" else "Backend reachable — offline"
                 } else {
-                    liveStatus = "Cannot reach backend (${resp.code})"
-                    isOnline   = false
+                    isOnline  = false
+                    liveDetail = "Backend returned ${resp.code}"
                 }
             } catch (e: Exception) {
-                liveStatus = "Cannot reach backend"
-                isOnline   = false
+                isOnline  = false
+                liveDetail = "Cannot reach backend"
             }
+            isChecking = false          // first poll done — status is now known
             kotlinx.coroutines.delay(10_000)
         }
     }
@@ -279,8 +286,16 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                         )
                 )
                 Text(
-                    if (isOnline) "● Connected to backend" else "○ $liveStatus",
-                    color    = if (isOnline) Color(0xFF4ADE80) else Color(0xFF94A3B8),
+                    when {
+                        isChecking -> "● Checking…"
+                        isOnline   -> "● Connected to backend"
+                        else       -> "○ $liveDetail"
+                    },
+                    color    = when {
+                        isChecking -> Color(0xFF94A3B8)
+                        isOnline   -> Color(0xFF4ADE80)
+                        else       -> Color(0xFF94A3B8)
+                    },
                     fontWeight = FontWeight.Bold, fontSize = 15.sp
                 )
             }

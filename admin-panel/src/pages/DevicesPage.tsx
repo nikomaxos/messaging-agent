@@ -1,17 +1,63 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDevices, getGroups, createDevice, updateDevice, deleteDevice } from '../api/client'
 import { Device, DeviceGroup } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Copy } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Copy, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import SockJS from 'sockjs-client'
+import { Client } from '@stomp/stompjs'
 
 export default function DevicesPage() {
   const qc = useQueryClient()
-  const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: getDevices, refetchInterval: 5000 })
+  const { data: devices = [], refetch, isFetching } = useQuery({
+    queryKey: ['devices'],
+    queryFn: getDevices,
+    refetchInterval: false,   // no auto-polling — WebSocket drives live updates
+    staleTime: Infinity,
+  })
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
   const [form, setForm] = useState({ name: '', imei: '', groupId: '' })
+  const [wsConnected, setWsConnected] = useState(false)
+  const stompRef = useRef<Client | null>(null)
+
+  // ── WebSocket subscription to /topic/devices for live status updates ──────
+  useEffect(() => {
+    const token = localStorage.getItem('jwt')
+    if (!token) return
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS('/ws-admin'),
+      connectHeaders: { Authorization: `Bearer ${token}` },
+      reconnectDelay: 5000,
+      onConnect: () => {
+        setWsConnected(true)
+        // Subscribe to live device status events
+        client.subscribe('/topic/devices', msg => {
+          try {
+            const event = JSON.parse(msg.body)
+            // Patch the specific device's status in the react-query cache
+            qc.setQueryData<Device[]>(['devices'], prev =>
+              (prev ?? []).map(d =>
+                d.id === event.id
+                  ? { ...d, status: event.status as Device['status'],
+                      lastHeartbeat: event.lastHeartbeat || d.lastHeartbeat }
+                  : d
+              )
+            )
+          } catch { /* ignore parse errors */ }
+        })
+      },
+      onDisconnect: () => setWsConnected(false),
+      onStompError: () => setWsConnected(false),
+    })
+
+    client.activate()
+    stompRef.current = client
+
+    return () => { client.deactivate() }
+  }, [qc])
 
   const createMut = useMutation({ mutationFn: createDevice,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['devices'] }); reset() } })
@@ -40,11 +86,24 @@ export default function DevicesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Devices</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Android phones in the device pool</p>
+          <p className="text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
+            {wsConnected
+              ? <><Wifi size={12} className="text-emerald-400" /> Live — updates via WebSocket</>
+              : <><WifiOff size={12} className="text-slate-500" /> Reconnecting…</>}
+          </p>
         </div>
-        <button id="add-device-btn" className="btn-primary" onClick={() => setShowForm(true)}>
-          <Plus size={16} /> Add Device
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary"
+            onClick={() => refetch()}
+            title="Manually refresh all device data"
+          >
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button id="add-device-btn" className="btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={16} /> Add Device
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -98,7 +157,9 @@ export default function DevicesPage() {
                   <div className="font-medium text-slate-200">{d.name}</div>
                   <div className="text-[10px] text-slate-500">{d.imei ?? '—'}</div>
                 </td>
-                <td className="px-4"><span className={`pill ${statusClass(d.status)}`}>{d.status}</span></td>
+                <td className="px-4">
+                  <span className={`pill ${statusClass(d.status)}`}>{d.status}</span>
+                </td>
                 <td className="px-4 text-slate-400 text-xs">{d.group?.name ?? '—'}</td>
                 <td className="px-4 text-xs text-slate-300">{d.batteryPercent != null ? `${d.batteryPercent}%` : '—'}</td>
                 <td className="px-4 text-xs text-slate-300">{d.wifiSignalDbm != null ? `${d.wifiSignalDbm} dBm` : '—'}</td>
@@ -113,8 +174,7 @@ export default function DevicesPage() {
                 </td>
                 <td className="px-4">
                   {d.registrationToken && (
-                    <button
-                      title="Copy token"
+                    <button title="Copy token"
                       onClick={() => copyToken(d.registrationToken)}
                       className="text-slate-500 hover:text-brand-400 transition"
                     ><Copy size={13} /></button>
