@@ -84,7 +84,7 @@ class WebSocketRelayClient @Inject constructor(
      * Connect (or reconnect) to the backend WebSocket.
      * Safe to call multiple times — closes any active connection first.
      */
-    fun connect(backendUrl: String, deviceToken: String, onStatus: (String) -> Unit) {
+    fun connect(backendUrl: String, deviceToken: String, deviceId: Long, onStatus: (String) -> Unit) {
         statusCallback = onStatus
         activeDeviceToken = deviceToken
 
@@ -118,6 +118,7 @@ class WebSocketRelayClient @Inject constructor(
                 // Allow OkHttp's underlying `pingInterval(25, SECONDS)` to keep the network layer alive
                 // Tell server: STOMP heartbeats are disabled (0,0) so it doesn't drop us due to missing STOMP frames
                 webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$deviceToken\n\n\u0000")
+                webSocket.send("SUBSCRIBE\nid:sub-0\ndestination:/queue/sms.$deviceId\n\n\u0000")
                 
                 pingJob = CoroutineScope(Dispatchers.IO).launch {
                     while (isActive) {
@@ -150,7 +151,7 @@ class WebSocketRelayClient @Inject constructor(
                 connectionStartTime.value = null
                 addLog("WARN", "WebSocket closed: code=$code reason=$reason")
                 onStatus("Offline")
-                scheduleRetry(backendUrl, deviceToken, onStatus, myGen)
+                scheduleRetry(backendUrl, deviceToken, deviceId, onStatus, myGen)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -163,18 +164,18 @@ class WebSocketRelayClient @Inject constructor(
                 val httpCode = response?.code?.toString() ?: "no-response"
                 addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
                 onStatus("Disconnected — retrying…")
-                scheduleRetry(backendUrl, deviceToken, onStatus, myGen)
+                scheduleRetry(backendUrl, deviceToken, deviceId, onStatus, myGen)
             }
         })
     }
 
-    private fun scheduleRetry(backendUrl: String, deviceToken: String, onStatus: (String) -> Unit, myGen: Int) {
+    private fun scheduleRetry(backendUrl: String, deviceToken: String, deviceId: Long, onStatus: (String) -> Unit, myGen: Int) {
         retryJob = CoroutineScope(Dispatchers.IO).launch {
             addLog("INFO", "Will retry in 8s…")
             delay(8_000)
             if (generation == myGen) {          // still the active generation
                 addLog("INFO", "Retrying connection…")
-                connect(backendUrl, deviceToken, onStatus)
+                connect(backendUrl, deviceToken, deviceId, onStatus)
             } else {
                 addLog("DEBUG", "Retry cancelled — superseded by newer connect()")
             }

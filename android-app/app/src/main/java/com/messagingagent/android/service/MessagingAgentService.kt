@@ -64,7 +64,11 @@ class MessagingAgentService : Service() {
                 Timber.w("No device token configured — service idle")
                 return@launch
             }
-            wsClient.connect(backendUrl, token) { status ->
+            val deviceId = prefs.getDeviceId() ?: run {
+                Timber.w("No device ID configured — service idle")
+                return@launch
+            }
+            wsClient.connect(backendUrl, token, deviceId) { status ->
                 updateNotification(status)
             }
             
