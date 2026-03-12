@@ -5,11 +5,8 @@ import com.cloudhopper.smpp.SmppConstants;
 import com.cloudhopper.smpp.SmppServerSession;
 import com.cloudhopper.smpp.pdu.*;
 import com.cloudhopper.smpp.type.Address;
-import com.cloudhopper.smpp.type.SmppChannelException;
-import com.cloudhopper.smpp.type.SmppTimeoutException;
-import com.cloudhopper.smpp.type.UnrecoverablePduException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +28,6 @@ import java.util.Optional;
  *   - Generic error   → ESME_RSYSERR (0x00000008)
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class SmppResponseService {
 
@@ -43,6 +39,12 @@ public class SmppResponseService {
 
     private final SmppSessionRegistry sessionRegistry;
     private final RedisTemplate<String, String> redis;
+
+    public SmppResponseService(SmppSessionRegistry sessionRegistry,
+                                @Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis) {
+        this.sessionRegistry = sessionRegistry;
+        this.redis = redis;
+    }
 
     // ─── Public API ──────────────────────────────────────────────────────────
 

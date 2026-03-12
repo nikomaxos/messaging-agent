@@ -7,8 +7,8 @@ import com.cloudhopper.smpp.impl.DefaultSmppSessionHandler;
 import com.cloudhopper.smpp.pdu.*;
 import com.cloudhopper.smpp.type.SmppProcessingException;
 import com.messagingagent.kafka.SmsInboundEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
@@ -32,7 +32,6 @@ import java.util.concurrent.Executors;
  *  3. Publishes SmsInboundEvent to Kafka "sms.inbound"
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class SmppServerService {
 
@@ -41,6 +40,14 @@ public class SmppServerService {
     private final KafkaTemplate<String, SmsInboundEvent> kafkaTemplate;
     private final SmppSessionRegistry sessionRegistry;
     private final RedisTemplate<String, String> redis;
+
+    public SmppServerService(KafkaTemplate<String, SmsInboundEvent> kafkaTemplate,
+                              SmppSessionRegistry sessionRegistry,
+                              @Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.sessionRegistry = sessionRegistry;
+        this.redis = redis;
+    }
 
     @Value("${app.smpp.server.host:0.0.0.0}")     private String host;
     @Value("${app.smpp.server.port:2775}")          private int port;

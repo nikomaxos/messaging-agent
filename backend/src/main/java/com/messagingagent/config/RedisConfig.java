@@ -1,5 +1,6 @@
 package com.messagingagent.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -10,12 +11,16 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 public class RedisConfig {
 
     /**
-     * String-keyed RedisTemplate for storing SMPP correlation entries.
+     * String-keyed RedisTemplate for SMPP correlation entries.
      * Key format: "smpp:session:{correlationId}" → sessionId string
      * Key format: "smpp:source:{correlationId}"  → source address string
+     *
+     * Named explicitly so that SmppServerService can @Qualifier("smppCorrelationRedisTemplate").
+     * Does NOT use @Primary to avoid interfering with Spring Boot's auto-configured
+     * reactive Lettuce connection factory (used by RedisReactiveHealthIndicator).
      */
-    @Bean
-    public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory factory) {
+    @Bean(name = "smppCorrelationRedisTemplate")
+    public RedisTemplate<String, String> smppCorrelationRedisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, String> tpl = new RedisTemplate<>();
         tpl.setConnectionFactory(factory);
         tpl.setKeySerializer(new StringRedisSerializer());

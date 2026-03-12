@@ -16,6 +16,10 @@ RUN mvn -B package -DskipTests -q
 # ─── Runtime Stage ────────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-jammy AS runtime
 
+# Install curl for health check
+RUN apt-get update -q && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user
 RUN groupadd -r msgagent && useradd -r -g msgagent msgagent
 
@@ -25,7 +29,7 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
 # Health check uses the actuator endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
   CMD curl -sf http://localhost:9090/actuator/health || exit 1
 
 USER msgagent
