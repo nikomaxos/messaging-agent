@@ -69,7 +69,7 @@ class SetupViewModel @Inject constructor(
                     groups = it
                     step = Step.GROUP_PICK
                 }
-                .onFailure { error = "Could not reach backend: ${it.message}" }
+                .onFailure { error = "Could not reach backend at ${url.trimEnd('/')}/api/devices/register/groups\n${it.message}" }
             loading = false
         }
     }
@@ -80,7 +80,7 @@ class SetupViewModel @Inject constructor(
             error = null
             registrationRepo.registerDevice(pendingUrl, pendingName, selectedGroup.id)
                 .onSuccess { step = Step.DONE }
-                .onFailure { error = "Registration failed: ${it.message}" }
+                .onFailure { error = "Registration failed at ${pendingUrl}/api/devices/register\n${it.message}" }
             loading = false
         }
     }
