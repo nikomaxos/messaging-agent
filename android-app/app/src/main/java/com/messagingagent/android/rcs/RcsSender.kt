@@ -56,24 +56,17 @@ class RcsSender @Inject constructor(
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("smsto:$to")
                 putExtra("sms_body", text)
-                putExtra("compose_mode", false)      // send immediately without compose UI
+                putExtra("compose_mode", false)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 setPackage(MESSAGES_PKG)
             }
 
-            // Start observing BEFORE firing the intent to avoid race condition
-            // (observer will catch the outgoing message as soon as it's written)
-            val observerDeferred = kotlinx.coroutines.GlobalScope.async(
-                kotlinx.coroutines.Dispatchers.IO
-            ) {
-                deliveryObserver.awaitDelivery(to)
-            }
-
+            // Fire the intent, then await the delivery observer
             context.startActivity(intent)
             Timber.i("RCS intent fired for $to")
 
-            // Await delivery confirmation from ContentObserver (30s timeout)
-            val status = observerDeferred.await()
+            // awaitDelivery is a suspend fun — call it directly in this coroutine
+            val status: RcsDeliveryStatus = deliveryObserver.awaitDelivery(to)
 
             when (status) {
                 RcsDeliveryStatus.DELIVERED -> {
@@ -82,13 +75,10 @@ class RcsSender @Inject constructor(
                 }
                 RcsDeliveryStatus.FAILED -> {
                     Timber.w("RCS failed (no RCS capability?) for $to")
-                    // FAILED from Messages usually means RCS not available → SMS downgrade offered
                     RcsSendResult(success = false, noRcs = true, error = "RCS delivery failed")
                 }
                 RcsDeliveryStatus.TIMEOUT -> {
                     Timber.w("RCS delivery receipt timed out for $to")
-                    // Treat timeout as sent (Messages may still deliver asynchronously)
-                    // Return success=true; SMSC can handle late receipts separately
                     RcsSendResult(success = true, error = "Delivery receipt timeout (assumed sent)")
                 }
             }
