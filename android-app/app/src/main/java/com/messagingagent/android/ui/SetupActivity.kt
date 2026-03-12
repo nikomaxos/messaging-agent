@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,37 +43,44 @@ class SetupViewModel @Inject constructor(
 ) : ViewModel() {
 
     val registrationState = prefs.registrationFlow()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, RegistrationState(null, null, null, null, null, null))
+        .stateIn(viewModelScope, SharingStarted.Eagerly,
+            RegistrationState(null, null, null, null, null, null))
 
-    var groups    by mutableStateOf<List<GroupSummary>>(emptyList())
-    var loading   by mutableStateOf(false)
-    var error     by mutableStateOf<String?>(null)
-    var step      by mutableStateOf(Step.URL)
+    // Keep URL and name in ViewModel so they survive step transitions
+    // without relying on DataStore timing
+    var pendingUrl  by mutableStateOf("")
+    var pendingName by mutableStateOf("")
+
+    var groups   by mutableStateOf<List<GroupSummary>>(emptyList())
+    var loading  by mutableStateOf(false)
+    var error    by mutableStateOf<String?>(null)
+    var step     by mutableStateOf(Step.URL)
 
     enum class Step { URL, GROUP_PICK, DONE }
 
-    fun fetchGroups(url: String) {
+    fun fetchGroups(url: String, name: String) {
         viewModelScope.launch {
             loading = true
             error = null
-            prefs.setBackendUrl(url.trimEnd('/'))
+            pendingUrl  = url.trimEnd('/')
+            pendingName = name.trim()
             registrationRepo.fetchGroups(url)
                 .onSuccess {
                     groups = it
                     step = Step.GROUP_PICK
                 }
-                .onFailure { error = it.message }
+                .onFailure { error = "Could not reach backend: ${it.message}" }
             loading = false
         }
     }
 
-    fun register(url: String, name: String, selectedGroup: GroupSummary) {
+    fun register(selectedGroup: GroupSummary) {
         viewModelScope.launch {
             loading = true
             error = null
-            registrationRepo.registerDevice(url, name, selectedGroup.id)
+            registrationRepo.registerDevice(pendingUrl, pendingName, selectedGroup.id)
                 .onSuccess { step = Step.DONE }
-                .onFailure { error = it.message }
+                .onFailure { error = "Registration failed: ${it.message}" }
             loading = false
         }
     }
@@ -101,9 +107,10 @@ class SetupActivity : ComponentActivity() {
 fun SetupScreen(vm: SetupViewModel, onStart: () -> Unit) {
     val regState by vm.registrationState.collectAsState()
 
-    // If already registered, go straight to DONE step
     LaunchedEffect(regState.isRegistered) {
         if (regState.isRegistered && vm.step == SetupViewModel.Step.URL) {
+            vm.pendingUrl  = regState.backendUrl ?: ""
+            vm.pendingName = regState.deviceName ?: ""
             vm.step = SetupViewModel.Step.DONE
         }
     }
@@ -120,13 +127,10 @@ fun SetupScreen(vm: SetupViewModel, onStart: () -> Unit) {
                 .align(Alignment.Center),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Header ─────────────────────────────────────────────────────
             Text("Messaging Agent", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Device Registration", fontSize = 14.sp, color = Color(0xFF8899AA))
-
             Spacer(Modifier.height(4.dp))
 
-            // ── Error banner ────────────────────────────────────────────────
             vm.error?.let {
                 Surface(color = Color(0xFF4A1010), shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()) {
@@ -135,56 +139,56 @@ fun SetupScreen(vm: SetupViewModel, onStart: () -> Unit) {
                 }
             }
 
-            // ── Step content ────────────────────────────────────────────────
             when (vm.step) {
-                SetupViewModel.Step.URL     -> UrlStep(vm, regState)
-                SetupViewModel.Step.GROUP_PICK -> GroupPickStep(vm, regState)
-                SetupViewModel.Step.DONE   -> DoneStep(regState, onStart)
+                SetupViewModel.Step.URL        -> UrlStep(vm)
+                SetupViewModel.Step.GROUP_PICK -> GroupPickStep(vm)
+                SetupViewModel.Step.DONE       -> DoneStep(regState, onStart, vm)
             }
         }
     }
 }
 
 @Composable
-fun UrlStep(vm: SetupViewModel, state: RegistrationState) {
-    var url  by remember { mutableStateOf(state.backendUrl ?: "") }
-    var name by remember { mutableStateOf(state.deviceName ?: "") }
+fun UrlStep(vm: SetupViewModel) {
+    // Pre-fill with what's already in the ViewModel (survives recompose)
+    var url  by remember { mutableStateOf(vm.pendingUrl) }
+    var name by remember { mutableStateOf(vm.pendingName) }
 
     AgentTextField("Device Name", name, { name = it })
-    AgentTextField("Backend URL (http://host:9090)", url, { url = it })
+    Spacer(Modifier.height(4.dp))
+    AgentTextField("Backend URL  (e.g. http://192.168.1.10:9090)", url, { url = it })
 
     Button(
-        onClick = { vm.fetchGroups(url) },
+        onClick = { vm.fetchGroups(url, name) },
         modifier = Modifier.fillMaxWidth().height(52.dp),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
         enabled = url.isNotBlank() && name.isNotBlank() && !vm.loading
     ) {
-        if (vm.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
+        if (vm.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
         else Text("Fetch Groups →", fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-fun GroupPickStep(vm: SetupViewModel, state: RegistrationState) {
-    var url  by remember { mutableStateOf(state.backendUrl ?: "") }
-    var name by remember { mutableStateOf(state.deviceName ?: "") }
+fun GroupPickStep(vm: SetupViewModel) {
     var selected by remember { mutableStateOf<GroupSummary?>(null) }
 
     Text("Select your Virtual SMSC Group:", fontSize = 13.sp, color = Color(0xFF8899AA))
+    Text("Registering as: ${vm.pendingName}  •  ${vm.pendingUrl}",
+        fontSize = 11.sp, color = Color(0xFF4A5568))
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp),
+               modifier = Modifier.heightIn(max = 300.dp)) {
         items(vm.groups) { grp ->
             val isSelected = selected?.id == grp.id
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { selected = grp }
-                    .border(
-                        1.dp,
+                    .border(1.dp,
                         if (isSelected) Color(0xFF6366F1) else Color(0xFF2D2D4A),
-                        RoundedCornerShape(12.dp)
-                    ),
+                        RoundedCornerShape(12.dp)),
                 color = if (isSelected) Color(0xFF1A1A4A) else Color(0xFF111126),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -205,27 +209,27 @@ fun GroupPickStep(vm: SetupViewModel, state: RegistrationState) {
         ) { Text("← Back", color = Color(0xFF8899AA)) }
 
         Button(
-            onClick = { selected?.let { vm.register(url, name, it) } },
+            onClick = { selected?.let { vm.register(it) } },
             modifier = Modifier.weight(1f).height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
             enabled = selected != null && !vm.loading
         ) {
-            if (vm.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
+            if (vm.loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             else Text("Register Device", fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
-fun DoneStep(state: RegistrationState, onStart: () -> Unit) {
+fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) {
     Surface(color = Color(0xFF0D2D1A), shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("✓ Device Registered", color = Color(0xFF4ADE80),
                 fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Text("Group: ${state.groupName ?: "—"}", color = Color(0xFF8899AA), fontSize = 13.sp)
-            Text("Backend: ${state.backendUrl ?: "—"}", color = Color(0xFF8899AA), fontSize = 12.sp)
+            Text("Backend: ${state.backendUrl ?: vm.pendingUrl}", color = Color(0xFF8899AA), fontSize = 12.sp)
             Text("Device ID: ${state.deviceId ?: "—"}", color = Color(0xFF8899AA), fontSize = 12.sp)
         }
     }
@@ -237,8 +241,11 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit) {
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
     ) { Text("Start Service", fontWeight = FontWeight.SemiBold) }
 
-    TextButton(onClick = { /* re-register */ }) {
-        Text("Re-register with different group", color = Color(0xFF6366F1), fontSize = 12.sp)
+    TextButton(onClick = {
+        vm.step = SetupViewModel.Step.URL
+        vm.error = null
+    }) {
+        Text("Re-register with a different group", color = Color(0xFF6366F1), fontSize = 12.sp)
     }
 }
 
