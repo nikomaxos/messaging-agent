@@ -61,9 +61,14 @@ class WebSocketRelayClient @Inject constructor(
     /** Pending retry job (cancel on new connect). */
     private var retryJob: Job? = null
 
+    /** STOMP periodic ping job - removed since Spring closes invalid frames */
+
     /** Live connection log for display in DoneStep UI. */
     private val _log = MutableStateFlow<List<LogEntry>>(emptyList())
     val log: StateFlow<List<LogEntry>> = _log.asStateFlow()
+
+    /** Precise connection start time to drive UI uptime counter */
+    val connectionStartTime = MutableStateFlow<Long?>(null)
 
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
@@ -105,9 +110,12 @@ class WebSocketRelayClient @Inject constructor(
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 if (generation != myGen) return   // stale — a newer connect() replaced this socket
                 retryJob?.cancel()
+                connectionStartTime.value = System.currentTimeMillis()
                 addLog("INFO", "WebSocket open to $wsUrl — sending STOMP CONNECT")
                 onStatus("Connected to backend")
-                webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:10000,10000\ndeviceToken:$deviceToken\n\n\u0000")
+                // Allow OkHttp's underlying `pingInterval(25, SECONDS)` to keep the network layer alive
+                // Tell server: STOMP heartbeats are disabled (0,0) so it doesn't drop us due to missing STOMP frames
+                webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$deviceToken\n\n\u0000")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -126,6 +134,7 @@ class WebSocketRelayClient @Inject constructor(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (generation != myGen) return
+                connectionStartTime.value = null
                 addLog("WARN", "WebSocket closed: code=$code reason=$reason")
                 onStatus("Offline")
                 scheduleRetry(backendUrl, deviceToken, onStatus, myGen)
@@ -136,6 +145,7 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("DEBUG", "Stale onFailure ignored (gen=$myGen != current=$generation): ${t.message}")
                     return
                 }
+                connectionStartTime.value = null
                 val httpCode = response?.code?.toString() ?: "no-response"
                 addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
                 onStatus("Disconnected — retrying…")
@@ -195,6 +205,7 @@ class WebSocketRelayClient @Inject constructor(
         retryJob?.cancel()
         retryJob = null
         generation++           // invalidate all pending retries
+        connectionStartTime.value = null
         ws?.close(1000, "Service stopped")
         ws = null
         addLog("INFO", "Disconnected by service stop")

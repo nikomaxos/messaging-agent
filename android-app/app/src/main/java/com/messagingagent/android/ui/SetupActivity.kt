@@ -269,6 +269,31 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
         }
     }
 
+    // Live WebSocket connection precise uptime from the RelayClient
+    val connectionStartTime by vm.wsClient.connectionStartTime.collectAsState()
+    var uptimeString by remember { mutableStateOf("") }
+
+    LaunchedEffect(connectionStartTime) {
+        while (connectionStartTime != null) {
+            val diffSeconds = (System.currentTimeMillis() - connectionStartTime!!) / 1000
+            if (diffSeconds < 0) {
+                uptimeString = "0s"
+            } else {
+                val days = diffSeconds / 86400
+                val hours = (diffSeconds % 86400) / 3600
+                val mins = (diffSeconds % 3600) / 60
+                val secs = diffSeconds % 60
+                uptimeString = buildString {
+                    if (days > 0) append("${days}d ")
+                    if (hours > 0) append("${hours}h ")
+                    if (mins > 0) append("${mins}m ")
+                    append("${secs}s")
+                }
+            }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
     // ── Status Card ────────────────────────────────────────────────────────
     Surface(
         color  = if (isOnline) Color(0xFF0D2D1A) else Color(0xFF1A1010),
@@ -287,19 +312,24 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                             androidx.compose.foundation.shape.CircleShape
                         )
                 )
-                Text(
-                    when {
-                        isChecking -> "● Checking…"
-                        isOnline   -> "● Connected to backend"
-                        else       -> "○ $liveDetail"
-                    },
-                    color    = when {
-                        isChecking -> Color(0xFF94A3B8)
-                        isOnline   -> Color(0xFF4ADE80)
-                        else       -> Color(0xFF94A3B8)
-                    },
-                    fontWeight = FontWeight.Bold, fontSize = 15.sp
-                )
+                Column {
+                    Text(
+                        when {
+                            isChecking -> "● Checking…"
+                            isOnline   -> "● Connected to backend"
+                            else       -> "○ $liveDetail"
+                        },
+                        color    = when {
+                            isChecking -> Color(0xFF94A3B8)
+                            isOnline   -> Color(0xFF4ADE80)
+                            else       -> Color(0xFF94A3B8)
+                        },
+                        fontWeight = FontWeight.Bold, fontSize = 15.sp
+                    )
+                    if (isOnline && connectionStartTime != null) {
+                        Text("Uptime: $uptimeString", color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
             HorizontalDivider(color = Color(0xFF1F3A2A))
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {

@@ -149,14 +149,35 @@ class MessagingAgentService : Service() {
         } catch (e: Exception) { null }
     }
 
-    /** Shell: `dumpsys telephony.registry` → parse signalStrength */
+    /** Shell: `dumpsys telephony.registry` → parse via Regex */
     private fun readGsmSignal(): Pair<Int?, Int?> {
-        val output = com.topjohnwu.superuser.Shell.cmd("dumpsys telephony.registry | grep -i 'signalStrength'").exec().out
-        val line = output.firstOrNull() ?: return null to null
-        val parts = line.split(" ")
-        val asu = parts.getOrNull(1)?.toIntOrNull()
-        val dbm = if (asu != null) (2 * asu) - 113 else null
-        return dbm to asu
+        val output = com.topjohnwu.superuser.Shell.cmd("dumpsys telephony.registry").exec().out
+        val fullText = output.joinToString(" ")
+
+        // Prefer LTE RSRP
+        val rsrpMatch = Regex("""rsrp=(-?\d+)""").find(fullText)
+        if (rsrpMatch != null) {
+            val dbm = rsrpMatch.groupValues[1].toIntOrNull()
+            return dbm to null
+        }
+
+        // Fallback to RSSI
+        val rssiMatch = Regex("""rssi=(-?\d+)""").find(fullText)
+        if (rssiMatch != null) {
+            val dbm = rssiMatch.groupValues[1].toIntOrNull()
+            return dbm to null
+        }
+
+        // Fallback to old ASU mapping
+        val asuMatch = Regex("""signalStrength asu=(\d+)""").find(fullText)
+        if (asuMatch != null) {
+            val asu = asuMatch.groupValues[1].toIntOrNull()
+            if (asu != null && asu in 0..31) {
+                return ((2 * asu) - 113) to asu
+            }
+        }
+        
+        return null to null
     }
 
     /** Get network operator name */
