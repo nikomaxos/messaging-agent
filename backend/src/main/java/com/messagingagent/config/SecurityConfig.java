@@ -45,7 +45,9 @@ public class SecurityConfig {
                     "/api/devices/register",
                     "/api/devices/register/**",
                     "/actuator/**",
-                    "/ws/**"
+                    "/ws/**",        // Android raw WebSocket
+                    "/ws-admin/**",  // SockJS HTTP polling + WebSocket upgrade for admin panel
+                    "/error"         // Spring error endpoint
                 ).permitAll()
                 .anyRequest().authenticated()
             )

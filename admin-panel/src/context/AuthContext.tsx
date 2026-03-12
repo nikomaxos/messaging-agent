@@ -37,6 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuth({ token: null, username: null, role: null })
   }
 
+  // Listen for 401-based logout dispatched by the Axios interceptor.
+  // Using a DOM event keeps the Axios interceptor decoupled from React context.
+  useEffect(() => {
+    const handler = () => {
+      localStorage.removeItem('jwt')
+      localStorage.removeItem('username')
+      localStorage.removeItem('role')
+      setAuth({ token: null, username: null, role: null })
+    }
+    window.addEventListener('auth:unauthorized', handler)
+    return () => window.removeEventListener('auth:unauthorized', handler)
+  }, [])
+
   return (
     <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated: !!auth.token }}>
       {children}

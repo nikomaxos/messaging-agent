@@ -8,23 +8,24 @@ api.interceptors.request.use(config => {
   return config
 })
 
-// Track consecutive 401s so transient polling errors don't immediately log out.
+// Track consecutive 401s — fire a clean React-integrated logout instead of
+// a hard window.location redirect so React Router handles navigation.
 let consecutive401s = 0
-let redirecting = false
 
 api.interceptors.response.use(
   r => { consecutive401s = 0; return r },
   err => {
     if (err.response?.status === 401) {
       consecutive401s++
-      // Only log out after 3 consecutive 401s (not on every background poll hiccup)
-      if (consecutive401s >= 3 && !redirecting) {
-        redirecting = true
-        localStorage.removeItem('jwt')
-        window.location.href = '/login'
+      // After 5 consecutive 401s (not 3 — tolerate transient network blips),
+      // dispatch a custom event. AuthContext listens and calls logout() which
+      // clears state so PrivateRoute redirects to /login via React Router.
+      if (consecutive401s >= 5) {
+        consecutive401s = 0
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'))
       }
     } else {
-      consecutive401s = 0   // non-401 errors reset the counter
+      consecutive401s = 0
     }
     return Promise.reject(err)
   }
