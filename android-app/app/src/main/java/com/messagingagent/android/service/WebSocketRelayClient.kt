@@ -61,7 +61,8 @@ class WebSocketRelayClient @Inject constructor(
     /** Pending retry job (cancel on new connect). */
     private var retryJob: Job? = null
 
-    /** STOMP periodic ping job - removed since Spring closes invalid frames */
+    /** STOMP periodic ping job to prevent backend server from forcibly closing idle TCP connection */
+    private var pingJob: Job? = null
 
     /** Live connection log for display in DoneStep UI. */
     private val _log = MutableStateFlow<List<LogEntry>>(emptyList())
@@ -88,9 +89,10 @@ class WebSocketRelayClient @Inject constructor(
         activeDeviceToken = deviceToken
 
         // Close any existing connection cleanly before opening a new one.
-        // This prevents the old WebSocket's onFailure from triggering a stale retry.
         retryJob?.cancel()
         retryJob = null
+        pingJob?.cancel()
+        pingJob = null
         val prev = ws
         ws = null
         prev?.close(1000, "Reconnecting")
@@ -116,6 +118,15 @@ class WebSocketRelayClient @Inject constructor(
                 // Allow OkHttp's underlying `pingInterval(25, SECONDS)` to keep the network layer alive
                 // Tell server: STOMP heartbeats are disabled (0,0) so it doesn't drop us due to missing STOMP frames
                 webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$deviceToken\n\n\u0000")
+                
+                pingJob = CoroutineScope(Dispatchers.IO).launch {
+                    while (isActive) {
+                        delay(20_000)
+                        try {
+                            if (generation == myGen) webSocket.send("\n")
+                        } catch (e: Exception) { /* ignored */ }
+                    }
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -127,6 +138,7 @@ class WebSocketRelayClient @Inject constructor(
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 if (generation != myGen) return
+                pingJob?.cancel()
                 addLog("WARN", "WebSocket closing: code=$code reason=$reason")
                 webSocket.close(1000, null)
                 onStatus("Disconnecting…")
@@ -134,6 +146,7 @@ class WebSocketRelayClient @Inject constructor(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (generation != myGen) return
+                pingJob?.cancel()
                 connectionStartTime.value = null
                 addLog("WARN", "WebSocket closed: code=$code reason=$reason")
                 onStatus("Offline")
@@ -145,6 +158,7 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("DEBUG", "Stale onFailure ignored (gen=$myGen != current=$generation): ${t.message}")
                     return
                 }
+                pingJob?.cancel()
                 connectionStartTime.value = null
                 val httpCode = response?.code?.toString() ?: "no-response"
                 addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
@@ -204,6 +218,8 @@ class WebSocketRelayClient @Inject constructor(
     fun disconnect() {
         retryJob?.cancel()
         retryJob = null
+        pingJob?.cancel()
+        pingJob = null
         generation++           // invalidate all pending retries
         connectionStartTime.value = null
         ws?.close(1000, "Service stopped")

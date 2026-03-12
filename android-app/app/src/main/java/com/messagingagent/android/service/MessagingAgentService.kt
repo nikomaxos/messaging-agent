@@ -134,10 +134,12 @@ class MessagingAgentService : Service() {
             .notify(NOTIFICATION_ID, buildNotification(status))
     }
 
-    /** Shell: `dumpsys battery` → parse level field */
+    /** Use native Android API to read battery percent non-root */
     private fun readBattery(): Int? {
-        val output = com.topjohnwu.superuser.Shell.cmd("dumpsys battery | grep level").exec().out
-        return output.firstOrNull()?.split(":")?.getOrNull(1)?.trim()?.toIntOrNull()
+        val intent = applicationContext.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+        val level = intent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level >= 0 && scale > 0) (level * 100) / scale else null
     }
 
     /** Read WiFi RSSI via WifiManager (no root needed on API 29+) */
@@ -154,30 +156,33 @@ class MessagingAgentService : Service() {
         val output = com.topjohnwu.superuser.Shell.cmd("dumpsys telephony.registry").exec().out
         val fullText = output.joinToString(" ")
 
-        // Prefer LTE RSRP
-        val rsrpMatch = Regex("""rsrp=(-?\d+)""").find(fullText)
-        if (rsrpMatch != null) {
-            val dbm = rsrpMatch.groupValues[1].toIntOrNull()
-            return dbm to null
+        var bestDbm: Int? = null
+        var bestAsu: Int? = null
+
+        // Try LTE RSRP first
+        Regex("""rsrp=(-?\d+)""").findAll(fullText).forEach { match ->
+            val dbm = match.groupValues[1].toIntOrNull()
+            if (dbm != null && dbm < 2000000000 && dbm != -1) bestDbm = dbm
         }
 
         // Fallback to RSSI
-        val rssiMatch = Regex("""rssi=(-?\d+)""").find(fullText)
-        if (rssiMatch != null) {
-            val dbm = rssiMatch.groupValues[1].toIntOrNull()
-            return dbm to null
+        if (bestDbm == null) {
+            Regex("""rssi=(-?\d+)""").findAll(fullText).forEach { match ->
+                val dbm = match.groupValues[1].toIntOrNull()
+                if (dbm != null && dbm < 2000000000 && dbm != -1 && dbm != 99) bestDbm = dbm
+            }
         }
 
-        // Fallback to old ASU mapping
-        val asuMatch = Regex("""signalStrength asu=(\d+)""").find(fullText)
-        if (asuMatch != null) {
-            val asu = asuMatch.groupValues[1].toIntOrNull()
+        // Try older ASU format
+        Regex("""signalStrength\s+asu=(\d+)""").findAll(fullText).forEach { match ->
+            val asu = match.groupValues[1].toIntOrNull()
             if (asu != null && asu in 0..31) {
-                return ((2 * asu) - 113) to asu
+                bestAsu = asu
+                if (bestDbm == null) bestDbm = (2 * asu) - 113
             }
         }
         
-        return null to null
+        return bestDbm to bestAsu
     }
 
     /** Get network operator name */

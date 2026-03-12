@@ -326,8 +326,10 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                         },
                         fontWeight = FontWeight.Bold, fontSize = 15.sp
                     )
-                    if (isOnline && connectionStartTime != null) {
+                    if (connectionStartTime != null) {
                         Text("Uptime: $uptimeString", color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    } else {
+                        Text("Uptime: Offline", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
