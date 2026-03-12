@@ -98,10 +98,10 @@ services:
       ADMIN_USER: admin
       ADMIN_PASS: changeme
     ports:
-      - "8080:8080"   # REST API + WebSocket
+      - "9090:9090"   # REST API + WebSocket
       - "2775:2775"   # SMPP server port
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:9090/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
