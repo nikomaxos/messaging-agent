@@ -54,8 +54,8 @@ public class RcsDispatchService {
 
         Optional<Device> selectedDevice = loadBalancer.selectDevice(group, onlineDevices);
         if (selectedDevice.isEmpty()) {
-            log.warn("No online devices in group '{}'. Delivery failure.", group.getName());
-            smppResponseService.sendDeliveryFailure(event.getCorrelationId(), "NO_DEVICE");
+            log.warn("No online devices in group '{}'. Signalling NO_DEVICE failure.", group.getName());
+            smppResponseService.sendNoDeviceFailure(event.getCorrelationId());
             return;
         }
 

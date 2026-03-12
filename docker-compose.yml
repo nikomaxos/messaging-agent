@@ -51,6 +51,24 @@ services:
       timeout: 10s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: ma-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --save 60 1
+      --loglevel warning
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ─── Application ───────────────────────────────────────────────────────────
 
   backend:
@@ -64,6 +82,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -71,6 +91,8 @@ services:
       DB_USER: msgagent
       DB_PASS: msgagent
       KAFKA_BROKERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SMPP_BIND_PORT: 2775
       JWT_SECRET: change-me-in-production-this-must-be-at-least-32-chars
       ADMIN_USER: admin
@@ -100,3 +122,4 @@ volumes:
   postgres_data:
   zookeeper_data:
   kafka_data:
+  redis_data:
