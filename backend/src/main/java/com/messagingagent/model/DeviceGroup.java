@@ -1,5 +1,6 @@
 package com.messagingagent.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -32,6 +33,7 @@ public class DeviceGroup {
     @Builder.Default
     private boolean active = true;
 
+    @JsonIgnore   // breaks Device→Group→List<Device> circular reference
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Device> devices = new ArrayList<>();
