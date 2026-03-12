@@ -94,7 +94,10 @@ app:
 
 logging:
   level:
-    com.messagingagent: INFO
+    root: INFO
+    com.messagingagent: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
     com.cloudhopper: WARN
     org.springframework.kafka: WARN
   pattern:

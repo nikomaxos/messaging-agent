@@ -63,9 +63,9 @@ CREATE TABLE app_user (
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Default admin user (password: changeme — bcrypt'd)
+-- Default admin user (password: admin123 — bcrypt cost 12, generated with Spring BCryptPasswordEncoder)
 INSERT INTO app_user (username, password, role)
-VALUES ('admin', '$2a$12$7Qn9nDiKMZ4E6glN7C6bSublO7MWhY2WS8dEr2S4yVlF5rBRNHVAm', 'ADMIN');
+VALUES ('admin', '$2a$12$ClVx/w1SvKesl3t9uFG82OFJD6IzTEe3ko4AfNZu1fmcKAwWMZvNK', 'ADMIN');
 
 CREATE INDEX idx_device_group_id ON device(group_id);
 CREATE INDEX idx_device_status ON device(status);
