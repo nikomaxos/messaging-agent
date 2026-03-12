@@ -29,6 +29,7 @@ import com.messagingagent.android.data.PreferencesRepository
 import com.messagingagent.android.data.RegistrationRepository
 import com.messagingagent.android.data.RegistrationState
 import com.messagingagent.android.service.MessagingAgentService
+import com.messagingagent.android.service.WebSocketRelayClient
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,7 +40,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SetupViewModel @Inject constructor(
     private val prefs: PreferencesRepository,
-    private val registrationRepo: RegistrationRepository
+    private val registrationRepo: RegistrationRepository,
+    val wsClient: WebSocketRelayClient
 ) : ViewModel() {
 
     val registrationState = prefs.registrationFlow()
@@ -351,6 +353,55 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))
     ) {
         Text("Change Device Name / Group", color = Color(0xFF9CA3AF), fontSize = 13.sp)
+    }
+
+    // ── Connection Log ────────────────────────────────────────────────────
+    val wsLog by vm.wsClient.log.collectAsState()
+    var showLog by remember { mutableStateOf(false) }
+
+    OutlinedButton(
+        onClick = { showLog = !showLog },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1F2937))
+    ) {
+        Text(
+            if (showLog) "▲ Hide Connection Log" else "▼ Show Connection Log (${wsLog.size} events)",
+            color = Color(0xFF6B7280), fontSize = 12.sp
+        )
+    }
+
+    if (showLog && wsLog.isNotEmpty()) {
+        Surface(
+            color = Color(0xFF0A0A12),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp)
+        ) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.padding(10.dp),
+                reverseLayout = true
+            ) {
+                items(wsLog.reversed()) { entry ->
+                    val color = when (entry.level) {
+                        "ERROR" -> Color(0xFFEF4444)
+                        "WARN"  -> Color(0xFFFBBF24)
+                        "MSG"   -> Color(0xFF60A5FA)
+                        else    -> Color(0xFF6B7280)
+                    }
+                    Row(Modifier.padding(vertical = 1.dp)) {
+                        Text("[${entry.time}]", color = Color(0xFF374151), fontSize = 10.sp,
+                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                             modifier = Modifier.width(72.dp))
+                        Text("${entry.level.take(4).padEnd(4)} ", color = color, fontSize = 10.sp,
+                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        Text(entry.message, color = Color(0xFF9CA3AF), fontSize = 10.sp,
+                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                             maxLines = 2)
+                    }
+                }
+            }
+        }
     }
 }
 

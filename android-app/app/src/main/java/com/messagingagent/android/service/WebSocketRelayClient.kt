@@ -2,10 +2,15 @@ package com.messagingagent.android.service
 
 import com.messagingagent.android.rcs.RcsSender
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.*
 import timber.log.Timber
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,32 +29,69 @@ data class DeliveryResult(
     val errorDetail: String? = null
 )
 
+data class LogEntry(val time: String, val level: String, val message: String)
+
 /**
  * WebSocket STOMP relay client.
  *
- * Connects to the backend WebSocket endpoint using raw OkHttp WebSocket
- * (upgraded to STOMP manually for simplicity; can be swapped to Krossbow).
- * Subscribes to /queue/sms.{deviceId} and sends heartbeats/delivery results.
+ * Connects to the backend over a raw (non-SockJS) STOMP WebSocket.
+ * Designed to be called from MessagingAgentService.onStartCommand() which
+ * may fire multiple times — connect() is idempotent: it closes any existing
+ * connection before opening a new one, and each WebSocket instance is tagged
+ * with a unique generation ID so stale retry callbacks are silently ignored.
  */
 @Singleton
 class WebSocketRelayClient @Inject constructor(
     private val rcsSender: RcsSender
 ) {
     private val client = OkHttpClient.Builder()
-        .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
+        .pingInterval(60, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     private var ws: WebSocket? = null
     private val json = Json { ignoreUnknownKeys = true }
     private var statusCallback: ((String) -> Unit)? = null
 
-    private var stopped = false
-    private var retryJob: kotlinx.coroutines.Job? = null
+    /** Monotonically increasing generation — stale retries from old sockets are ignored. */
+    @Volatile private var generation = 0
 
+    /** Pending retry job (cancel on new connect). */
+    private var retryJob: Job? = null
+
+    /** Live connection log for display in DoneStep UI. */
+    private val _log = MutableStateFlow<List<LogEntry>>(emptyList())
+    val log: StateFlow<List<LogEntry>> = _log.asStateFlow()
+
+    private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+    private fun addLog(level: String, message: String) {
+        val entry = LogEntry(timeFmt.format(Date()), level, message)
+        val current = _log.value.takeLast(49)   // keep last 50 entries
+        _log.value = current + entry
+        Timber.tag("WSRelay").d("[$level] $message")
+    }
+
+    /**
+     * Connect (or reconnect) to the backend WebSocket.
+     * Safe to call multiple times — closes any active connection first.
+     */
     fun connect(backendUrl: String, deviceToken: String, onStatus: (String) -> Unit) {
-        stopped = false
         statusCallback = onStatus
-        val wsUrl = backendUrl.replace("http", "ws") + "/ws"
+
+        // Close any existing connection cleanly before opening a new one.
+        // This prevents the old WebSocket's onFailure from triggering a stale retry.
+        retryJob?.cancel()
+        retryJob = null
+        val prev = ws
+        ws = null
+        prev?.close(1000, "Reconnecting")
+
+        val myGen = ++generation     // capture this generation for the callback closures
+        val wsUrl = backendUrl.trimEnd('/').replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+
+        addLog("INFO", "Connecting to $wsUrl (gen=$myGen)")
+        onStatus("Connecting…")
+
         val request = Request.Builder()
             .url(wsUrl)
             .addHeader("deviceToken", deviceToken)
@@ -57,36 +99,61 @@ class WebSocketRelayClient @Inject constructor(
 
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                if (generation != myGen) return   // stale — a newer connect() replaced this socket
                 retryJob?.cancel()
-                Timber.i("WebSocket connected to $wsUrl")
+                addLog("INFO", "WebSocket open to $wsUrl — sending STOMP CONNECT")
                 onStatus("Connected to backend")
-                // STOMP CONNECT frame
                 webSocket.send("CONNECT\naccept-version:1.2\ndeviceToken:$deviceToken\n\n\u0000")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Timber.d("WS message: $text")
+                if (generation != myGen) return
+                val preview = text.take(120).replace('\n', '↵')
+                addLog("MSG", preview)
                 handleMessage(text)
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                if (generation != myGen) return
+                addLog("WARN", "WebSocket closing: code=$code reason=$reason")
+                webSocket.close(1000, null)
                 onStatus("Disconnecting…")
             }
 
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                if (generation != myGen) return
+                addLog("WARN", "WebSocket closed: code=$code reason=$reason")
+                onStatus("Offline")
+                scheduleRetry(backendUrl, deviceToken, onStatus, myGen)
+            }
+
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                if (stopped) return
-                Timber.e(t, "WebSocket failure")
-                onStatus("Disconnected — retrying…")
-                retryJob = CoroutineScope(Dispatchers.IO).launch {
-                    delay(5_000)
-                    if (!stopped) connect(backendUrl, deviceToken, onStatus)
+                if (generation != myGen) {
+                    addLog("DEBUG", "Stale onFailure ignored (gen=$myGen != current=$generation): ${t.message}")
+                    return
                 }
+                val httpCode = response?.code?.toString() ?: "no-response"
+                addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
+                onStatus("Disconnected — retrying…")
+                scheduleRetry(backendUrl, deviceToken, onStatus, myGen)
             }
         })
     }
 
+    private fun scheduleRetry(backendUrl: String, deviceToken: String, onStatus: (String) -> Unit, myGen: Int) {
+        retryJob = CoroutineScope(Dispatchers.IO).launch {
+            addLog("INFO", "Will retry in 8s…")
+            delay(8_000)
+            if (generation == myGen) {          // still the active generation
+                addLog("INFO", "Retrying connection…")
+                connect(backendUrl, deviceToken, onStatus)
+            } else {
+                addLog("DEBUG", "Retry cancelled — superseded by newer connect()")
+            }
+        }
+    }
+
     private fun handleMessage(text: String) {
-        // Minimal STOMP frame parse — look for JSON body
         if (!text.startsWith("MESSAGE")) return
         val body = text.substringAfter("\n\n").trimEnd('\u0000')
         try {
@@ -103,28 +170,28 @@ class WebSocketRelayClient @Inject constructor(
                 ))
             }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to parse dispatch")
+            addLog("ERROR", "Failed to parse dispatch: ${e.message}")
         }
     }
 
     fun sendHeartbeat(heartbeat: String) {
-        // STOMP SEND to /app/heartbeat
         ws?.send("SEND\ndestination:/app/heartbeat\n\n$heartbeat\u0000")
+            ?: addLog("WARN", "Heartbeat skipped — no active WebSocket")
     }
 
     private fun sendDeliveryResult(result: DeliveryResult) {
         val body = Json.encodeToString(DeliveryResult.serializer(), result)
         ws?.send("SEND\ndestination:/app/delivery.result\n\n$body\u0000")
-        Timber.i("Sent delivery result: ${result.result} for ${result.correlationId}")
+        addLog("INFO", "Delivery result sent: ${result.result} for ${result.correlationId}")
     }
 
     fun disconnect() {
-        stopped = true
         retryJob?.cancel()
+        retryJob = null
+        generation++           // invalidate all pending retries
         ws?.close(1000, "Service stopped")
         ws = null
-        // Do NOT shut down client.dispatcher.executorService — this is a singleton
-        // and shutting down the executor permanently breaks future connect() calls
-        // when the service is restarted by Android (START_STICKY).
+        addLog("INFO", "Disconnected by service stop")
+        // Do NOT shut down client.dispatcher.executorService — singleton!
     }
 }
