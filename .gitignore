@@ -24,3 +24,5 @@ android-app/app/build/
 
 # Docker
 .env
+
+*.log
