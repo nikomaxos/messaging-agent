@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,20 +25,6 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
 
-    /**
-     * Completely bypass the Spring Security filter chain for public endpoints.
-     * This is more reliable than requestMatchers().permitAll() in Spring Security 6
-     * when dealing with pre-authentication or other filter chain interceptors.
-     */
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return web -> web.ignoring()
-            .requestMatchers(new AntPathRequestMatcher("/api/auth/**"))
-            .requestMatchers(new AntPathRequestMatcher("/api/devices/register"))
-            .requestMatchers(new AntPathRequestMatcher("/api/devices/register/**"))
-            .requestMatchers(new AntPathRequestMatcher("/actuator/**"))
-            .requestMatchers(new AntPathRequestMatcher("/ws/**"));
-    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -54,9 +39,14 @@ public class SecurityConfig {
                 .accessDeniedHandler((req, res, e) -> res.sendError(403, "Forbidden"))
             )
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers(new AntPathRequestMatcher("/api/auth/**")).permitAll()
-                .requestMatchers(new AntPathRequestMatcher("/actuator/**")).permitAll()
-                .requestMatchers(new AntPathRequestMatcher("/ws/**")).permitAll()
+                // Public endpoints — no JWT required
+                .requestMatchers(
+                    "/api/auth/**",
+                    "/api/devices/register",
+                    "/api/devices/register/**",
+                    "/actuator/**",
+                    "/ws/**"
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

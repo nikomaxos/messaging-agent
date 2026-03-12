@@ -103,7 +103,8 @@ public class DeviceRegistrationController {
         return deviceRepository.findByRegistrationToken(token)
                 .map(d -> ResponseEntity.ok(new DeviceStatusResponse(
                         d.getId(), d.getName(), d.getStatus().name(),
-                        d.getLastHeartbeat(), d.getGroupId())))
+                        d.getLastHeartbeat(),
+                        d.getGroup() != null ? d.getGroup().getId() : null)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
