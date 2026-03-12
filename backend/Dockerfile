@@ -1,24 +1,37 @@
-# ---- Build Stage ----
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# ─── Build Stage ─────────────────────────────────────────────────────────────
+# Use the official Maven image with Temurin JDK 21 (not the Alpine variant,
+# which installs a different JDK version via apk).
+FROM maven:3.9-eclipse-temurin-21 AS builder
+
 WORKDIR /app
+
+# Copy POM first and resolve deps (layer-cached until pom.xml changes)
 COPY pom.xml .
-COPY src ./src
-RUN apk add --no-cache maven && mvn -B -q package -DskipTests
+RUN mvn -B dependency:go-offline -q
 
-# ---- Runtime Stage ----
-FROM eclipse-temurin:21-jre-alpine
-LABEL maintainer="messaging-agent"
+# Copy source and build
+COPY src ./src
+RUN mvn -B package -DskipTests -q
+
+# ─── Runtime Stage ────────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-jammy AS runtime
+
+# Create non-root user
+RUN groupadd -r msgagent && useradd -r -g msgagent msgagent
+
 WORKDIR /app
 
-RUN addgroup -S msgagent && adduser -S msgagent -G msgagent
+# Copy fat JAR from builder
+COPY --from=builder /app/target/*.jar app.jar
+
+# Health check uses the actuator endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD curl -sf http://localhost:9090/actuator/health || exit 1
+
 USER msgagent
-
-COPY --from=builder /app/target/messaging-agent-backend-*.jar app.jar
-
-EXPOSE 8080 2775
+EXPOSE 9090 2775
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
-  "-XX:MaxRAMPercentage=70.0", \
-  "-Djava.security.egd=file:/dev/./urandom", \
+  "-XX:MaxRAMPercentage=75.0", \
   "-jar", "app.jar"]
