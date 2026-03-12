@@ -45,7 +45,7 @@ class WebSocketRelayClient @Inject constructor(
     private val rcsSender: RcsSender
 ) {
     private val client = OkHttpClient.Builder()
-        .pingInterval(60, java.util.concurrent.TimeUnit.SECONDS)
+        .pingInterval(25, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     private var ws: WebSocket? = null
@@ -54,6 +54,9 @@ class WebSocketRelayClient @Inject constructor(
 
     /** Monotonically increasing generation — stale retries from old sockets are ignored. */
     @Volatile private var generation = 0
+
+    /** The token for the currently connecting or active session. */
+    private var activeDeviceToken: String? = null
 
     /** Pending retry job (cancel on new connect). */
     private var retryJob: Job? = null
@@ -77,6 +80,7 @@ class WebSocketRelayClient @Inject constructor(
      */
     fun connect(backendUrl: String, deviceToken: String, onStatus: (String) -> Unit) {
         statusCallback = onStatus
+        activeDeviceToken = deviceToken
 
         // Close any existing connection cleanly before opening a new one.
         // This prevents the old WebSocket's onFailure from triggering a stale retry.
@@ -103,7 +107,7 @@ class WebSocketRelayClient @Inject constructor(
                 retryJob?.cancel()
                 addLog("INFO", "WebSocket open to $wsUrl — sending STOMP CONNECT")
                 onStatus("Connected to backend")
-                webSocket.send("CONNECT\naccept-version:1.2\ndeviceToken:$deviceToken\n\n\u0000")
+                webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:10000,10000\ndeviceToken:$deviceToken\n\n\u0000")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -175,13 +179,15 @@ class WebSocketRelayClient @Inject constructor(
     }
 
     fun sendHeartbeat(heartbeat: String) {
-        ws?.send("SEND\ndestination:/app/heartbeat\n\n$heartbeat\u0000")
+        val token = activeDeviceToken ?: return
+        ws?.send("SEND\ndestination:/app/heartbeat\ndeviceToken:$token\n\n$heartbeat\u0000")
             ?: addLog("WARN", "Heartbeat skipped — no active WebSocket")
     }
 
     private fun sendDeliveryResult(result: DeliveryResult) {
+        val token = activeDeviceToken ?: return
         val body = Json.encodeToString(DeliveryResult.serializer(), result)
-        ws?.send("SEND\ndestination:/app/delivery.result\n\n$body\u0000")
+        ws?.send("SEND\ndestination:/app/delivery.result\ndeviceToken:$token\n\n$body\u0000")
         addLog("INFO", "Delivery result sent: ${result.result} for ${result.correlationId}")
     }
 
