@@ -43,7 +43,11 @@ class WebSocketRelayClient @Inject constructor(
     private val json = Json { ignoreUnknownKeys = true }
     private var statusCallback: ((String) -> Unit)? = null
 
+    private var stopped = false
+    private var retryJob: kotlinx.coroutines.Job? = null
+
     fun connect(backendUrl: String, deviceToken: String, onStatus: (String) -> Unit) {
+        stopped = false
         statusCallback = onStatus
         val wsUrl = backendUrl.replace("http", "ws") + "/ws"
         val request = Request.Builder()
@@ -53,6 +57,7 @@ class WebSocketRelayClient @Inject constructor(
 
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                retryJob?.cancel()
                 Timber.i("WebSocket connected to $wsUrl")
                 onStatus("Connected to backend")
                 // STOMP CONNECT frame
@@ -69,12 +74,12 @@ class WebSocketRelayClient @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                if (stopped) return
                 Timber.e(t, "WebSocket failure")
                 onStatus("Disconnected — retrying…")
-                // Retry after delay
-                CoroutineScope(Dispatchers.IO).launch {
+                retryJob = CoroutineScope(Dispatchers.IO).launch {
                     delay(5_000)
-                    connect(backendUrl, deviceToken, onStatus)
+                    if (!stopped) connect(backendUrl, deviceToken, onStatus)
                 }
             }
         })
@@ -114,7 +119,12 @@ class WebSocketRelayClient @Inject constructor(
     }
 
     fun disconnect() {
+        stopped = true
+        retryJob?.cancel()
         ws?.close(1000, "Service stopped")
-        client.dispatcher.executorService.shutdown()
+        ws = null
+        // Do NOT shut down client.dispatcher.executorService — this is a singleton
+        // and shutting down the executor permanently breaks future connect() calls
+        // when the service is restarted by Android (START_STICKY).
     }
 }

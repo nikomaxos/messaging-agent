@@ -91,12 +91,17 @@ function StatCard({ label, value, icon, sub }: { label: string; value: number | 
 }
 
 export default function DashboardPage() {
-  const { data: devices = [], isLoading } = useQuery({
+  const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
     queryFn: getDevices,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
+    placeholderData: (prev: any) => prev,   // keep last data while refetching — prevents blank on reload
   })
-  const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
+  const { data: groups = [] } = useQuery({
+    queryKey: ['groups'],
+    queryFn: getGroups,
+    placeholderData: (prev: any) => prev,
+  })
 
   const online = devices.filter((d: Device) => d.status === 'ONLINE').length
   const rcsReady = devices.filter((d: Device) => d.rcsCapable).length
@@ -119,9 +124,7 @@ export default function DashboardPage() {
       {/* Device Grid */}
       <div>
         <h2 className="text-sm font-semibold text-slate-300 mb-3">Device Pool</h2>
-        {isLoading ? (
-          <div className="text-slate-500 text-sm">Loading devices…</div>
-        ) : devices.length === 0 ? (
+        {devices.length === 0 ? (
           <div className="glass p-8 text-center text-slate-500">
             No devices registered yet. Add devices in the <strong>Devices</strong> section.
           </div>

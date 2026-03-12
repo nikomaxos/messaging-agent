@@ -14,13 +14,22 @@ export default function DevicesPage() {
     queryFn: getDevices,
     refetchInterval: false,   // no auto-polling — WebSocket drives live updates
     staleTime: Infinity,
+    placeholderData: (prev: any) => prev,
   })
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
   const [form, setForm] = useState({ name: '', imei: '', groupId: '' })
   const [wsConnected, setWsConnected] = useState(false)
+  const [refreshToast, setRefreshToast] = useState<string | null>(null)
   const stompRef = useRef<Client | null>(null)
+
+  const handleRefresh = async () => {
+    await refetch()
+    const time = new Date().toLocaleTimeString()
+    setRefreshToast(`✓ Refreshed at ${time}`)
+    setTimeout(() => setRefreshToast(null), 3000)
+  }
 
   // ── WebSocket subscription to /topic/devices for live status updates ──────
   useEffect(() => {
@@ -90,13 +99,17 @@ export default function DevicesPage() {
             {wsConnected
               ? <><Wifi size={12} className="text-emerald-400" /> Live — updates via WebSocket</>
               : <><WifiOff size={12} className="text-slate-500" /> Reconnecting…</>}
+            {refreshToast && (
+              <span className="ml-2 text-emerald-400 text-xs font-medium">{refreshToast}</span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             className="btn-secondary"
-            onClick={() => refetch()}
-            title="Manually refresh all device data"
+            onClick={handleRefresh}
+            disabled={isFetching}
+            title="Re-fetch all device statuses"
           >
             <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
           </button>
