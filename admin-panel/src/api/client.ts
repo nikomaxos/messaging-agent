@@ -8,12 +8,23 @@ api.interceptors.request.use(config => {
   return config
 })
 
+// Track consecutive 401s so transient polling errors don't immediately log out.
+let consecutive401s = 0
+let redirecting = false
+
 api.interceptors.response.use(
-  r => r,
+  r => { consecutive401s = 0; return r },
   err => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('jwt')
-      window.location.href = '/login'
+      consecutive401s++
+      // Only log out after 3 consecutive 401s (not on every background poll hiccup)
+      if (consecutive401s >= 3 && !redirecting) {
+        redirecting = true
+        localStorage.removeItem('jwt')
+        window.location.href = '/login'
+      }
+    } else {
+      consecutive401s = 0   // non-401 errors reset the counter
     }
     return Promise.reject(err)
   }

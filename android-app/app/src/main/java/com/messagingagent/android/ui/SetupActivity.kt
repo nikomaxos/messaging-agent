@@ -223,29 +223,119 @@ fun GroupPickStep(vm: SetupViewModel) {
 
 @Composable
 fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) {
-    Surface(color = Color(0xFF0D2D1A), shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("✓ Device Registered", color = Color(0xFF4ADE80),
-                fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("Group: ${state.groupName ?: "—"}", color = Color(0xFF8899AA), fontSize = 13.sp)
-            Text("Backend: ${state.backendUrl ?: vm.pendingUrl}", color = Color(0xFF8899AA), fontSize = 12.sp)
-            Text("Device ID: ${state.deviceId ?: "—"}", color = Color(0xFF8899AA), fontSize = 12.sp)
+    val scope = rememberCoroutineScope()
+
+    // Live status: poll GET /api/devices/{id} every 10 seconds
+    var liveStatus by remember { mutableStateOf("Checking…") }
+    var isOnline   by remember { mutableStateOf(false) }
+    var lastSeen   by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(state.deviceToken) {
+        val token = state.deviceToken ?: return@LaunchedEffect
+        val url   = state.backendUrl ?: vm.pendingUrl
+        if (url.isBlank()) return@LaunchedEffect
+
+        while (true) {
+            try {
+                val reqUrl = "${url.trimEnd('/')}/api/devices/register/status/$token"
+                val resp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    okhttp3.OkHttpClient().newCall(
+                        okhttp3.Request.Builder().url(reqUrl).build()
+                    ).execute()
+                }
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    isOnline   = body.contains("\"ONLINE\"")
+                    lastSeen   = if (body.contains("\"lastHeartbeat\":null")) null else "Has heartbeat"
+                    liveStatus = if (isOnline) "Online" else "Offline"
+                } else {
+                    liveStatus = "Cannot reach backend (${resp.code})"
+                    isOnline   = false
+                }
+            } catch (e: Exception) {
+                liveStatus = "Cannot reach backend"
+                isOnline   = false
+            }
+            kotlinx.coroutines.delay(10_000)
         }
     }
 
+    // ── Status Card ────────────────────────────────────────────────────────
+    Surface(
+        color  = if (isOnline) Color(0xFF0D2D1A) else Color(0xFF1A1010),
+        shape  = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Pulsing status dot
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            if (isOnline) Color(0xFF4ADE80) else Color(0xFF94A3B8),
+                            androidx.compose.foundation.shape.CircleShape
+                        )
+                )
+                Text(
+                    if (isOnline) "● Connected to backend" else "○ $liveStatus",
+                    color    = if (isOnline) Color(0xFF4ADE80) else Color(0xFF94A3B8),
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp
+                )
+            }
+            HorizontalDivider(color = Color(0xFF1F3A2A))
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Text("Device", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text(state.deviceName ?: vm.pendingName, color = Color.White, fontSize = 13.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Group", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text(state.groupName ?: "—", color = Color.White, fontSize = 13.sp)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Text("Device ID", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text("#${state.deviceId ?: "—"}", color = Color(0xFF6B7280), fontSize = 12.sp,
+                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Backend", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text(state.backendUrl ?: vm.pendingUrl, color = Color(0xFF6B7280), fontSize = 11.sp,
+                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+            }
+        }
+    }
+
+    Spacer(Modifier.height(4.dp))
+
+    // ── Start/Stop Service ────────────────────────────────────────────────
     Button(
         onClick = { onStart() },
         modifier = Modifier.fillMaxWidth().height(52.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
-    ) { Text("Start Service", fontWeight = FontWeight.SemiBold) }
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isOnline) Color(0xFF166534) else Color(0xFF6366F1)
+        )
+    ) {
+        Text(
+            if (isOnline) "▶  Service Running — Tap to Restart" else "▶  Start Relay Service",
+            fontWeight = FontWeight.SemiBold
+        )
+    }
 
-    TextButton(onClick = {
-        vm.step = SetupViewModel.Step.URL
-        vm.error = null
-    }) {
-        Text("Re-register with a different group", color = Color(0xFF6366F1), fontSize = 12.sp)
+    // ── Re-register ───────────────────────────────────────────────────────
+    OutlinedButton(
+        onClick = { vm.step = SetupViewModel.Step.URL; vm.error = null },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))
+    ) {
+        Text("Change Device Name / Group", color = Color(0xFF9CA3AF), fontSize = 13.sp)
     }
 }
 

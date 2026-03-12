@@ -93,6 +93,24 @@ public class DeviceRegistrationController {
         return ResponseEntity.ok(groups);
     }
 
+    /**
+     * GET /api/devices/register/status/{token}
+     * Returns the device's current status using its registration token as auth.
+     * This endpoint is unauthenticated so the Android app can poll without a JWT.
+     */
+    @GetMapping("/status/{token}")
+    public ResponseEntity<DeviceStatusResponse> getStatus(@PathVariable String token) {
+        return deviceRepository.findByRegistrationToken(token)
+                .map(d -> ResponseEntity.ok(new DeviceStatusResponse(
+                        d.getId(), d.getName(), d.getStatus().name(),
+                        d.getLastHeartbeat(), d.getGroupId())))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    public record DeviceStatusResponse(
+            Long id, String name, String status,
+            java.time.Instant lastHeartbeat, Long groupId) {}
+
     // ── DTOs ─────────────────────────────────────────────────────────────────
 
     @Data
