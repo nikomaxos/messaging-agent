@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration for Messaging Agent.
+
+  Allows cleartext (plain HTTP) traffic to:
+    - 192.168.x.x  (common home/office LAN)
+    - 10.x.x.x     (corporate / Docker bridge networks)
+    - 172.16-31.x.x (Docker default bridge range)
+    - localhost / 127.0.0.1
+
+  Production deployments should use HTTPS — cleartext is only
+  needed during onboarding when the backend runs on a local IP.
+-->
+<network-security-config>
+    <!-- Trust system CAs for all HTTPS -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Allow cleartext for private/LAN addresses -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.0.0/8</domain>
+        <domain includeSubdomains="true">192.168.0.0/16</domain>
+        <domain includeSubdomains="true">172.16.0.0/12</domain>
+    </domain-config>
+</network-security-config>
