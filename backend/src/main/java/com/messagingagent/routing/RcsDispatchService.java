@@ -9,6 +9,8 @@ import com.messagingagent.model.MessageLog;
 import com.messagingagent.repository.DeviceGroupRepository;
 import com.messagingagent.repository.DeviceRepository;
 import com.messagingagent.repository.MessageLogRepository;
+import com.messagingagent.repository.SmppClientRepository;
+import com.messagingagent.repository.SmppRoutingRepository;
 import com.messagingagent.smpp.SmppResponseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,26 +37,66 @@ public class RcsDispatchService {
     private final DeviceGroupRepository deviceGroupRepository;
     private final DeviceRepository deviceRepository;
     private final MessageLogRepository messageLogRepository;
+    private final SmppClientRepository smppClientRepository;
+    private final SmppRoutingRepository smppRoutingRepository;
 
     @KafkaListener(topics = "sms.inbound", groupId = "messaging-agent")
     public void handleInboundSms(SmsInboundEvent event) {
-        log.info("Routing SMS from={} to={}", event.getSourceAddress(), event.getDestinationAddress());
+        log.info("Routing SMS for systemId={} from={} to={}", event.getSystemId(), event.getSourceAddress(), event.getDestinationAddress());
 
-        // Find an active group (use first active group by default;
-        // production: route by destination prefix or config)
-        List<DeviceGroup> groups = deviceGroupRepository.findByActiveTrue();
-        if (groups.isEmpty()) {
-            log.warn("No active device groups. Dropping message.");
+        DeviceGroup group = null;
+
+        if (event.getSystemId() != null) {
+            var client = smppClientRepository.findBySystemId(event.getSystemId());
+            if (client.isPresent()) {
+                var routing = smppRoutingRepository.findBySmppClient(client.get());
+                if (routing.isPresent()) {
+                    group = routing.get().getDeviceGroup();
+                }
+            }
+        }
+
+        // Fallback to default route
+        if (group == null) {
+            var defaultRouting = smppRoutingRepository.findByIsDefaultTrue();
+            if (defaultRouting.isPresent()) {
+                group = defaultRouting.get().getDeviceGroup();
+            }
+        }
+
+        // Fallback to any active group if nothing else exists
+        if (group == null) {
+            List<DeviceGroup> groups = deviceGroupRepository.findByActiveTrue();
+            if (!groups.isEmpty()) {
+                group = groups.get(0);
+            }
+        }
+
+        if (group == null) {
+            log.warn("No active device groups available for systemId={}. Dropping message.", event.getSystemId());
+            messageLogRepository.save(MessageLog.builder()
+                    .smppMessageId(event.getCorrelationId())
+                    .sourceAddress(event.getSourceAddress())
+                    .destinationAddress(event.getDestinationAddress())
+                    .messageText(event.getMessageText())
+                    .status(MessageLog.Status.FAILED)
+                    .build());
             smppResponseService.sendDeliveryFailure(event.getCorrelationId(), "NO_GROUP");
             return;
         }
 
-        DeviceGroup group = groups.get(0);
         List<Device> onlineDevices = deviceRepository.findByGroupAndStatus(group, Device.Status.ONLINE);
 
         Optional<Device> selectedDevice = loadBalancer.selectDevice(group, onlineDevices);
         if (selectedDevice.isEmpty()) {
             log.warn("No online devices in group '{}'. Signalling NO_DEVICE failure.", group.getName());
+            messageLogRepository.save(MessageLog.builder()
+                    .smppMessageId(event.getCorrelationId())
+                    .sourceAddress(event.getSourceAddress())
+                    .destinationAddress(event.getDestinationAddress())
+                    .messageText(event.getMessageText())
+                    .status(MessageLog.Status.FAILED)
+                    .build());
             smppResponseService.sendNoDeviceFailure(event.getCorrelationId());
             return;
         }

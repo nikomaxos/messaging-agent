@@ -1,6 +1,5 @@
 package com.messagingagent.smpp;
 
-import com.cloudhopper.commons.gsm.GsmUtil;
 import com.cloudhopper.smpp.SmppConstants;
 import com.cloudhopper.smpp.SmppServerSession;
 import com.cloudhopper.smpp.pdu.*;

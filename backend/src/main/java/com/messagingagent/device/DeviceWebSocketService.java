@@ -46,6 +46,17 @@ public class DeviceWebSocketService {
             log.debug("Heartbeat from device {}: battery={}% wifi={}dBm gsm={}dBm",
                     device.getName(), heartbeat.getBatteryPercent(),
                     heartbeat.getWifiSignalDbm(), heartbeat.getGsmSignalDbm());
+            
+            messagingTemplate.convertAndSend("/topic/devices",
+                java.util.Map.of(
+                    "id", device.getId(),
+                    "status", "ONLINE",
+                    "batteryPercent", heartbeat.getBatteryPercent() != null ? heartbeat.getBatteryPercent() : "",
+                    "wifiSignalDbm", heartbeat.getWifiSignalDbm() != null ? heartbeat.getWifiSignalDbm() : "",
+                    "gsmSignalDbm", heartbeat.getGsmSignalDbm() != null ? heartbeat.getGsmSignalDbm() : "",
+                    "lastHeartbeat", device.getLastHeartbeat().toString()
+                )
+            );
         });
     }
 

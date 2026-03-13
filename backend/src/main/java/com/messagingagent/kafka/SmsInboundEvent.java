@@ -7,6 +7,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SmsInboundEvent {
+    private String systemId;
     private String sourceAddress;
     private String destinationAddress;
     private String messageText;

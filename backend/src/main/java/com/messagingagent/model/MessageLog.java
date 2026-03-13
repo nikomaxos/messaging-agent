@@ -46,6 +46,7 @@ public class MessageLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Device device;
 
     @Column(length = 500)

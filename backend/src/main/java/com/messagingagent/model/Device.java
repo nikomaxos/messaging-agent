@@ -38,7 +38,7 @@ public class Device {
     @Builder.Default
     private Status status = Status.OFFLINE;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "group_id")
     private DeviceGroup group;
 
@@ -52,6 +52,7 @@ public class Device {
 
     private Instant lastHeartbeat;
     private String sessionId;        // WebSocket session ID when online
+    private Instant connectedAt;     // Timestamp of last connection
 
     @CreationTimestamp
     private Instant createdAt;

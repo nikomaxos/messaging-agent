@@ -46,7 +46,9 @@ class RcsDeliveryObserver @Inject constructor(
 
         // SMS message types
         private const val TYPE_SENT   = 2
+        private const val TYPE_OUTBOX = 4
         private const val TYPE_FAILED = 5
+        private const val TYPE_QUEUED = 6
 
         // How long to wait for a delivery confirmation before timing out
         private const val RECEIPT_TIMEOUT_MS = 30_000L
@@ -112,9 +114,9 @@ class RcsDeliveryObserver @Inject constructor(
             if (!it.moveToFirst()) return null
             val typeIdx = it.getColumnIndexOrThrow(COL_TYPE)
             return when (it.getInt(typeIdx)) {
-                TYPE_SENT   -> RcsDeliveryStatus.DELIVERED
+                TYPE_SENT, TYPE_OUTBOX, TYPE_QUEUED -> RcsDeliveryStatus.DELIVERED
                 TYPE_FAILED -> RcsDeliveryStatus.FAILED
-                else        -> null   // still in-flight (outbox / sending)
+                else        -> null   // still in-flight
             }
         }
     }

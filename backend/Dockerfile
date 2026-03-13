@@ -11,7 +11,7 @@ RUN mvn -B dependency:go-offline -q
 
 # Copy source and build
 COPY src ./src
-RUN mvn -B package -DskipTests -q
+RUN mvn -B package -DskipTests
 
 # ─── Runtime Stage ────────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-jammy AS runtime
