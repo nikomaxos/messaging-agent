@@ -1,19 +1,11 @@
 package com.messagingagent.android.rcs
 
-import android.app.Activity
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.Build
-import android.telephony.SmsManager
+import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.suspendCancellableCoroutine
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.resume
 
 data class RcsSendResult(
     val success: Boolean,
@@ -23,59 +15,69 @@ data class RcsSendResult(
 
 @Singleton
 class RcsSender @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val deliveryObserver: RcsDeliveryObserver
 ) {
 
-    suspend fun sendRcs(to: String, text: String): RcsSendResult = suspendCancellableCoroutine { cont ->
-        try {
-            val smsManager = context.getSystemService(SmsManager::class.java)
-            if (smsManager == null) {
-                cont.resume(RcsSendResult(success = false, noRcs = true, error = "SmsManager unavailable"))
-                return@suspendCancellableCoroutine
+    private companion object {
+        const val MESSAGES_PKG = "com.google.android.apps.messaging"
+    }
+
+    suspend fun sendRcs(to: String, text: String): RcsSendResult {
+        if (!isMessagesInstalled()) {
+            Timber.w("Google Messages not installed — cannot send RCS to $to")
+            return RcsSendResult(success = false, noRcs = true, error = "Google Messages not installed")
+        }
+
+        return try {
+            val safeText = text.replace("'", "'\\''")
+            val cleanTo = to.replace("[^0-9+]".toRegex(), "")
+
+            val intentCmd = "am start -a android.intent.action.SENDTO " +
+                    "-d smsto:$cleanTo " +
+                    "--es sms_body '$safeText' " +
+                    "--ez compose_mode false " +
+                    "-p $MESSAGES_PKG"
+
+            Timber.i("Executing root RCS intent: $intentCmd")
+            val shellResult = Shell.cmd(intentCmd).exec()
+
+            if (!shellResult.isSuccess) {
+                Timber.e("Root intent dispatch failed: ${shellResult.err}")
+                return RcsSendResult(success = false, error = "am start failed: ${shellResult.err}")
             }
 
-            val action = "SMS_SENT_${System.currentTimeMillis()}"
-            val intent = Intent(action)
-            // FLAG_IMMUTABLE is required for Android 12+
-            val pendingIntent = PendingIntent.getBroadcast(
-                context, 0, intent, PendingIntent.FLAG_IMMUTABLE
-            )
+            // Execute input injection to press the 'Send' button if compose_mode doesn't auto-send natively
+            Shell.cmd("sleep 1", "input keyevent 22", "input keyevent 66").exec()
 
-            val receiver = object : BroadcastReceiver() {
-                override fun onReceive(c: Context, i: Intent) {
-                    try {
-                        c.unregisterReceiver(this)
-                    } catch (e: Exception) { /* ignored */ }
-                    
-                    if (resultCode == Activity.RESULT_OK) {
-                        Timber.i("SMS physically sent to $to")
-                        cont.resume(RcsSendResult(success = true))
-                    } else {
-                        Timber.w("SMS failed to send to $to (code: $resultCode)")
-                        cont.resume(RcsSendResult(success = false, error = "SmsManager error: $resultCode"))
-                    }
+            // Observe the SMS/MMS content provider for physical dispatch confirmation 
+            val status: RcsDeliveryStatus = deliveryObserver.awaitDelivery(to)
+
+            when (status) {
+                RcsDeliveryStatus.DELIVERED -> {
+                    Timber.i("RCS delivered and recorded for $to")
+                    RcsSendResult(success = true)
+                }
+                RcsDeliveryStatus.FAILED -> {
+                    Timber.w("RCS failed (fallback to SMS required) for $to")
+                    RcsSendResult(success = false, noRcs = true, error = "RCS delivery refused by carrier")
+                }
+                RcsDeliveryStatus.TIMEOUT -> {
+                    Timber.w("RCS delivery receipt timed out for $to")
+                    RcsSendResult(success = false, error = "Delivery receipt timeout (message stuck in Outbox)")
                 }
             }
-
-            // Register receiver dynamically for this specific send
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(receiver, IntentFilter(action), Context.RECEIVER_EXPORTED)
-            } else {
-                context.registerReceiver(receiver, IntentFilter(action))
-            }
-
-            // Execute the physical send
-            smsManager.sendTextMessage(to, null, text, pendingIntent, null)
-            Timber.i("SMS dispatched to radio hardware for $to")
-
-            cont.invokeOnCancellation {
-                try { context.unregisterReceiver(receiver) } catch (e: Exception) { }
-            }
         } catch (e: Exception) {
-            Timber.e(e, "Exception during physical SMS send for $to")
-            if (cont.isActive) {
-                cont.resume(RcsSendResult(success = false, error = e.message))
-            }
+            Timber.e(e, "RCS root dispatch exception for $to")
+            RcsSendResult(success = false, noRcs = false, error = e.message)
         }
     }
+
+    private fun isMessagesInstalled(): Boolean {
+        return try {
+            context.packageManager.getPackageInfo(MESSAGES_PKG, 0)
+            true
+        } catch (e: Exception) { false }
+    }
 }
+
