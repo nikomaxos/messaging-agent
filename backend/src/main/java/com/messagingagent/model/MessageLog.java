@@ -36,7 +36,7 @@ public class MessageLog {
     @Column(length = 20)
     private String destinationAddress;
 
-    @Column(length = 160)
+    @Column(length = 4000)
     private String messageText;
 
     @Enumerated(EnumType.STRING)
@@ -49,7 +49,7 @@ public class MessageLog {
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Device device;
 
-    @Column(length = 500)
+    @Column(length = 1000)
     private String errorDetail;
 
     @CreationTimestamp

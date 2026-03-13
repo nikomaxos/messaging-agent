@@ -51,16 +51,19 @@ public class SmppResponseService {
      * RCS successfully delivered — send DELIVER_SM receipt to upstream.
      */
     public void sendDeliverySm(String correlationId) {
-        withSession(correlationId, (session, srcAddr) -> {
-            try {
-                DeliverSm deliverSm = buildDeliveryReceipt(correlationId, srcAddr);
-                session.sendRequestPdu(deliverSm, 10_000, false);
-                log.info("DELIVER_SM sent for correlationId={}", correlationId);
-            } catch (Exception e) {
-                log.error("Failed to send DELIVER_SM for correlationId={}", correlationId, e);
-            }
+        processAllLinkedIds(correlationId, id -> {
+            withSession(id, (session, srcAddr) -> {
+                try {
+                    DeliverSm deliverSm = buildDeliveryReceipt(id, srcAddr);
+                    session.sendRequestPdu(deliverSm, 10_000, false);
+                    log.info("DELIVER_SM sent for correlationId={}", id);
+                } catch (Exception e) {
+                    log.error("Failed to send DELIVER_SM for correlationId={}", id, e);
+                }
+            });
+            cleanup(id);
         });
-        cleanup(correlationId);
+        redis.delete("smpp:linked:" + correlationId);
     }
 
     /**
@@ -93,22 +96,36 @@ public class SmppResponseService {
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
-    private void sendFailureResponse(String correlationId, int status, byte subError, String reason) {
-        withSession(correlationId, (session, srcAddr) -> {
-            try {
-                // Build a DELIVER_SM with a delivery-receipt body (ERR:xxx)
-                DeliverSm deliverSm = buildDeliveryReceiptFailure(correlationId, srcAddr, reason);
-                // Attach custom TLV for sub-error signalling
-                deliverSm.addOptionalParameter(
-                        new com.cloudhopper.smpp.tlv.Tlv(TLV_RCS_STATUS, new byte[]{subError}));
-                session.sendRequestPdu(deliverSm, 10_000, false);
-                log.warn("DELIVER_SM failure (status=0x{} subError=0x{}) sent for correlationId={}",
-                        Integer.toHexString(status), Integer.toHexString(subError & 0xFF), correlationId);
-            } catch (Exception e) {
-                log.error("Failed to send failure DELIVER_SM for correlationId={}", correlationId, e);
+    private void processAllLinkedIds(String mainId, java.util.function.Consumer<String> action) {
+        java.util.Set<String> linked = redis.opsForSet().members("smpp:linked:" + mainId);
+        if (linked != null && !linked.isEmpty()) {
+            for (String id : linked) {
+                action.accept(id);
             }
+        } else {
+            action.accept(mainId);
+        }
+    }
+
+    private void sendFailureResponse(String correlationId, int status, byte subError, String reason) {
+        processAllLinkedIds(correlationId, id -> {
+            withSession(id, (session, srcAddr) -> {
+                try {
+                    // Build a DELIVER_SM with a delivery-receipt body (ERR:xxx)
+                    DeliverSm deliverSm = buildDeliveryReceiptFailure(id, srcAddr, reason);
+                    // Attach custom TLV for sub-error signalling
+                    deliverSm.addOptionalParameter(
+                            new com.cloudhopper.smpp.tlv.Tlv(TLV_RCS_STATUS, new byte[]{subError}));
+                    session.sendRequestPdu(deliverSm, 10_000, false);
+                    log.warn("DELIVER_SM failure (status=0x{} subError=0x{}) sent for correlationId={}",
+                            Integer.toHexString(status), Integer.toHexString(subError & 0xFF), id);
+                } catch (Exception e) {
+                    log.error("Failed to send failure DELIVER_SM for correlationId={}", id, e);
+                }
+            });
+            cleanup(id);
         });
-        cleanup(correlationId);
+        redis.delete("smpp:linked:" + correlationId);
     }
 
     private void withSession(String correlationId, SessionConsumer consumer) {

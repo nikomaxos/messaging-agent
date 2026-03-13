@@ -231,17 +231,27 @@ public class SmppServerService {
                     payloadBytes = shortMessage;
                 }
 
+                String partMessageId = UUID.randomUUID().toString();
+                Duration ttl = Duration.ofSeconds(CORRELATION_TTL_SECONDS);
+                redis.opsForValue().set(sessionKey(partMessageId), smppSessionId, ttl);
+                redis.opsForValue().set(sourceKey(partMessageId),  srcAddr,       ttl);
+
                 if (totalParts > 1) {
                     String concatKey = "smpp:concat:" + srcAddr + ":" + dstAddr + ":" + refNum;
+                    String msgIdsKey = "smpp:concat:ids:" + srcAddr + ":" + dstAddr + ":" + refNum;
+
                     redis.opsForHash().put(concatKey, String.valueOf(partNum), java.util.Base64.getEncoder().encodeToString(payloadBytes));
                     redis.expire(concatKey, Duration.ofMinutes(10));
+                    
+                    redis.opsForList().rightPush(msgIdsKey, partMessageId);
+                    redis.expire(msgIdsKey, Duration.ofMinutes(10));
                     
                     Long currentParts = redis.opsForHash().size(concatKey);
                     if (currentParts == null || currentParts < totalParts) {
                         log.info("Buffered multipart SMS: part {}/{} for refNum={}", partNum, totalParts, refNum);
                         SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                         resp.setCommandStatus(SmppConstants.STATUS_OK);
-                        resp.setMessageId(UUID.randomUUID().toString()); // Temporary ID
+                        resp.setMessageId(partMessageId);
                         return resp;
                     }
 
@@ -253,39 +263,66 @@ public class SmppServerService {
                             try { buffer.write(java.util.Base64.getDecoder().decode(partBase64)); } catch (Exception ignored) { }
                         }
                     }
-                    redis.delete(concatKey);
                     payloadBytes = buffer.toByteArray();
+                    
+                    java.util.List<String> allMsgIds = redis.opsForList().range(msgIdsKey, 0, -1);
+                    
+                    redis.delete(concatKey);
+                    redis.delete(msgIdsKey);
+                    
+                    String mainCorrelationId = partMessageId;
+                    if (allMsgIds != null && !allMsgIds.isEmpty()) {
+                        mainCorrelationId = allMsgIds.get(0);
+                        for (String id : allMsgIds) {
+                            redis.opsForSet().add("smpp:linked:" + mainCorrelationId, id);
+                        }
+                        redis.expire("smpp:linked:" + mainCorrelationId, ttl);
+                    }
+                    
+                    String msgText = CharsetUtil.decode(payloadBytes,
+                            sm.getDataCoding() == 8 ? CharsetUtil.CHARSET_UCS_2 : CharsetUtil.CHARSET_GSM);
+
+                    log.info("SUBMIT_SM (concat) from={} to={} correlationId={}", srcAddr, dstAddr, mainCorrelationId);
+
+                    SmsInboundEvent event = SmsInboundEvent.builder()
+                            .correlationId(mainCorrelationId)
+                            .systemId(systemId)
+                            .sourceAddress(srcAddr)
+                            .destinationAddress(dstAddr)
+                            .messageText(msgText)
+                            .dataCoding(sm.getDataCoding())
+                            .timestampMs(System.currentTimeMillis())
+                            .build();
+
+                    kafkaTemplate.send("sms.inbound", dstAddr, event);
+
+                    SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
+                    resp.setCommandStatus(SmppConstants.STATUS_OK);
+                    resp.setMessageId(partMessageId);
+                    return resp;
+                } else {
+                    String msgText = CharsetUtil.decode(payloadBytes,
+                            sm.getDataCoding() == 8 ? CharsetUtil.CHARSET_UCS_2 : CharsetUtil.CHARSET_GSM);
+
+                    log.info("SUBMIT_SM from={} to={} correlationId={}", srcAddr, dstAddr, partMessageId);
+
+                    SmsInboundEvent event = SmsInboundEvent.builder()
+                            .correlationId(partMessageId)
+                            .systemId(systemId)
+                            .sourceAddress(srcAddr)
+                            .destinationAddress(dstAddr)
+                            .messageText(msgText)
+                            .dataCoding(sm.getDataCoding())
+                            .timestampMs(System.currentTimeMillis())
+                            .build();
+
+                    kafkaTemplate.send("sms.inbound", dstAddr, event);
+
+                    SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
+                    resp.setCommandStatus(SmppConstants.STATUS_OK);
+                    resp.setMessageId(partMessageId);
+                    return resp;
                 }
-
-                String msgText = CharsetUtil.decode(payloadBytes,
-                        sm.getDataCoding() == 8 ? CharsetUtil.CHARSET_UCS_2 : CharsetUtil.CHARSET_GSM);
-
-                // Assign unique correlation ID
-                String correlationId = UUID.randomUUID().toString();
-
-                // Store in Redis with TTL
-                Duration ttl = Duration.ofSeconds(CORRELATION_TTL_SECONDS);
-                redis.opsForValue().set(sessionKey(correlationId), smppSessionId, ttl);
-                redis.opsForValue().set(sourceKey(correlationId),  srcAddr,       ttl);
-
-                log.info("SUBMIT_SM from={} to={} correlationId={}", srcAddr, dstAddr, correlationId);
-
-                SmsInboundEvent event = SmsInboundEvent.builder()
-                        .correlationId(correlationId)
-                        .systemId(systemId)
-                        .sourceAddress(srcAddr)
-                        .destinationAddress(dstAddr)
-                        .messageText(msgText)
-                        .dataCoding(sm.getDataCoding())
-                        .timestampMs(System.currentTimeMillis())
-                        .build();
-
-                kafkaTemplate.send("sms.inbound", dstAddr, event);
-
-                SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
-                resp.setCommandStatus(SmppConstants.STATUS_OK);
-                resp.setMessageId(correlationId);
-                return resp;
 
             } catch (Exception e) {
                 log.error("Error processing SUBMIT_SM", e);
