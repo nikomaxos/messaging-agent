@@ -7,6 +7,18 @@ import { formatDistanceToNow } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
 
+function LiveUptime({ connectedAt }: { connectedAt?: string }) {
+  const [val, setVal] = useState('')
+  useEffect(() => {
+    if (!connectedAt) { setVal('—'); return }
+    const update = () => setVal(formatDistanceToNow(new Date(connectedAt)))
+    update()
+    const int = setInterval(update, 60000)
+    return () => clearInterval(int)
+  }, [connectedAt])
+  return <span>{val}</span>
+}
+
 export default function DevicesPage() {
   const qc = useQueryClient()
   const { data: devices = [], refetch, isFetching } = useQuery({
@@ -51,7 +63,11 @@ export default function DevicesPage() {
               (prev ?? []).map(d =>
                 d.id === event.id
                   ? { ...d, status: event.status as Device['status'],
-                      lastHeartbeat: event.lastHeartbeat || d.lastHeartbeat }
+                      lastHeartbeat: event.lastHeartbeat || d.lastHeartbeat,
+                      connectedAt: event.connectedAt || d.connectedAt,
+                      batteryPercent: event.batteryPercent !== undefined && event.batteryPercent !== "" ? event.batteryPercent : d.batteryPercent,
+                      wifiSignalDbm: event.wifiSignalDbm !== undefined && event.wifiSignalDbm !== "" ? event.wifiSignalDbm : d.wifiSignalDbm,
+                      gsmSignalDbm: event.gsmSignalDbm !== undefined && event.gsmSignalDbm !== "" ? event.gsmSignalDbm : d.gsmSignalDbm }
                   : d
               )
             )
@@ -154,6 +170,7 @@ export default function DevicesPage() {
           <thead><tr>
             <th className="px-4 pt-4 pb-3">Name</th>
             <th className="px-4">Status</th>
+            <th className="px-4">Uptime</th>
             <th className="px-4">Group</th>
             <th className="px-4">Battery</th>
             <th className="px-4">Wi-Fi</th>
@@ -172,6 +189,9 @@ export default function DevicesPage() {
                 </td>
                 <td className="px-4">
                   <span className={`pill ${statusClass(d.status)}`}>{d.status}</span>
+                </td>
+                <td className="px-4 text-xs text-slate-300 font-medium">
+                  {d.status === 'ONLINE' ? <LiveUptime connectedAt={d.connectedAt} /> : '—'}
                 </td>
                 <td className="px-4 text-slate-400 text-xs">{d.group?.name ?? '—'}</td>
                 <td className="px-4 text-xs text-slate-300">{d.batteryPercent != null ? `${d.batteryPercent}%` : '—'}</td>

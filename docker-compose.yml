@@ -97,6 +97,7 @@ services:
       JWT_SECRET: change-me-in-production-this-must-be-at-least-32-chars
       ADMIN_USER: admin
       ADMIN_PASS: changeme
+      SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
     ports:
       - "9090:9090"   # REST API + WebSocket
       - "2775:2775"   # SMPP server port

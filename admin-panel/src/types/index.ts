@@ -19,19 +19,25 @@ export interface Device {
   networkOperator?: string
   rcsCapable?: boolean
   lastHeartbeat?: string
+  connectedAt?: string
   registrationToken?: string
 }
 
-export interface SmppConfig {
+export interface SmppClient {
   id: number
   name: string
   systemId: string
-  password: string
-  host: string
-  port: number
-  bindType: 'TRANSCEIVER' | 'TRANSMITTER' | 'RECEIVER'
+  password?: string
   active: boolean
-  deviceGroup?: DeviceGroup
+  createdAt: string
+}
+
+export interface SmppRouting {
+  id: number
+  smppClient: SmppClient
+  deviceGroup: DeviceGroup
+  default: boolean
+  createdAt: string
 }
 
 export interface MessageLog {

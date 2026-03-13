@@ -1,15 +1,17 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
-  LayoutDashboard, Layers, Smartphone, Settings, FileText, LogOut
+  LayoutDashboard, Layers, Smartphone, FileText, LogOut, Users, Route as RouteIcon, Server
 } from 'lucide-react'
 
 const nav = [
-  { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
-  { to: '/groups',    icon: <Layers size={18} />,          label: 'Device Groups' },
-  { to: '/devices',   icon: <Smartphone size={18} />,      label: 'Devices' },
-  { to: '/smpp',      icon: <Settings size={18} />,        label: 'SMPP Configs' },
-  { to: '/logs',      icon: <FileText size={18} />,        label: 'Message Logs' },
+  { to: '/dashboard',     icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+  { to: '/groups',        icon: <Layers size={18} />,          label: 'Device Groups' },
+  { to: '/devices',       icon: <Smartphone size={18} />,      label: 'Devices' },
+  { to: '/smpp/server',   icon: <Server size={18} />,          label: 'SMPP Server' },
+  { to: '/smpp/clients',  icon: <Users size={18} />,           label: 'SMPP Clients' },
+  { to: '/smpp/routing',  icon: <RouteIcon size={18} />,       label: 'SMPP Routing' },
+  { to: '/logs',          icon: <FileText size={18} />,        label: 'Message Logs' },
 ]
 
 export default function Layout() {
