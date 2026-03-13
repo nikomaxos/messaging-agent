@@ -70,21 +70,38 @@ messaging-agent/
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- Java 21 (for local backend dev)
-- Node.js 20 (for local admin panel dev)
-- Android Studio + Android device with root access
+- **Docker & Docker Compose** (Required for running the full stack)
+- Java 21 (optional, for local backend dev)
+- Node.js 20 (optional, for local admin panel dev)
+- Android Studio + Android device with root access (for building/running the app)
 
-### Run with Docker Compose
+### Easy Installation
 
+The repository includes scripts to easily spin up the environment with Docker on any operating system.
+
+**1. Clone the repository**
 ```bash
-git clone https://github.com/<your-org>/messaging-agent.git
+git clone https://github.com/nikomaxos/messaging-agent.git
 cd messaging-agent
+```
 
-# Start full stack (PostgreSQL + Kafka + Backend + Admin Panel)
-docker compose up -d
+**2. Run the installer script**
 
-# Check health
+**For Windows:**
+Simply double-click on `install.bat` or run it from the Command Prompt/PowerShell:
+```cmd
+install.bat
+```
+
+**For Linux / macOS:**
+Run the shell script from your terminal:
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+**3. Verify Installation**
+```bash
 docker compose ps
 curl http://localhost:8080/actuator/health
 ```
