@@ -3,6 +3,7 @@ package com.messagingagent.android.rcs
 import android.content.Context
 import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.async
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +34,11 @@ class RcsSender @Inject constructor(
             val safeText = text.replace("'", "'\\''")
             val cleanTo = to.replace("[^0-9+]".toRegex(), "")
 
+            // Start the observer BEFORE launching the intent so we record priorMaxId before Drafts are created
+            val observerJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).async {
+                deliveryObserver.awaitDelivery(to)
+            }
+
             val intentCmd = "am start -a android.intent.action.SENDTO " +
                     "-d smsto:$cleanTo " +
                     "--es sms_body '$safeText' " +
@@ -44,6 +50,7 @@ class RcsSender @Inject constructor(
             val shellResult = Shell.cmd(intentCmd).exec()
 
             if (!shellResult.isSuccess) {
+                observerJob.cancel()
                 Timber.e("Root intent dispatch failed: ${shellResult.err}")
                 return RcsSendResult(success = false, error = "am start failed: ${shellResult.err}")
             }
@@ -74,7 +81,23 @@ class RcsSender @Inject constructor(
                     Timber.i("Found send button at $cx, $cy. Tapping...")
                     Shell.cmd("input tap $cx $cy").exec()
                     clicked = true
-                    kotlinx.coroutines.delay(600)
+                    kotlinx.coroutines.delay(1000)
+                    
+                    // Check for any MMS conversion/warning dialogs and click OK/Send
+                    val postDumpRes = Shell.cmd("uiautomator dump /data/local/tmp/dump.xml && cat /data/local/tmp/dump.xml").exec()
+                    val postXml = postDumpRes.out.joinToString(" ")
+                    val dialogBtnRegex = """text="(?i)(send|ok|continue|accept)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"""".toRegex()
+                    val dialogMatch = dialogBtnRegex.find(postXml)
+                    if (dialogMatch != null && (postXml.contains("multimedia", ignoreCase = true) || postXml.contains("mms", ignoreCase = true) || postXml.contains("charges", ignoreCase = true))) {
+                        val dx1 = dialogMatch.groupValues[2].toInt()
+                        val dy1 = dialogMatch.groupValues[3].toInt()
+                        val dx2 = dialogMatch.groupValues[4].toInt()
+                        val dy2 = dialogMatch.groupValues[5].toInt()
+                        Timber.i("Found MMS confirmation dialog. Tapping OK/Send at ${(dx1+dx2)/2}, ${(dy1+dy2)/2}")
+                        Shell.cmd("input tap ${(dx1+dx2)/2} ${(dy1+dy2)/2}").exec()
+                        kotlinx.coroutines.delay(500)
+                    }
+
                     Shell.cmd("input keyevent 3").exec() // HOME key
                     break
                 }
@@ -84,13 +107,14 @@ class RcsSender @Inject constructor(
             }
             
             if (!clicked) {
+                observerJob.cancel()
                 Timber.e("Failed to find or click the Send button in Google Messages. Aborting process.")
                 Shell.cmd("input keyevent 3").exec() // Send Android back to Home to clear screen
                 return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator")
             }
 
             // Observe the SMS/MMS content provider for physical dispatch confirmation 
-            val status: RcsDeliveryStatus = deliveryObserver.awaitDelivery(to)
+            val status: RcsDeliveryStatus = observerJob.await()
 
             when (status) {
                 RcsDeliveryStatus.DELIVERED -> {
