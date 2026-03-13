@@ -36,7 +36,7 @@ class RcsSender @Inject constructor(
             val intentCmd = "am start -a android.intent.action.SENDTO " +
                     "-d smsto:$cleanTo " +
                     "--es sms_body '$safeText' " +
-                    "--ez compose_mode false " +
+                    "--ez compose_mode true " +
                     "-p $MESSAGES_PKG"
 
             Timber.i("Executing root RCS intent: $intentCmd")
@@ -47,8 +47,19 @@ class RcsSender @Inject constructor(
                 return RcsSendResult(success = false, error = "am start failed: ${shellResult.err}")
             }
 
-            // Execute input injection to press the 'Send' button if compose_mode doesn't auto-send natively
-            Shell.cmd("sleep 1", "input keyevent 22", "input keyevent 66").exec()
+            // Compose mode 'true' leaves the UI open so we can safely script the UI clicks.
+            // TAB (61) jumps focus to the Send Button. ENTER (66) presses it. 
+            // HOME (3) exits the app to the background so the user isn't interrupted.
+            Shell.cmd(
+                "sleep 1.5",
+                "input keyevent 61", // TAB to Send button
+                "input keyevent 66", // ENTER to click Send
+                "sleep 0.5",
+                "input keyevent 22", // Fallback DPAD_RIGHT just in case
+                "input keyevent 66", // Fallback ENTER
+                "sleep 1",
+                "input keyevent 3"   // HOME key to hide visual interface
+            ).exec()
 
             // Observe the SMS/MMS content provider for physical dispatch confirmation 
             val status: RcsDeliveryStatus = deliveryObserver.awaitDelivery(to)
