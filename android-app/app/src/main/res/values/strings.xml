@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Messaging Agent</string>
+    <string name="notification_channel_name">Agent Service</string>
+    <string name="notification_connected">Connected</string>
+    <string name="notification_disconnected">Disconnected — retrying…</string>
+</resources>

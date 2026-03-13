@@ -1,0 +1,29 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+*.war
+
+# Node / React
+admin-panel/node_modules/
+admin-panel/dist/
+
+# Android
+android-app/.gradle/
+android-app/local.properties
+android-app/app/build/
+*.apk
+!MessagingAgent-debug.apk
+*.aab
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.DS_Store
+
+# Docker
+.env
+
+*.log

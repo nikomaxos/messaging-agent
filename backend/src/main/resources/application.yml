@@ -1,0 +1,100 @@
+server:
+  port: 9090
+
+spring:
+  application:
+    name: messaging-agent-backend
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:messagingagent}
+    username: ${DB_USER:msgagent}
+    password: ${DB_PASS:msgagent}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+      repositories:
+        enabled: false
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    consumer:
+      group-id: messaging-agent
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-me-in-production-at-least-32-chars}
+      expiration-ms: 86400000   # 24 hours
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+
+app:
+  smpp:
+    server:
+      host: ${SMPP_BIND_HOST:0.0.0.0}
+      port: ${SMPP_BIND_PORT:2775}
+      system-id: ${SMPP_SYSTEM_ID:MSGAGENT}
+      password: ${SMPP_PASSWORD:secret}
+      max-connections: 50
+      enquire-link-timeout: 30000
+
+  websocket:
+    heartbeat-interval-ms: 10000
+
+  admin:
+    default-username: ${ADMIN_USER:admin}
+    default-password: ${ADMIN_PASS:changeme}
+
+logging:
+  level:
+    root: INFO
+    com.messagingagent: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    com.cloudhopper: WARN
+    org.springframework.kafka: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
