@@ -37,6 +37,7 @@ class RcsSender @Inject constructor(
                     "-d smsto:$cleanTo " +
                     "--es sms_body '$safeText' " +
                     "--ez compose_mode true " +
+                    "-f 0x14000000 " +
                     "-p $MESSAGES_PKG"
 
             Timber.i("Executing root RCS intent: $intentCmd")
@@ -47,19 +48,46 @@ class RcsSender @Inject constructor(
                 return RcsSendResult(success = false, error = "am start failed: ${shellResult.err}")
             }
 
-            // Compose mode 'true' leaves the UI open so we can safely script the UI clicks.
-            // TAB (61) jumps focus to the Send Button. ENTER (66) presses it. 
-            // HOME (3) exits the app to the background so the user isn't interrupted.
-            Shell.cmd(
-                "sleep 1.5",
-                "input keyevent 61", // TAB to Send button
-                "input keyevent 66", // ENTER to click Send
-                "sleep 0.5",
-                "input keyevent 22", // Fallback DPAD_RIGHT just in case
-                "input keyevent 66", // Fallback ENTER
-                "sleep 1",
-                "input keyevent 3"   // HOME key to hide visual interface
-            ).exec()
+            // Wait for Google Messages UI to render
+            kotlinx.coroutines.delay(1500)
+
+            // Automate clicking the exact Send button using uiautomator bounds matching
+            var clicked = false
+            for (i in 0 until 4) {
+                val dumpRes = Shell.cmd("uiautomator dump /data/local/tmp/dump.xml && cat /data/local/tmp/dump.xml").exec()
+                val xml = dumpRes.out.joinToString(" ")
+
+                // Match exact button elements for sending
+                val sendBtnRegex = """resource-id="[^"]*send_message_button[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"""".toRegex(RegexOption.IGNORE_CASE)
+                val sendDescRegex = """content-desc="(?i)send\s+[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"""".toRegex()
+                
+                val match = sendBtnRegex.find(xml) ?: sendDescRegex.find(xml)
+                
+                if (match != null) {
+                    val x1 = match.groupValues[1].toInt()
+                    val y1 = match.groupValues[2].toInt()
+                    val x2 = match.groupValues[3].toInt()
+                    val y2 = match.groupValues[4].toInt()
+                    val cx = (x1 + x2) / 2
+                    val cy = (y1 + y2) / 2
+                    
+                    Timber.i("Found send button at $cx, $cy. Tapping...")
+                    Shell.cmd("input tap $cx $cy").exec()
+                    clicked = true
+                    kotlinx.coroutines.delay(600)
+                    Shell.cmd("input keyevent 3").exec() // HOME key
+                    break
+                }
+                
+                Timber.w("Send button not found in UI dump. Retrying (attempt ${i + 1}/4)...")
+                kotlinx.coroutines.delay(1000)
+            }
+            
+            if (!clicked) {
+                Timber.e("Failed to find or click the Send button in Google Messages. Aborting process.")
+                Shell.cmd("input keyevent 3").exec() // Send Android back to Home to clear screen
+                return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator")
+            }
 
             // Observe the SMS/MMS content provider for physical dispatch confirmation 
             val status: RcsDeliveryStatus = deliveryObserver.awaitDelivery(to)
