@@ -219,7 +219,9 @@ class WebSocketRelayClient @Inject constructor(
                 com.topjohnwu.superuser.Shell.cmd("su -c reboot").exec()
             }
             body == "RECONNECT" -> {
-                disconnect()
+                // By closing the socket cleanly WITHOUT incrementing generation,
+                // the existing onClosed listener will automatically schedule a retry.
+                ws?.close(1000, "Reconnect requested")
             }
             body.startsWith("SET_AUTO_REBOOT=") -> {
                 CoroutineScope(Dispatchers.IO).launch {

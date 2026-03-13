@@ -114,6 +114,7 @@ fun SetupScreen(vm: SetupViewModel, onStart: () -> Unit) {
             vm.pendingUrl  = regState.backendUrl ?: ""
             vm.pendingName = regState.deviceName ?: ""
             vm.step = SetupViewModel.Step.DONE
+            onStart() // Automatically start the service when opening the app if already registered
         }
     }
 
