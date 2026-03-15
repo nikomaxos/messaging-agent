@@ -18,5 +18,20 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long> {
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Query("UPDATE MessageLog m SET m.device = null WHERE m.device.id = :deviceId")
     void clearDeviceReferences(@org.springframework.data.repository.query.Param("deviceId") Long deviceId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.createdAt >= :startDate")
+    long countTotalSince(@org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.status IN :statuses AND m.createdAt >= :startDate")
+    long countByStatusesSince(@org.springframework.data.repository.query.Param("statuses") java.util.List<MessageLog.Status> statuses, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.smscSupplier.id = :supplierId AND m.createdAt >= :startDate")
+    long countTotalBySmscSince(@org.springframework.data.repository.query.Param("supplierId") Long supplierId, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.smscSupplier.id = :supplierId AND m.status IN :statuses AND m.createdAt >= :startDate")
+    long countBySmscAndStatusesSince(@org.springframework.data.repository.query.Param("supplierId") Long supplierId, @org.springframework.data.repository.query.Param("statuses") java.util.List<MessageLog.Status> statuses, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
+
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = :status AND m.rcsExpiresAt < :now")
+    java.util.List<MessageLog> findExpiredLogs(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 }
 

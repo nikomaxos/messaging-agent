@@ -1,0 +1,1 @@
+ALTER TABLE device ADD COLUMN apk_version VARCHAR(50);

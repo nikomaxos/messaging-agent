@@ -221,7 +221,10 @@ export default function LogsPage() {
                       {l.errorDetail ?? ''}
                     </td>
                     <td className="px-4 text-xs text-slate-500">
-                      {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}
+                      <div><span className="text-[10px] uppercase text-slate-600 font-bold inline-block mr-1 w-5">In</span> {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}</div>
+                      {l.fallbackStartedAt && (
+                        <div className="mt-0.5"><span className="text-[10px] uppercase text-amber-600/70 font-bold inline-block mr-1 w-5">Out</span> {format(new Date(l.fallbackStartedAt), 'MMM d, HH:mm:ss')}</div>
+                      )}
                     </td>
                   </tr>
                 ))}

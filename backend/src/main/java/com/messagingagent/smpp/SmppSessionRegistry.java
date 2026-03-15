@@ -1,36 +1,43 @@
 package com.messagingagent.smpp;
 
-import com.cloudhopper.smpp.SmppServerSession;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Thread-safe registry of active SMPP server sessions.
- * Used to send DELIVER_SM / error responses back to upstream clients.
+ * Used to send DELIVER_SM / error responses back to upstream clients
+ * and to monitor active connections.
  */
 @Component
 public class SmppSessionRegistry {
 
-    private final Map<String, SmppServerSession> sessions = new ConcurrentHashMap<>();
+    private final Map<String, SmppSessionInfo> sessions = new ConcurrentHashMap<>();
 
-    public void register(String sessionId, SmppServerSession session) {
-        sessions.put(sessionId, session);
+    public void register(String sessionId, SmppSessionInfo sessionInfo) {
+        sessions.put(sessionId, sessionInfo);
     }
 
     public void unregister(String sessionId) {
         sessions.remove(sessionId);
     }
 
-    public Optional<SmppServerSession> getSession(String sessionId) {
+    public Optional<SmppSessionInfo> getSession(String sessionId) {
         return Optional.ofNullable(sessions.get(sessionId));
     }
 
-    public Collection<SmppServerSession> getAllSessions() {
+    public Collection<SmppSessionInfo> getAllSessions() {
         return sessions.values();
+    }
+
+    public Collection<SmppSessionInfo> getSessionsBySystemId(String systemId) {
+        return sessions.values().stream()
+                .filter(info -> info.getSession().getConfiguration().getSystemId().equals(systemId))
+                .collect(Collectors.toList());
     }
 
     public int size() {

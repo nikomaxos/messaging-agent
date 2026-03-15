@@ -23,6 +23,14 @@ export interface Device {
   registrationToken?: string
   autoRebootEnabled?: boolean
   activeNetworkType?: string
+  apkVersion?: string
+  apkUpdateStatus?: string
+}
+
+export interface SmppSession {
+  sessionId: string;
+  bindType: string;
+  uptimeSeconds: number;
 }
 
 export interface SmppClient {
@@ -32,6 +40,7 @@ export interface SmppClient {
   password?: string
   active: boolean
   createdAt: string
+  activeSessions?: SmppSession[]
 }
 
 export interface SmppRouting {
@@ -53,10 +62,50 @@ export interface MessageLog {
   errorDetail?: string
   createdAt: string
   deliveredAt?: string
+  fallbackStartedAt?: string
 }
 
 export interface AuthResponse {
   token: string
   username: string
   role: string
+}
+
+export interface ServerMetrics {
+  totalMessages: number;
+  dlrsReceived: number;
+  failedMessages: number;
+  queuedMessages: number;
+  resentFallback: number;
+}
+
+export interface SmscSupplierConfig {
+  id: number
+  name: string
+  systemId: string
+  password?: string
+  host: string
+  port: number
+  systemType?: string
+  bindType: string
+  addressRange?: string
+  sourceTon: number
+  sourceNpi: number
+  destTon: number
+  destNpi: number
+  throughput: number
+  enquireLinkInterval: number
+  active: boolean
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface SmscSupplier {
+  supplier: SmscSupplierConfig
+  uptimeSeconds?: number
+  connected: boolean
+  totalMessages: number
+  dlrsReceived: number
+  failed: number
+  inQueue: number
 }

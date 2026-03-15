@@ -20,16 +20,15 @@ class BootReceiver : BroadcastReceiver() {
     lateinit var prefs: PreferencesRepository
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Timber.d("Boot completed received, checking registration...")
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            Timber.d("Boot/Update completed received, checking registration...")
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val state = prefs.registrationFlow().first()
                     if (state.isRegistered) {
                         Timber.d("Device is registered. Autostarting MessagingAgentService from boot.")
                         val serviceIntent = Intent(context, MessagingAgentService::class.java)
-                        // Using startService since MessagingAgentService elevates itself to foreground
-                        context.startService(serviceIntent)
+                        androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
                     } else {
                         Timber.d("Device is not registered. Skipping service autostart.")
                     }

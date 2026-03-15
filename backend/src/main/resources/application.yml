@@ -59,6 +59,11 @@ spring:
       secret: ${JWT_SECRET:change-me-in-production-at-least-32-chars}
       expiration-ms: 86400000   # 24 hours
 
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
 management:
   endpoints:
     web:

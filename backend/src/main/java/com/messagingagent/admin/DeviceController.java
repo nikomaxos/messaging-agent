@@ -73,6 +73,7 @@ public class DeviceController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!deviceRepository.existsById(id)) return ResponseEntity.notFound().build();
         messageLogRepository.clearDeviceReferences(id);
@@ -86,6 +87,14 @@ public class DeviceController {
             String command = payload.get("command");
             if (command != null) {
                 messagingTemplate.convertAndSend("/queue/commands." + id, command);
+                if ("UPDATE_APK".equals(command)) {
+                    device.setApkUpdateStatus("Sent");
+                    deviceRepository.save(device);
+                    messagingTemplate.convertAndSend("/topic/devices", Map.of(
+                            "id", device.getId(),
+                            "apkUpdateStatus", "Sent"
+                    ));
+                }
             }
             return ResponseEntity.ok().<Void>build();
         }).orElse(ResponseEntity.notFound().build());

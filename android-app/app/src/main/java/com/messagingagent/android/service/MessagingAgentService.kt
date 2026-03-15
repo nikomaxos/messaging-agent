@@ -25,7 +25,8 @@ data class HeartbeatPayload(
     val gsmSignalAsu: Int?,
     val networkOperator: String?,
     val rcsCapable: Boolean,
-    val activeNetworkType: String?
+    val activeNetworkType: String?,
+    val apkVersion: String?
 )
 
 /**
@@ -104,7 +105,8 @@ class MessagingAgentService : Service() {
                             gsmSignalAsu      = gsm.second,
                             networkOperator   = netOp,
                             rcsCapable        = rcs,
-                            activeNetworkType = netType
+                            activeNetworkType = netType,
+                            apkVersion        = com.messagingagent.android.BuildConfig.VERSION_NAME
                         )
 
                         val json = Json.encodeToString(HeartbeatPayload.serializer(), payload)

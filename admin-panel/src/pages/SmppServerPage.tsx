@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getServerConfig, updateServerConfig, restartServer } from '../api/client'
-import { Server, Activity, ArrowRightLeft, Clock, Save, RefreshCw } from 'lucide-react'
+import { getServerConfig, updateServerConfig, restartServer, getSmppMetrics } from '../api/client'
+import { Server, Activity, ArrowRightLeft, Clock, Save, RefreshCw, MessageSquare, CheckCircle, AlertTriangle, RefreshCcw, ToggleLeft, ToggleRight, Hourglass } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 function LiveUptime({ since }: { since: string }) {
@@ -20,6 +20,14 @@ export default function SmppServerPage() {
   const { data: config, isLoading } = useQuery({ 
     queryKey: ['smppServerConfig'], 
     queryFn: getServerConfig 
+  })
+
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  
+  const { data: metrics, refetch: refetchMetrics, isFetching: isFetchingMetrics } = useQuery({
+    queryKey: ['smppMetrics'],
+    queryFn: getSmppMetrics,
+    refetchInterval: autoRefresh ? 3000 : false
   })
 
   const [formData, setFormData] = useState<any>(null)
@@ -67,7 +75,93 @@ export default function SmppServerPage() {
       {isLoading || !formData ? (
         <div className="text-slate-400 animate-pulse">Loading server settings...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
+        <div className="space-y-8">
+          {/* Metrics Dashboard */}
+          <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Monthly Traffic Statistics</h2>
+                  <p className="text-xs text-slate-400">Live metrics for the current calendar month</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition"
+                >
+                  {autoRefresh ? <ToggleRight className="text-brand-500" size={24} /> : <ToggleLeft className="text-slate-500" size={24} />}
+                  <span>Auto Refresh</span>
+                </button>
+                <button
+                  onClick={() => refetchMetrics()}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 transition"
+                  title="Manual Refresh"
+                >
+                  <RefreshCw size={16} className={isFetchingMetrics ? "animate-spin" : ""} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400 font-medium">Total Messages</span>
+                  <MessageSquare size={16} className="text-blue-400" />
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {metrics?.totalMessages?.toLocaleString() || '0'}
+                </div>
+              </div>
+              
+              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400 font-medium">DLRs Received</span>
+                  <CheckCircle size={16} className="text-green-400" />
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {metrics?.dlrsReceived?.toLocaleString() || '0'}
+                </div>
+              </div>
+
+              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400 font-medium">Failed</span>
+                  <AlertTriangle size={16} className="text-red-400" />
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {metrics?.failedMessages?.toLocaleString() || '0'}
+                </div>
+              </div>
+
+              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400 font-medium">In Queue</span>
+                  <Hourglass size={16} className="text-yellow-400" />
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {metrics?.queuedMessages?.toLocaleString() || '0'}
+                </div>
+              </div>
+
+              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400 font-medium">Re-Sent (Fallback)</span>
+                  <RefreshCcw size={16} className="text-orange-400" />
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {metrics?.resentFallback?.toLocaleString() || '0'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Settings Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
           <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-brand-500/10 text-brand-400 rounded-lg">
@@ -155,6 +249,7 @@ export default function SmppServerPage() {
                 {updateMut.isPending ? 'Saving...' : 'Save Settings'}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

@@ -141,7 +141,7 @@ public class SmppServerService {
         public void sessionCreated(Long sessionId, SmppServerSession session,
                                     BaseBindResp preparedBindResponse) {
             session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), session.getConfiguration().getSystemId()));
-            sessionRegistry.register(sessionId.toString(), session);
+            sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now()));
             log.info("SMPP session created id={}", sessionId);
         }
 

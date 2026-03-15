@@ -14,4 +14,5 @@ public class DeviceHeartbeat {
     private String networkOperator;
     private Boolean rcsCapable;
     private String activeNetworkType;
+    private String apkVersion;
 }

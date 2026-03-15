@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDevices, getGroups, createDevice, updateDevice, deleteDevice } from '../api/client'
 import { Device, DeviceGroup } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Copy, RefreshCw, Wifi, WifiOff, Power, RefreshCcw } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Copy, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
@@ -21,26 +21,58 @@ function LiveUptime({ connectedAt }: { connectedAt?: string }) {
 
 export default function DevicesPage() {
   const qc = useQueryClient()
+  const [wsConnected, setWsConnected] = useState(false)
+  const [refreshToast, setRefreshToast] = useState<string | null>(null)
+  const [autoFetch, setAutoFetch] = useState(false)
+  const [uploadingApk, setUploadingApk] = useState(false)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+  const stompRef = useRef<Client | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const { data: devices = [], refetch, isFetching } = useQuery({
     queryKey: ['devices'],
     queryFn: getDevices,
-    refetchInterval: false,   // no auto-polling — WebSocket drives live updates
+    refetchInterval: autoFetch ? 10_000 : false,
     staleTime: Infinity,
     placeholderData: (prev: any) => prev,
   })
+
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
   const [form, setForm] = useState({ name: '', imei: '', groupId: '' })
-  const [wsConnected, setWsConnected] = useState(false)
-  const [refreshToast, setRefreshToast] = useState<string | null>(null)
-  const stompRef = useRef<Client | null>(null)
 
   const handleRefresh = async () => {
     await refetch()
     const time = new Date().toLocaleTimeString()
     setRefreshToast(`✓ Refreshed at ${time}`)
     setTimeout(() => setRefreshToast(null), 3000)
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingApk(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    const token = localStorage.getItem('jwt')
+    try {
+      const res = await fetch('/api/apk/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      })
+      if (res.ok) {
+        setUploadSuccess(true)
+        setTimeout(() => setUploadSuccess(false), 3000)
+      }
+      else alert('Failed to upload APK.')
+    } catch (err) {
+      alert('Error uploading APK')
+    } finally {
+      setUploadingApk(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   // ── WebSocket subscription to /topic/devices for live status updates ──────
@@ -68,7 +100,9 @@ export default function DevicesPage() {
                       batteryPercent: event.batteryPercent !== undefined && event.batteryPercent !== "" ? event.batteryPercent : d.batteryPercent,
                       wifiSignalDbm: event.wifiSignalDbm !== undefined && event.wifiSignalDbm !== "" ? event.wifiSignalDbm : d.wifiSignalDbm,
                       gsmSignalDbm: event.gsmSignalDbm !== undefined && event.gsmSignalDbm !== "" ? event.gsmSignalDbm : d.gsmSignalDbm,
-                      activeNetworkType: event.activeNetworkType !== undefined && event.activeNetworkType !== "" ? event.activeNetworkType : d.activeNetworkType }
+                      activeNetworkType: event.activeNetworkType !== undefined && event.activeNetworkType !== "" ? event.activeNetworkType : d.activeNetworkType,
+                      apkVersion: event.apkVersion !== undefined && event.apkVersion !== "" ? event.apkVersion : d.apkVersion,
+                      apkUpdateStatus: event.apkUpdateStatus !== undefined ? event.apkUpdateStatus : d.apkUpdateStatus }
                   : d
               )
             )
@@ -135,7 +169,15 @@ export default function DevicesPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1 cursor-pointer text-sm text-slate-300 mr-2 border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition">
+            <input type="checkbox" className="accent-brand-500" checked={autoFetch} onChange={e => setAutoFetch(e.target.checked)} />
+            Auto Fetch (10s)
+          </label>
+          <input type="file" accept=".apk" ref={fileRef} className="hidden" onChange={handleFileUpload} />
+          <button className={`btn-secondary whitespace-nowrap ${uploadSuccess ? '!bg-green-600/20 !border-green-500/50 !text-green-400' : ''}`} onClick={() => fileRef.current?.click()} disabled={uploadingApk} title="Upload a new APK to the server">
+            {uploadingApk ? <RefreshCw size={14} className="animate-spin" /> : uploadSuccess ? <Check size={14} /> : <Upload size={14} />} {uploadSuccess ? 'APK Uploaded' : 'Upload APK'}
+          </button>
           <button
             className="btn-secondary"
             onClick={handleRefresh}
@@ -188,8 +230,10 @@ export default function DevicesPage() {
             <th className="px-4">Uptime</th>
             <th className="px-4">Group</th>
             <th className="px-4">Battery</th>
+            <th className="px-4">Interface</th>
             <th className="px-4">Wi-Fi</th>
             <th className="px-4">GSM</th>
+            <th className="px-4">APK (v)</th>
             <th className="px-4">RCS</th>
             <th className="px-4">Last Seen</th>
             <th className="px-4">Token</th>
@@ -210,8 +254,18 @@ export default function DevicesPage() {
                 </td>
                 <td className="px-4 text-slate-400 text-xs">{d.group?.name ?? '—'}</td>
                 <td className="px-4 text-xs text-slate-300">{d.batteryPercent != null ? `${d.batteryPercent}%` : '—'}</td>
+                <td className="px-4 text-xs font-semibold text-brand-300">{d.activeNetworkType || '—'}</td>
                 <td className={`px-4 text-xs ${d.activeNetworkType === 'WIFI' ? 'text-emerald-400 font-bold' : 'text-slate-300'}`}>{d.wifiSignalDbm != null ? `${d.wifiSignalDbm} dBm` : '—'}</td>
                 <td className={`px-4 text-xs ${d.activeNetworkType === 'GSM' || d.activeNetworkType === 'CELLULAR' ? 'text-emerald-400 font-bold' : 'text-slate-300'}`}>{d.gsmSignalDbm != null ? `${d.gsmSignalDbm} dBm` : '—'}</td>
+                <td className="px-4 text-xs font-medium text-slate-300">
+                  {d.apkUpdateStatus ? (
+                    <div className="flex items-center gap-1.5 text-brand-400 animate-pulse">
+                      <RefreshCw size={12} className="animate-spin text-brand-400" /> {d.apkUpdateStatus}
+                    </div>
+                  ) : (
+                    d.apkVersion || '—'
+                  )}
+                </td>
                 <td className="px-4">
                   <span className={`pill ${d.rcsCapable ? 'pill-green' : 'pill-gray'}`}>
                     {d.rcsCapable ? 'Yes' : 'No'}
@@ -230,10 +284,11 @@ export default function DevicesPage() {
                 </td>
                 <td className="px-4 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <label className="flex items-center gap-1 cursor-pointer text-xs text-slate-500 mr-2" title="Auto-reboot if disconnected over 5m">
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-slate-500 mr-2 leading-none" title="Auto-reboot if disconnected over 5m">
                       <input type="checkbox" className="accent-brand-500" checked={d.autoRebootEnabled ?? false} onChange={() => toggleAutoReboot(d)} />
-                      Auto
+                      Auto<br/>Reboot
                     </label>
+                    <button className="btn-secondary !px-2 !py-1 text-brand-400" title="Push APK Update" onClick={() => sendCommand(d.id, 'UPDATE_APK')}><DownloadCloud size={13} /></button>
                     <button className="btn-secondary !px-2 !py-1 text-emerald-400" title="Reconnect" onClick={() => sendCommand(d.id, 'RECONNECT')}><RefreshCcw size={13} /></button>
                     <button className="btn-danger !px-2 !py-1" title="Reboot" onClick={() => sendCommand(d.id, 'REBOOT')}><Power size={13} /></button>
                     <button className="btn-secondary !px-2 !py-1" onClick={() => openEdit(d)}><Pencil size={13} /></button>

@@ -52,6 +52,8 @@ public class Device {
     @Builder.Default
     private Boolean autoRebootEnabled = false;
     private String activeNetworkType;
+    private String apkVersion;
+    private String apkUpdateStatus;
 
     private Instant lastHeartbeat;
     private String sessionId;        // WebSocket session ID when online

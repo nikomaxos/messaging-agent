@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient } from '../api/client'
+import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient, disconnectSmppClient } from '../api/client'
 import { SmppClient } from '../types'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Unplug } from 'lucide-react'
 import { format } from 'date-fns'
 
 export default function SmppClientsPage() {
@@ -27,6 +27,11 @@ export default function SmppClientsPage() {
     mutationFn: deleteSmppClient,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['smppClients'] }); },
     onError: (err: any) => alert('Failed to delete client: ' + (err.response?.data?.message || err.message))
+  })
+  const disconnectMut = useMutation({
+    mutationFn: disconnectSmppClient,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['smppClients'] }); },
+    onError: (err: any) => alert('Failed to disconnect client: ' + (err.response?.data?.message || err.message))
   })
 
   // Start creation
@@ -88,7 +93,9 @@ export default function SmppClientsPage() {
               <th className="px-5 py-4 font-medium">System ID</th>
               <th className="px-5 py-4 font-medium">Password</th>
               <th className="px-5 py-4 font-medium">Status</th>
-              <th className="px-5 py-4 font-medium">Created</th>
+              <th className="px-5 py-4 font-medium">State</th>
+              <th className="px-5 py-4 font-medium">Active Binds</th>
+              <th className="px-5 py-4 font-medium">Uptime</th>
               <th className="px-5 py-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -110,6 +117,8 @@ export default function SmppClientsPage() {
                 <td className="px-5 py-3">
                   <input type="checkbox" checked={formData.active !== false} onChange={e => setFormData({ ...formData, active: e.target.checked })} /> Active
                 </td>
+                <td className="px-5 py-3 text-slate-500">—</td>
+                <td className="px-5 py-3 text-slate-500">—</td>
                 <td className="px-5 py-3 text-slate-500">—</td>
                 <td className="px-5 py-3 flex items-center justify-end gap-2">
                   <button onClick={handleSave} className="p-1.5 text-green-400 hover:bg-green-400/10 rounded transition" title="Save"><Check size={16} /></button>
@@ -144,7 +153,39 @@ export default function SmppClientsPage() {
                     )}
                   </td>
                   <td className="px-5 py-3 text-xs text-slate-400">
-                    {format(new Date(c.createdAt), 'MMM d, yyyy HH:mm')}
+                    {c.activeSessions && c.activeSessions.length > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Online
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Offline</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-xs text-slate-400 font-mono">
+                    {c.activeSessions && c.activeSessions.length > 0 ? (
+                      (() => {
+                        const tx = c.activeSessions.filter(s => s.bindType.includes('TRANSMITTER')).length
+                        const rx = c.activeSessions.filter(s => s.bindType.includes('RECEIVER')).length
+                        const trx = c.activeSessions.filter(s => s.bindType.includes('TRANSCEIVER')).length
+                        return `TX:${tx} RX:${rx} TRX:${trx}`
+                      })()
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-xs font-medium text-slate-300">
+                    {c.activeSessions && c.activeSessions.length > 0 ? (
+                      (() => {
+                        const uptimeSec = Math.max(...c.activeSessions.map(s => s.uptimeSeconds));
+                        const m = Math.floor(uptimeSec / 60);
+                        const h = Math.floor(m / 60);
+                        const displayUptime = h > 0 ? `${h}h ${m % 60}m` : (m > 0 ? `${m}m` : `${uptimeSec}s`);
+                        return displayUptime;
+                      })()
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end items-center gap-2 block">
@@ -155,6 +196,15 @@ export default function SmppClientsPage() {
                         </>
                       ) : (
                         <>
+                          {(c.activeSessions && c.activeSessions.length > 0) ? (
+                            <button onClick={() => { if(confirm(`Kick out all active connections for ${c.systemId}?`)) disconnectMut.mutate(c.systemId) }} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-400 hover:text-white hover:bg-orange-500 focus:ring-2 focus:outline-none focus:ring-orange-300 rounded transition" title="Disconnect All Active Binds">
+                              <Unplug size={14} /> Kick
+                            </button>
+                          ) : (
+                            <button disabled className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-500 bg-slate-500/10 rounded cursor-not-allowed" title="No active connections">
+                              <Unplug size={14} /> Kick
+                            </button>
+                          )}
                           <button onClick={() => startEdit(c)} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition" title="Edit"><Pencil size={15} /></button>
                           <button onClick={() => deleteMut.mutate(c.id)} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
                         </>

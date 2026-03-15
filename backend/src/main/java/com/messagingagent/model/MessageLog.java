@@ -56,4 +56,21 @@ public class MessageLog {
     private Instant createdAt;
 
     private Instant deliveredAt;
+    
+    private Instant fallbackStartedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "smsc_supplier_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private SmscSupplier smscSupplier;
+
+    private Instant rcsExpiresAt;
+
+    @Column(length = 20)
+    private String resendTrigger;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fallback_smsc_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private SmscSupplier fallbackSmsc;
 }

@@ -41,6 +41,8 @@ public class DeviceWebSocketService {
             device.setNetworkOperator(heartbeat.getNetworkOperator());
             device.setRcsCapable(heartbeat.getRcsCapable());
             device.setActiveNetworkType(heartbeat.getActiveNetworkType());
+            device.setApkVersion(heartbeat.getApkVersion());
+            device.setApkUpdateStatus(null);
             device.setStatus(Device.Status.ONLINE);
             device.setLastHeartbeat(Instant.now());
             deviceRepository.save(device);
@@ -57,6 +59,8 @@ public class DeviceWebSocketService {
                     "wifiSignalDbm", heartbeat.getWifiSignalDbm() != null ? heartbeat.getWifiSignalDbm() : "",
                     "gsmSignalDbm", heartbeat.getGsmSignalDbm() != null ? heartbeat.getGsmSignalDbm() : "",
                     "activeNetworkType", heartbeat.getActiveNetworkType() != null ? heartbeat.getActiveNetworkType() : "",
+                    "apkVersion", heartbeat.getApkVersion() != null ? heartbeat.getApkVersion() : "",
+                    "apkUpdateStatus", "",
                     "lastHeartbeat", device.getLastHeartbeat().toString()
                 )
             );
@@ -66,5 +70,18 @@ public class DeviceWebSocketService {
     /** Called when a device reports delivery result. Forwards to Kafka. */
     public void handleDeliveryResult(SmsDeliveryResultEvent result) {
         deliveryResultKafka.send("sms.delivery.result", result.getCorrelationId(), result);
+    }
+
+    /** Called when a device reports APK update progress. */
+    public void handleApkStatus(String deviceToken, String status) {
+        deviceRepository.findByRegistrationToken(deviceToken).ifPresent(device -> {
+            device.setApkUpdateStatus(status);
+            deviceRepository.save(device);
+            log.info("APK update status from device {}: {}", device.getName(), status);
+            messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of(
+                    "id", device.getId(),
+                    "apkUpdateStatus", status
+            ));
+        });
     }
 }

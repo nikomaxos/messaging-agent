@@ -42,6 +42,7 @@ data class LogEntry(val time: String, val level: String, val message: String)
  */
 @Singleton
 class WebSocketRelayClient @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val rcsSender: RcsSender,
     private val prefs: com.messagingagent.android.data.PreferencesRepository
 ) {
@@ -58,6 +59,7 @@ class WebSocketRelayClient @Inject constructor(
 
     /** The token for the currently connecting or active session. */
     private var activeDeviceToken: String? = null
+    private var activeBackendUrl: String? = null
 
     /** Pending retry job (cancel on new connect). */
     private var retryJob: Job? = null
@@ -88,6 +90,7 @@ class WebSocketRelayClient @Inject constructor(
     fun connect(backendUrl: String, deviceToken: String, deviceId: Long, onStatus: (String) -> Unit) {
         statusCallback = onStatus
         activeDeviceToken = deviceToken
+        activeBackendUrl = backendUrl
 
         // Close any existing connection cleanly before opening a new one.
         retryJob?.cancel()
@@ -223,6 +226,53 @@ class WebSocketRelayClient @Inject constructor(
                 // the existing onClosed listener will automatically schedule a retry.
                 ws?.close(1000, "Reconnect requested")
             }
+            body == "UPDATE_APK" -> {
+                val url = activeBackendUrl ?: return
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        sendApkUpdateStatus("Downloading…")
+                        addLog("INFO", "Downloading APK update...")
+                        val request = Request.Builder().url("${url.trimEnd('/')}/api/public/apk/download").build()
+                        val response = client.newCall(request).execute()
+                        if (response.isSuccessful) {
+                            val apkFile = java.io.File(context.cacheDir, "update.apk")
+                            response.body?.byteStream()?.use { input ->
+                                apkFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            
+                            sendApkUpdateStatus("Installing…")
+                            addLog("INFO", "APK downloaded. Preparing install...")
+                            // pm install often drops root privileges so it can't read from app cache directly.
+                            // We move it to /data/local/tmp which is readable by the shell user.
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "cp ${apkFile.absolutePath} /data/local/tmp/update.apk",
+                                "chmod 666 /data/local/tmp/update.apk"
+                            ).exec()
+
+                            val result = com.topjohnwu.superuser.Shell.cmd("pm install -r /data/local/tmp/update.apk").exec()
+                            com.topjohnwu.superuser.Shell.cmd("rm /data/local/tmp/update.apk").exec()
+                            
+                            if (result.isSuccess) {
+                                addLog("INFO", "APK installed. Launching app and rebooting service...")
+                                // Forcefully launch the app's main activity in the background so it starts the service
+                                com.topjohnwu.superuser.Shell.cmd("am start -n com.messagingagent.android/.ui.SetupActivity").exec()
+                                ws?.close(1000, "APK Update complete, restarting")
+                            } else {
+                                sendApkUpdateStatus("Failed: install error")
+                                addLog("ERROR", "Install failed: ${result.err.joinToString()}")
+                            }
+                        } else {
+                            sendApkUpdateStatus("Failed: download error")
+                            addLog("ERROR", "APK download failed: HTTP ${response.code}")
+                        }
+                    } catch (e: Exception) {
+                        sendApkUpdateStatus("Failed: error")
+                        addLog("ERROR", "APK update error: ${e.message}")
+                    }
+                }
+            }
             body.startsWith("SET_AUTO_REBOOT=") -> {
                 CoroutineScope(Dispatchers.IO).launch {
                     val enabled = body.substringAfter("=").toBooleanStrictOrNull() ?: false
@@ -237,6 +287,13 @@ class WebSocketRelayClient @Inject constructor(
         val token = activeDeviceToken ?: return
         ws?.send("SEND\ndestination:/app/heartbeat\ndeviceToken:$token\n\n$heartbeat\u0000")
             ?: addLog("WARN", "Heartbeat skipped — no active WebSocket")
+    }
+
+    private fun sendApkUpdateStatus(status: String) {
+        val token = activeDeviceToken ?: return
+        val body = """{"status":"$status"}"""
+        ws?.send("SEND\ndestination:/app/apk.status\ndeviceToken:$token\n\n$body\u0000")
+        addLog("INFO", "APK update progress broadcast: $status")
     }
 
     private fun sendDeliveryResult(result: DeliveryResult) {

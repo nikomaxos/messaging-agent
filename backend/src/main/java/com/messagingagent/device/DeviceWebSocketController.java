@@ -8,6 +8,8 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
 
+import java.util.Map;
+
 /**
  * STOMP WebSocket controller for Android device communications.
  *
@@ -40,5 +42,17 @@ public class DeviceWebSocketController {
         log.info("Delivery result from device token={}: correlationId={} result={}",
                 deviceToken, result.getCorrelationId(), result.getResult());
         webSocketService.handleDeliveryResult(result);
+    }
+
+    /**
+     * Devices send APK update statuses to /app/apk.status.
+     */
+    @MessageMapping("/apk.status")
+    public void receiveApkStatus(@Payload Map<String, String> payload,
+                                 @Header("deviceToken") String deviceToken) {
+        String status = payload.get("status");
+        if (status != null) {
+            webSocketService.handleApkStatus(deviceToken, status);
+        }
     }
 }

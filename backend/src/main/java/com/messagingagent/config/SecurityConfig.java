@@ -44,6 +44,7 @@ public class SecurityConfig {
                     "/api/auth/**",
                     "/api/devices/register",
                     "/api/devices/register/**",
+                    "/api/public/apk/download",
                     "/actuator/**",
                     "/ws/**",        // Android raw WebSocket
                     "/ws-admin/**",  // SockJS HTTP polling + WebSocket upgrade for admin panel

@@ -135,12 +135,12 @@ public class SmppResponseService {
             log.warn("No SMPP session found in Redis for correlationId={} (may have expired)", correlationId);
             return;
         }
-        Optional<SmppServerSession> session = sessionRegistry.getSession(sessionId);
-        if (session.isEmpty()) {
+        Optional<SmppSessionInfo> sessionInfo = sessionRegistry.getSession(sessionId);
+        if (sessionInfo.isEmpty()) {
             log.warn("SMPP session {} closed before delivery result for correlationId={}", sessionId, correlationId);
             return;
         }
-        consumer.accept(session.get(), srcAddr != null ? srcAddr : "");
+        consumer.accept(sessionInfo.get().getSession(), srcAddr != null ? srcAddr : "");
     }
 
     private void cleanup(String correlationId) {

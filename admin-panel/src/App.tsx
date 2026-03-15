@@ -9,6 +9,7 @@ import DevicesPage from './pages/DevicesPage'
 import SmppServerPage from './pages/SmppServerPage'
 import SmppClientsPage from './pages/SmppClientsPage'
 import SmppRoutingPage from './pages/SmppRoutingPage'
+import SmscsPage from './pages/SmscsPage'
 import LogsPage from './pages/LogsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="groups" element={<GroupsPage />} />
             <Route path="devices" element={<DevicesPage />} />
             <Route path="smpp/server" element={<SmppServerPage />} />
+            <Route path="smscs" element={<SmscsPage />} />
             <Route path="smpp/clients" element={<SmppClientsPage />} />
             <Route path="smpp/routing" element={<SmppRoutingPage />} />
             <Route path="logs" element={<LogsPage />} />

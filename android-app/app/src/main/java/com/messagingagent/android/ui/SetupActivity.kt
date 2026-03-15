@@ -98,7 +98,9 @@ class SetupActivity : ComponentActivity() {
         setContent {
             MessagingAgentTheme {
                 SetupScreen(vm = vm, onStart = {
-                    startService(Intent(this, MessagingAgentService::class.java))
+                    androidx.core.content.ContextCompat.startForegroundService(
+                        this, Intent(this, MessagingAgentService::class.java)
+                    )
                 })
             }
         }
@@ -110,7 +112,7 @@ fun SetupScreen(vm: SetupViewModel, onStart: () -> Unit) {
     val regState by vm.registrationState.collectAsState()
 
     LaunchedEffect(regState.isRegistered) {
-        if (regState.isRegistered && vm.step == SetupViewModel.Step.URL) {
+        if (regState.isRegistered) {
             vm.pendingUrl  = regState.backendUrl ?: ""
             vm.pendingName = regState.deviceName ?: ""
             vm.step = SetupViewModel.Step.DONE

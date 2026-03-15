@@ -18,6 +18,7 @@ public class SmppServerAdminController {
 
     private final SmppServerSettingsRepository settingsRepository;
     private final SmppServerService smppServerService;
+    private final com.messagingagent.repository.MessageLogRepository messageLogRepository;
 
     @GetMapping
     public ServerConfigInfo getServerConfig() {
@@ -61,5 +62,51 @@ public class SmppServerAdminController {
         private int enquireLinkTimeout;
         private String status;
         private String uptimeStartedAt;
+    }
+
+    @GetMapping("/metrics")
+    public ResponseEntity<ServerMetrics> getServerMetrics() {
+        java.time.Instant startOfMonth = java.time.ZonedDateTime.now(java.time.ZoneId.systemDefault())
+                .withDayOfMonth(1)
+                .withHour(0)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0)
+                .toInstant();
+
+        long totalMessages = messageLogRepository.countTotalSince(startOfMonth);
+        
+        long dlrsReceived = messageLogRepository.countByStatusesSince(
+                java.util.List.of(com.messagingagent.model.MessageLog.Status.DELIVERED), startOfMonth);
+                
+        long failedMessages = messageLogRepository.countByStatusesSince(
+                java.util.List.of(com.messagingagent.model.MessageLog.Status.FAILED), startOfMonth);
+
+        long queuedMessages = messageLogRepository.countByStatusesSince(
+                java.util.List.of(
+                        com.messagingagent.model.MessageLog.Status.RECEIVED,
+                        com.messagingagent.model.MessageLog.Status.DISPATCHED
+                ), startOfMonth);
+                
+        long resentFallback = messageLogRepository.countByStatusesSince(
+                java.util.List.of(com.messagingagent.model.MessageLog.Status.RCS_FAILED), startOfMonth);
+
+        return ResponseEntity.ok(ServerMetrics.builder()
+                .totalMessages(totalMessages)
+                .dlrsReceived(dlrsReceived)
+                .failedMessages(failedMessages)
+                .queuedMessages(queuedMessages)
+                .resentFallback(resentFallback)
+                .build());
+    }
+
+    @Data
+    @Builder
+    public static class ServerMetrics {
+        private long totalMessages;
+        private long dlrsReceived;
+        private long failedMessages;
+        private long queuedMessages;
+        private long resentFallback;
     }
 }

@@ -9,8 +9,9 @@ const nav = [
   { to: '/groups',        icon: <Layers size={18} />,          label: 'Device Groups' },
   { to: '/devices',       icon: <Smartphone size={18} />,      label: 'Devices' },
   { to: '/smpp/server',   icon: <Server size={18} />,          label: 'SMPP Server' },
+  { to: '/smscs',         icon: <Server size={18} className="text-blue-400" />, label: 'SMSc Suppliers' },
   { to: '/smpp/clients',  icon: <Users size={18} />,           label: 'SMPP Clients' },
-  { to: '/smpp/routing',  icon: <RouteIcon size={18} />,       label: 'SMPP Routing' },
+  { to: '/smpp/routing',  icon: <RouteIcon size={18} />,       label: 'Routing' },
   { to: '/logs',          icon: <FileText size={18} />,        label: 'Message Logs' },
 ]
 
