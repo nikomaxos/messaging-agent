@@ -7,6 +7,7 @@ import kotlinx.coroutines.async
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.telephony.SubscriptionManager
 
 data class RcsSendResult(
     val success: Boolean,
@@ -24,6 +25,8 @@ class RcsSender @Inject constructor(
         const val MESSAGES_PKG = "com.google.android.apps.messaging"
     }
 
+    private var sentMessageCount = 0
+
     suspend fun sendRcs(to: String, text: String): RcsSendResult {
         if (!isMessagesInstalled()) {
             Timber.w("Google Messages not installed — cannot send RCS to $to")
@@ -39,15 +42,32 @@ class RcsSender @Inject constructor(
                 deliveryObserver.awaitDelivery(to)
             }
 
-            val intentCmd = "am start -a android.intent.action.SENDTO " +
+            val intentCmd = java.lang.StringBuilder("am start -a android.intent.action.SENDTO " +
                     "-d smsto:$cleanTo " +
                     "--es sms_body '$safeText' " +
                     "--ez compose_mode true " +
-                    "-f 0x14000000 " +
-                    "-p $MESSAGES_PKG"
+                    "-f 0x14000000 ")
+
+            try {
+                val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+                val activeSubs = subscriptionManager.activeSubscriptionInfoList
+                if (!activeSubs.isNullOrEmpty()) {
+                    val subInfo = activeSubs[sentMessageCount % activeSubs.size]
+                    val subId = subInfo.subscriptionId
+                    intentCmd.append("--ei \"android.intent.extra.SIM_SUBSCRIPTION_ID\" $subId ")
+                    intentCmd.append("--ei \"android.telephony.extra.SUBSCRIPTION_INDEX\" $subId ")
+                    sentMessageCount++
+                }
+            } catch (e: SecurityException) {
+                Timber.w("Missing READ_PHONE_STATE permission for dual-SIM load balancing")
+            } catch (e: Exception) {
+                Timber.w("Failed to query active subscriptions: ${e.message}")
+            }
+
+            intentCmd.append("-p $MESSAGES_PKG")
 
             Timber.i("Executing root RCS intent: $intentCmd")
-            val shellResult = Shell.cmd(intentCmd).exec()
+            val shellResult = Shell.cmd(intentCmd.toString()).exec()
 
             if (!shellResult.isSuccess) {
                 observerJob.cancel()

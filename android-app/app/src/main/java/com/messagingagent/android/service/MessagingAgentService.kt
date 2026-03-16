@@ -20,6 +20,7 @@ import javax.inject.Inject
 @Serializable
 data class HeartbeatPayload(
     val batteryPercent: Int?,
+    val isCharging: Boolean,
     val wifiSignalDbm: Int?,
     val gsmSignalDbm: Int?,
     val gsmSignalAsu: Int?,
@@ -99,7 +100,8 @@ class MessagingAgentService : Service() {
                         val netType   = getActiveNetworkType()
 
                         val payload = HeartbeatPayload(
-                            batteryPercent    = battery,
+                            batteryPercent    = battery.first,
+                            isCharging        = battery.second,
                             wifiSignalDbm     = wifiRssi,
                             gsmSignalDbm      = gsm.first,
                             gsmSignalAsu      = gsm.second,
@@ -111,7 +113,7 @@ class MessagingAgentService : Service() {
 
                         val json = Json.encodeToString(HeartbeatPayload.serializer(), payload)
                         wsClient.sendHeartbeat(json)
-                        Timber.d("Heartbeat sent: battery=$battery% network=$netType wifi=$wifiRssi gsm=${gsm.first}")
+                        Timber.d("Heartbeat sent: battery=${battery.first}% charging=${battery.second} network=$netType wifi=$wifiRssi gsm=${gsm.first}")
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Heartbeat/Watchdog loop failed")
@@ -157,12 +159,15 @@ class MessagingAgentService : Service() {
             .notify(NOTIFICATION_ID, buildNotification(status))
     }
 
-    /** Use native Android API to read battery percent non-root */
-    private fun readBattery(): Int? {
+    /** Use native Android API to read battery percent and charging status non-root */
+    private fun readBattery(): Pair<Int?, Boolean> {
         val intent = applicationContext.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
         val level = intent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = intent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
-        return if (level >= 0 && scale > 0) (level * 100) / scale else null
+        val status = intent?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+        val percent = if (level >= 0 && scale > 0) (level * 100) / scale else null
+        return Pair(percent, isCharging)
     }
 
     /** Read WiFi RSSI via WifiManager (no root needed on API 29+) */

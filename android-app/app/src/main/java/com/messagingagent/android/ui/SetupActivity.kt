@@ -36,9 +36,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.content.Context
+import android.provider.Settings
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @HiltViewModel
 class SetupViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val prefs: PreferencesRepository,
     private val registrationRepo: RegistrationRepository,
     val wsClient: WebSocketRelayClient
@@ -80,7 +84,8 @@ class SetupViewModel @Inject constructor(
         viewModelScope.launch {
             loading = true
             error = null
-            registrationRepo.registerDevice(pendingUrl, pendingName, selectedGroup.id)
+            val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+            registrationRepo.registerDevice(pendingUrl, pendingName, selectedGroup.id, androidId)
                 .onSuccess { step = Step.DONE }
                 .onFailure { error = "Registration failed at ${pendingUrl}/api/devices/register\n${it.message}" }
             loading = false
@@ -349,10 +354,17 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
             }
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Column {
+                    Text("APK Version", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text(com.messagingagent.android.BuildConfig.VERSION_NAME, color = Color(0xFF4ADE80), fontSize = 12.sp,
+                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+                Column(horizontalAlignment = Alignment.End) {
                     Text("Device ID", color = Color(0xFF6B7280), fontSize = 11.sp)
                     Text("#${state.deviceId ?: "—"}", color = Color(0xFF6B7280), fontSize = 12.sp,
                          fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
+            }
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Backend", color = Color(0xFF6B7280), fontSize = 11.sp)
                     Text(state.backendUrl ?: vm.pendingUrl, color = Color(0xFF6B7280), fontSize = 11.sp,
