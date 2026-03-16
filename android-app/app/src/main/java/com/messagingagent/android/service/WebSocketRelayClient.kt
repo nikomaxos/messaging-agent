@@ -244,24 +244,37 @@ class WebSocketRelayClient @Inject constructor(
                             
                             sendApkUpdateStatus("Installing…")
                             addLog("INFO", "APK downloaded. Preparing install...")
-                            // pm install often drops root privileges so it can't read from app cache directly.
-                            // We move it to /data/local/tmp which is readable by the shell user.
-                            com.topjohnwu.superuser.Shell.cmd(
-                                "cp ${apkFile.absolutePath} /data/local/tmp/update.apk",
-                                "chmod 666 /data/local/tmp/update.apk"
-                            ).exec()
-
-                            val result = com.topjohnwu.superuser.Shell.cmd("pm install -r /data/local/tmp/update.apk").exec()
-                            com.topjohnwu.superuser.Shell.cmd("rm /data/local/tmp/update.apk").exec()
                             
-                            if (result.isSuccess) {
-                                addLog("INFO", "APK installed. Launching app and rebooting service...")
-                                // Forcefully launch the app's main activity in the background so it starts the service
-                                com.topjohnwu.superuser.Shell.cmd("am start -n com.messagingagent.android/.ui.SetupActivity").exec()
-                                ws?.close(1000, "APK Update complete, restarting")
+                            val hasRoot = com.topjohnwu.superuser.Shell.isAppGrantedRoot() == true
+                            if (hasRoot) {
+                                // "pm install -r" FORCE KILLS the app process! 
+                                // We MUST run it as a detached background script so it finishes and restarts us.
+                                val scriptFile = java.io.File(context.cacheDir, "installer.sh")
+                                scriptFile.writeText("""
+                                    sleep 2
+                                    cat "${apkFile.absolutePath}" > /data/local/tmp/update.apk
+                                    pm install -r -d -g /data/local/tmp/update.apk
+                                    rm /data/local/tmp/update.apk
+                                    am start -n com.messagingagent.android/.ui.SetupActivity
+                                """.trimIndent())
+                                
+                                com.topjohnwu.superuser.Shell.cmd(
+                                    "nohup sh ${scriptFile.absolutePath} > /dev/null 2>&1 &"
+                                ).exec()
+                                
+                                addLog("INFO", "Root update script deployed. App will restart momentarily.")
+                                ws?.close(1000, "Applying OTA Update")
                             } else {
-                                sendApkUpdateStatus("Failed: install error")
-                                addLog("ERROR", "Install failed: ${result.err.joinToString()}")
+                                addLog("INFO", "Root not granted. Opening Android Package Installer...")
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    context, "${context.packageName}.provider", apkFile
+                                )
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "application/vnd.android.package-archive")
+                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                }
+                                context.startActivity(intent)
+                                sendApkUpdateStatus("Waiting for user to install")
                             }
                         } else {
                             sendApkUpdateStatus("Failed: download error")
