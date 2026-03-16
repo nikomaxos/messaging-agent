@@ -13,7 +13,7 @@ android-app/.gradle/
 android-app/local.properties
 android-app/app/build/
 *.apk
-!MessagingAgent-debug.apk
+!MessagingAgent-debug*.apk
 *.aab
 *.keystore
 
