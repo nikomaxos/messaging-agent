@@ -254,23 +254,25 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
 
         while (true) {
             try {
-                val reqUrl = "${url.trimEnd('/')}/api/devices/register/status/$token"
+                val reqUrl = "${url.trim()}/api/devices/register/status/$token"
                 val resp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     httpClient.newCall(
                         okhttp3.Request.Builder().url(reqUrl).build()
                     ).execute()
                 }
-                if (resp.isSuccessful) {
-                    val body = resp.body?.string() ?: ""
-                    isOnline  = body.contains("\"ONLINE\"")
-                    liveDetail = if (isOnline) "Connected to backend" else "Backend reachable — offline"
-                } else {
-                    isOnline  = false
-                    liveDetail = "Backend returned ${resp.code}"
+                resp.use { r ->
+                    if (r.isSuccessful) {
+                        val body = r.body?.string() ?: ""
+                        isOnline  = body.contains("\"ONLINE\"")
+                        liveDetail = if (isOnline) "Connected to backend" else "Backend reachable — offline"
+                    } else {
+                        isOnline  = false
+                        liveDetail = "Backend returned HTTP ${r.code}"
+                    }
                 }
             } catch (e: Exception) {
                 isOnline  = false
-                liveDetail = "Cannot reach backend"
+                liveDetail = "Cannot reach backend: ${e.message}"
             }
             isChecking = false          // first poll done — status is now known
             kotlinx.coroutines.delay(10_000)

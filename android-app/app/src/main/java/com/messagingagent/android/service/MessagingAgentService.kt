@@ -164,8 +164,10 @@ class MessagingAgentService : Service() {
         val intent = applicationContext.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
         val level = intent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = intent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val status = intent?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
-        val isCharging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+        val plugged = intent?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+        val isCharging = plugged == android.os.BatteryManager.BATTERY_PLUGGED_AC ||
+                         plugged == android.os.BatteryManager.BATTERY_PLUGGED_USB ||
+                         plugged == android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS
         val percent = if (level >= 0 && scale > 0) (level * 100) / scale else null
         return Pair(percent, isCharging)
     }
