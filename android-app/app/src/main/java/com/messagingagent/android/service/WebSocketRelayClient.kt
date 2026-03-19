@@ -19,7 +19,9 @@ data class SmsDispatch(
     val correlationId: String,
     val sourceAddress: String,
     val destinationAddress: String,
-    val messageText: String
+    val messageText: String,
+    val dlrDelayMinSec: Int = 2,
+    val dlrDelayMaxSec: Int = 5
 )
 
 @Serializable
@@ -57,8 +59,8 @@ class WebSocketRelayClient @Inject constructor(
     /** Monotonically increasing generation — stale retries from old sockets are ignored. */
     @Volatile private var generation = 0
 
-    /** The token for the currently connecting or active session. */
-    private var activeDeviceToken: String? = null
+    /** The active list of SIM sessions to route commands and SMS payloads. */
+    private var activeSims: List<com.messagingagent.android.data.SimRegistration> = emptyList()
     private var activeBackendUrl: String? = null
 
     /** Pending retry job (cancel on new connect). */
@@ -74,6 +76,9 @@ class WebSocketRelayClient @Inject constructor(
     /** Precise connection start time to drive UI uptime counter */
     val connectionStartTime = MutableStateFlow<Long?>(null)
 
+    /** Track which log entries have been sent to backend already */
+    @Volatile private var lastSentLogIndex = 0
+
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     private fun addLog(level: String, message: String) {
@@ -87,10 +92,15 @@ class WebSocketRelayClient @Inject constructor(
      * Connect (or reconnect) to the backend WebSocket.
      * Safe to call multiple times — closes any active connection first.
      */
-    fun connect(backendUrl: String, deviceToken: String, deviceId: Long, onStatus: (String) -> Unit) {
+    fun connect(backendUrl: String, sims: List<com.messagingagent.android.data.SimRegistration>, onStatus: (String) -> Unit) {
         statusCallback = onStatus
-        activeDeviceToken = deviceToken
+        activeSims = sims
         activeBackendUrl = backendUrl
+
+        if (sims.isEmpty()) {
+            addLog("WARN", "No registered SIMs to connect")
+            return
+        }
 
         // Close any existing connection cleanly before opening a new one.
         retryJob?.cancel()
@@ -109,9 +119,9 @@ class WebSocketRelayClient @Inject constructor(
 
         val request = Request.Builder()
             .url(wsUrl)
-            .addHeader("deviceToken", deviceToken)
+            .addHeader("deviceToken", sims.first().deviceToken)
             .build()
-
+        
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 if (generation != myGen) return   // stale — a newer connect() replaced this socket
@@ -121,9 +131,13 @@ class WebSocketRelayClient @Inject constructor(
                 onStatus("Connected to backend")
                 // Allow OkHttp's underlying `pingInterval(25, SECONDS)` to keep the network layer alive
                 // Tell server: STOMP heartbeats are disabled (0,0) so it doesn't drop us due to missing STOMP frames
-                webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$deviceToken\n\n\u0000")
-                webSocket.send("SUBSCRIBE\nid:sub-0\ndestination:/queue/sms.$deviceId\n\n\u0000")
-                webSocket.send("SUBSCRIBE\nid:sub-1\ndestination:/queue/commands.$deviceId\n\n\u0000")
+                val baseToken = activeSims.first().deviceToken
+                webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$baseToken\n\n\u0000")
+                
+                activeSims.forEachIndexed { i, sim ->
+                    webSocket.send("SUBSCRIBE\nid:sub-sms-$i\ndestination:/queue/sms.${sim.deviceId}\n\n\u0000")
+                    webSocket.send("SUBSCRIBE\nid:sub-cmd-$i\ndestination:/queue/commands.${sim.deviceId}\n\n\u0000")
+                }
                 
                 pingJob = CoroutineScope(Dispatchers.IO).launch {
                     while (isActive) {
@@ -156,7 +170,7 @@ class WebSocketRelayClient @Inject constructor(
                 connectionStartTime.value = null
                 addLog("WARN", "WebSocket closed: code=$code reason=$reason")
                 onStatus("Offline")
-                scheduleRetry(backendUrl, deviceToken, deviceId, onStatus, myGen)
+                scheduleRetry(backendUrl, sims, onStatus, myGen)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -169,18 +183,18 @@ class WebSocketRelayClient @Inject constructor(
                 val httpCode = response?.code?.toString() ?: "no-response"
                 addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
                 onStatus("Disconnected — retrying…")
-                scheduleRetry(backendUrl, deviceToken, deviceId, onStatus, myGen)
+                scheduleRetry(backendUrl, sims, onStatus, myGen)
             }
         })
     }
 
-    private fun scheduleRetry(backendUrl: String, deviceToken: String, deviceId: Long, onStatus: (String) -> Unit, myGen: Int) {
+    private fun scheduleRetry(backendUrl: String, sims: List<com.messagingagent.android.data.SimRegistration>, onStatus: (String) -> Unit, myGen: Int) {
         retryJob = CoroutineScope(Dispatchers.IO).launch {
             addLog("INFO", "Will retry in 8s…")
             delay(8_000)
             if (generation == myGen) {          // still the active generation
                 addLog("INFO", "Retrying connection…")
-                connect(backendUrl, deviceToken, deviceId, onStatus)
+                connect(backendUrl, sims, onStatus)
             } else {
                 addLog("DEBUG", "Retry cancelled — superseded by newer connect()")
             }
@@ -193,29 +207,45 @@ class WebSocketRelayClient @Inject constructor(
         val body = text.substringAfter("\n\n").trimEnd('\u0000')
 
         if (destMatch?.startsWith("/queue/commands.") == true) {
-            handleSysCommand(body)
+            val deviceIdStr = destMatch.substringAfterLast(".")
+            val sim = activeSims.find { it.deviceId.toString() == deviceIdStr }
+            handleSysCommand(body, sim?.deviceToken)
             return
         }
 
         try {
+            val deviceIdStr = destMatch?.substringAfterLast(".")
+            val sim = activeSims.find { it.deviceId.toString() == deviceIdStr } ?: return
+
             val dispatch = json.decodeFromString<SmsDispatch>(body)
             CoroutineScope(Dispatchers.IO).launch {
                 val result = rcsSender.sendRcs(
-                    to = dispatch.destinationAddress,
-                    text = dispatch.messageText
-                )
-                sendDeliveryResult(DeliveryResult(
                     correlationId = dispatch.correlationId,
-                    result = if (result.success) "DELIVERED" else if (result.noRcs) "NO_RCS" else "ERROR",
-                    errorDetail = result.error
-                ))
+                    deviceToken = sim.deviceToken,
+                    to = dispatch.destinationAddress,
+                    text = dispatch.messageText,
+                    subscriptionId = sim.subscriptionId,
+                    dlrDelayMinSec = dispatch.dlrDelayMinSec,
+                    dlrDelayMaxSec = dispatch.dlrDelayMaxSec
+                )
+                
+                // If the bot successfully tapped the physical Send button,
+                // the device stays BUSY. The DLR watchdog will detect status=2
+                // (submitted to network) in bugle_db and send SENT to unlock the device.
+                if (!result.success) {
+                    sendDeliveryResult(DeliveryResult(
+                        correlationId = dispatch.correlationId,
+                        result = if (result.noRcs) "NO_RCS" else "ERROR",
+                        errorDetail = result.error
+                    ), sim.deviceToken)
+                }
             }
         } catch (e: Exception) {
             addLog("ERROR", "Failed to parse dispatch: ${e.message}")
         }
     }
 
-    private fun handleSysCommand(body: String) {
+    private fun handleSysCommand(body: String, commandTargetToken: String?) {
         addLog("INFO", "Received system command: $body")
         when {
             body == "REBOOT" -> {
@@ -230,7 +260,7 @@ class WebSocketRelayClient @Inject constructor(
                 val url = activeBackendUrl ?: return
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        sendApkUpdateStatus("Downloading…")
+                        if (commandTargetToken != null) sendApkUpdateStatus("Downloading…", commandTargetToken)
                         addLog("INFO", "Downloading APK update...")
                         val request = Request.Builder().url("${url.trimEnd('/')}/api/public/apk/download").build()
                         val response = client.newCall(request).execute()
@@ -242,7 +272,7 @@ class WebSocketRelayClient @Inject constructor(
                                 }
                             }
                             
-                            sendApkUpdateStatus("Installing…")
+                            if (commandTargetToken != null) sendApkUpdateStatus("Installing…", commandTargetToken)
                             addLog("INFO", "APK downloaded. Preparing install...")
                             
                             val hasRoot = com.topjohnwu.superuser.Shell.isAppGrantedRoot() == true
@@ -252,14 +282,17 @@ class WebSocketRelayClient @Inject constructor(
                                 val scriptFile = java.io.File(context.cacheDir, "installer.sh")
                                 scriptFile.writeText("""
                                     sleep 2
-                                    cat "${apkFile.absolutePath}" > /data/local/tmp/update.apk
-                                    pm install -r -d -g /data/local/tmp/update.apk
+                                    echo "Starting install" > /data/local/tmp/ota.log
+                                    cp "${apkFile.absolutePath}" /data/local/tmp/update.apk
+                                    echo "Copied APK" >> /data/local/tmp/ota.log
+                                    pm install -r -d -g /data/local/tmp/update.apk >> /data/local/tmp/ota.log 2>&1
+                                    echo "Install exit: ${'$'}?" >> /data/local/tmp/ota.log
                                     rm /data/local/tmp/update.apk
-                                    am start -n com.messagingagent.android/.ui.SetupActivity
+                                    am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> /data/local/tmp/ota.log 2>&1
                                 """.trimIndent())
                                 
                                 com.topjohnwu.superuser.Shell.cmd(
-                                    "nohup sh ${scriptFile.absolutePath} > /dev/null 2>&1 &"
+                                    "nohup sh \"${scriptFile.absolutePath}\" >> /data/local/tmp/ota.log 2>&1 &"
                                 ).exec()
                                 
                                 addLog("INFO", "Root update script deployed. App will restart momentarily.")
@@ -274,15 +307,50 @@ class WebSocketRelayClient @Inject constructor(
                                     flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                                 }
                                 context.startActivity(intent)
-                                sendApkUpdateStatus("Waiting for user to install")
+                                if (commandTargetToken != null) sendApkUpdateStatus("Waiting for user to install", commandTargetToken)
                             }
                         } else {
-                            sendApkUpdateStatus("Failed: download error")
+                            if (commandTargetToken != null) sendApkUpdateStatus("Failed: download error", commandTargetToken)
                             addLog("ERROR", "APK download failed: HTTP ${response.code}")
                         }
                     } catch (e: Exception) {
-                        sendApkUpdateStatus("Failed: error")
+                        if (commandTargetToken != null) sendApkUpdateStatus("Failed: error", commandTargetToken)
                         addLog("ERROR", "APK update error: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("CANCEL_RCS=") -> {
+                val dest = body.substringAfter("=")
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        addLog("INFO", "Cancelling pending RCS to $dest")
+                        
+                        // First kill the Google Messages app to halt immediate retries
+                        com.topjohnwu.superuser.Shell.cmd("am force-stop com.google.android.apps.messaging").exec()
+                        
+                        val cleanDest = dest.replace("[^0-9+]".toRegex(), "")
+                        
+                        // Delete from Android telephony provider (outbox = 4, queued = 6, failed = 5)
+                        val cr = context.contentResolver
+                        val uri = android.net.Uri.parse("content://sms")
+                        val deleted = cr.delete(uri, "address LIKE ? AND type IN (4, 5, 6)", arrayOf("%$cleanDest%"))
+                        
+                        addLog("INFO", "Deleted $deleted pending SMS/RCS jobs from telephony provider for $cleanDest")
+                        
+                        // Delete pending/queued/sent messages from bugle_db using on-device sqlite3
+                        // Status codes from live DB analysis: 1=SENDING, 2=QUEUED, 100=SENT
+                        val bugleDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
+                        val sqlite3 = "/data/local/tmp/sqlite3"
+                        val sql = "DELETE FROM messages WHERE message_status IN (1,2,100) AND conversation_id IN (SELECT _id FROM conversations WHERE participant_normalized_destination LIKE '%$cleanDest%');"
+                        val result = com.topjohnwu.superuser.Shell.cmd("$sqlite3 '$bugleDb' \"$sql\"").exec()
+                        
+                        if (result.isSuccess) {
+                            addLog("INFO", "Purged pending messages from bugle_db for $cleanDest")
+                        } else {
+                            addLog("ERROR", "sqlite3 cancel failed: ${result.err}")
+                        }
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Failed to cancel RCS for $dest: ${e.message}")
                     }
                 }
             }
@@ -293,27 +361,69 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("INFO", "Auto-reboot set to $enabled")
                 }
             }
+            body.startsWith("SET_AUTO_PURGE=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val mode = body.substringAfter("=").uppercase()
+                    prefs.setAutoPurgeMode(mode)
+                    addLog("INFO", "Auto-Purge mode set to $mode")
+                }
+            }
         }
     }
 
-    fun sendHeartbeat(heartbeat: String) {
-        val token = activeDeviceToken ?: return
-        ws?.send("SEND\ndestination:/app/heartbeat\ndeviceToken:$token\n\n$heartbeat\u0000")
-            ?: addLog("WARN", "Heartbeat skipped — no active WebSocket")
+    fun sendPing(token: String) {
+        ws?.send("SEND\ndestination:/app/ping\ndeviceToken:$token\n\n\u0000")
     }
 
-    private fun sendApkUpdateStatus(status: String) {
-        val token = activeDeviceToken ?: return
+    fun sendHeartbeat(heartbeat: String, token: String) {
+        ws?.send("SEND\ndestination:/app/heartbeat\ndeviceToken:$token\n\n$heartbeat\u0000")
+            ?: addLog("WARN", "Heartbeat skipped — no active WebSocket for Multi-SIM")
+    }
+
+    private fun sendApkUpdateStatus(status: String, token: String) {
         val body = """{"status":"$status"}"""
         ws?.send("SEND\ndestination:/app/apk.status\ndeviceToken:$token\n\n$body\u0000")
         addLog("INFO", "APK update progress broadcast: $status")
     }
 
-    private fun sendDeliveryResult(result: DeliveryResult) {
-        val token = activeDeviceToken ?: return
+    fun sendDeliveryResultAsync(result: DeliveryResult, token: String) {
+        sendDeliveryResult(result, token)
+    }
+
+    private fun sendDeliveryResult(result: DeliveryResult, token: String) {
         val body = Json.encodeToString(DeliveryResult.serializer(), result)
         ws?.send("SEND\ndestination:/app/delivery.result\ndeviceToken:$token\n\n$body\u0000")
         addLog("INFO", "Delivery result sent: ${result.result} for ${result.correlationId}")
+    }
+
+    /**
+     * Drain new log entries since last send. Returns entries that haven't been sent yet.
+     * Filters out DLR-related logs (delivery results have their own pipeline).
+     */
+    fun drainNewLogs(): List<LogEntry> {
+        val currentLogs = _log.value
+        val newEntries = if (lastSentLogIndex < currentLogs.size) {
+            currentLogs.subList(lastSentLogIndex, currentLogs.size)
+        } else {
+            emptyList()
+        }
+        lastSentLogIndex = currentLogs.size
+        // Filter out DLR-related logs (they go via delivery.result channel)
+        return newEntries.filter { !it.message.contains("Delivery result sent") }
+    }
+
+    /** Send batched device logs to backend via STOMP. */
+    fun sendDeviceLogs(logs: List<LogEntry>, token: String) {
+        if (logs.isEmpty()) return
+        val payload = logs.map { entry ->
+            val level = when (entry.level) {
+                "ERROR" -> "ERROR"
+                "WARN" -> "WARN"
+                else -> "INFO"
+            }
+            """{"level":"$level","event":"${entry.message.replace("\"", "'").take(250)}","detail":"${entry.time}"}"""
+        }.joinToString(",", "[", "]")
+        ws?.send("SEND\ndestination:/app/device.logs\ndeviceToken:$token\ncontent-type:application/json\n\n$payload\u0000")
     }
 
     fun disconnect() {

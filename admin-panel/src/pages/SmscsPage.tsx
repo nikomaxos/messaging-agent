@@ -4,6 +4,7 @@ import { getSmscSuppliers, createSmscSupplier, updateSmscSupplier, deleteSmscSup
 import { SmscSupplier, SmscSupplierConfig } from '../types'
 import { Plus, Pencil, Trash2, X, Check, Server, RefreshCw, Play, Square } from 'lucide-react'
 import { format } from 'date-fns'
+import { ConfirmModal } from '../components/ConfirmModal'
 
 export default function SmscsPage() {
   const qc = useQueryClient()
@@ -16,6 +17,7 @@ export default function SmscsPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
   
   // Form State
   const [formData, setFormData] = useState<Partial<SmscSupplierConfig>>({})
@@ -83,6 +85,13 @@ export default function SmscsPage() {
 
   return (
     <div className="p-8 relative">
+      <ConfirmModal
+        isOpen={confirmAction !== null}
+        title={confirmAction?.title || ''}
+        message={confirmAction?.message || ''}
+        onConfirm={() => confirmAction?.onConfirm()}
+        onCancel={() => setConfirmAction(null)}
+      />
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">SMSc Suppliers</h1>
@@ -174,7 +183,11 @@ export default function SmscsPage() {
                 <td className="px-5 py-3">
                   <div className="flex justify-end items-center gap-2">
                     <button onClick={() => openEditModal(s)} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition" title="Edit"><Pencil size={15} /></button>
-                    <button onClick={() => { if(confirm(`Delete ${s.name}?`)) deleteMut.mutate(s.id) }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
+                    <button onClick={() => setConfirmAction({
+                      title: 'Delete Supplier',
+                      message: `Are you sure you want to delete ${s.name}?`,
+                      onConfirm: () => deleteMut.mutate(s.id)
+                    })} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
                   </div>
                 </td>
               </tr>

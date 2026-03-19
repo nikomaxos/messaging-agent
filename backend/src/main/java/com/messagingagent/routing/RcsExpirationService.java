@@ -25,6 +25,7 @@ public class RcsExpirationService {
     private final MessageLogRepository messageLogRepository;
     private final SmscConnectionManager smscConnectionManager;
     private final SmppResponseService smppResponseService;
+    private final com.messagingagent.device.DeviceWebSocketService deviceWebSocketService;
 
     // Run every 10 seconds
     @Scheduled(fixedDelay = 10000)
@@ -40,18 +41,13 @@ public class RcsExpirationService {
         log.info("Found {} expired RCS messages to process for fallback", expiredLogs.size());
 
         for (MessageLog logEntry : expiredLogs) {
-            logEntry.setStatus(MessageLog.Status.RCS_FAILED); // Actually transitioning to TIMEOUT/RCS_FAILED
+            // Do NOT set a final status (FAILED/RCS_FAILED) — only real DLRs from the network can do that.
+            // The message stays DISPATCHED until the DLR watchdog reports DELIVERED/ERROR.
 
             boolean handledByFallback = false;
 
             if (logEntry.getFallbackSmsc() != null && logEntry.getResendTrigger() != null) {
-                // If the timeout occurred, does it match the ALL_FAILURES or NO_RCS triggers?
-                // Depending on the exact wording, "NO_RCS" might just mean the feature is off, 
-                // but "ALL_FAILURES" covers expirations too.
-                // If user meant "Timeout = NO_RCS", then both should trigger. 
-                // We'll trigger for either, since an expiration is effectively a failure.
-                boolean shouldResend = "ALL_FAILURES".equalsIgnoreCase(logEntry.getResendTrigger()) || 
-                                       "NO_RCS".equalsIgnoreCase(logEntry.getResendTrigger());
+                boolean shouldResend = "ALL_FAILURES".equalsIgnoreCase(logEntry.getResendTrigger());
 
                 if (shouldResend) {
                     log.info("Expiration triggered Fallback SMSC (id={}) for correlationId={}",
@@ -59,26 +55,41 @@ public class RcsExpirationService {
                     
                     logEntry.setFallbackStartedAt(Instant.now());
 
-                    boolean sent = smscConnectionManager.submitMessage(
+                    if (logEntry.getDevice() != null) {
+                        deviceWebSocketService.sendSysCommand(logEntry.getDevice(), "CANCEL_RCS=" + logEntry.getDestinationAddress());
+                    }
+
+                    String supplierMsgId = smscConnectionManager.submitMessage(
                             logEntry.getFallbackSmsc().getId(), 
                             logEntry.getSourceAddress(), 
                             logEntry.getDestinationAddress(), 
                             logEntry.getMessageText());
                             
-                    if (sent) {
+                    if (supplierMsgId != null) {
                         logEntry.setStatus(MessageLog.Status.DELIVERED);
+                        logEntry.setSupplierMessageId(supplierMsgId);
+                        smppResponseService.sendDeliverySm(logEntry.getSmppMessageId());
                         handledByFallback = true;
                     }
                 }
             }
 
             if (!handledByFallback) {
-                // Return a failure to the original SMPP client
-                smppResponseService.sendDeliveryFailure(logEntry.getSmppMessageId(), "EXPIRED");
-                logEntry.setStatus(MessageLog.Status.FAILED);
+                // No fallback — do NOT send failure DELIVER_SM, do NOT set FAILED.
+                // Just mark that expiration happened (set errorDetail for audit) and
+                // clear rcsExpiresAt to prevent re-processing. Status stays DISPATCHED.
+                log.info("RCS expiration for correlationId={} — no fallback, awaiting DLR from network",
+                        logEntry.getSmppMessageId());
+                logEntry.setErrorDetail("RCS delivery receipt timed out — awaiting network DLR");
+                logEntry.setRcsExpiresAt(null); // Prevent re-processing by next sweep
             }
 
             messageLogRepository.save(logEntry);
+            
+            // Unlock the device and trigger queue drain so the next message can be dispatched
+            if (logEntry.getDevice() != null && logEntry.getDeviceGroup() != null) {
+                deviceWebSocketService.unlockDeviceAndDrainQueue(logEntry.getDevice(), logEntry.getDeviceGroup());
+            }
         }
     }
 }

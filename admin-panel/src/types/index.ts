@@ -3,6 +3,8 @@ export interface DeviceGroup {
   name: string
   description?: string
   active: boolean
+  dlrDelayMinSec: number
+  dlrDelayMaxSec: number
   createdAt: string
 }
 
@@ -13,6 +15,9 @@ export interface Device {
   status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'MAINTENANCE'
   group?: DeviceGroup
   batteryPercent?: number
+  isCharging?: boolean
+  simIccid?: string
+  phoneNumber?: string
   wifiSignalDbm?: number
   gsmSignalDbm?: number
   gsmSignalAsu?: number
@@ -22,6 +27,8 @@ export interface Device {
   connectedAt?: string
   registrationToken?: string
   autoRebootEnabled?: boolean
+  autoPurge?: string
+  lastPurgedAt?: string
   activeNetworkType?: string
   apkVersion?: string
   apkUpdateStatus?: string
@@ -54,15 +61,24 @@ export interface SmppRouting {
 export interface MessageLog {
   id: number
   smppMessageId?: string
+  supplierMessageId?: string
+  customerMessageId?: string
+  parentMessage?: MessageLog
   sourceAddress?: string
   destinationAddress?: string
   messageText?: string
   status: 'RECEIVED' | 'DISPATCHED' | 'DELIVERED' | 'RCS_FAILED' | 'FAILED'
-  device?: Pick<Device, 'id' | 'name'>
+  device?: Pick<Device, 'id' | 'name' | 'simIccid' | 'phoneNumber' | 'imei'>
   errorDetail?: string
+  fallbackSmsc?: any
   createdAt: string
-  deliveredAt?: string
+  dispatchedAt?: string
+  rcsDlrReceivedAt?: string
   fallbackStartedAt?: string
+  fallbackDlrReceivedAt?: string
+  deliveredAt?: string
+  deviceGroup?: DeviceGroup
+  resendTrigger?: string
 }
 
 export interface AuthResponse {

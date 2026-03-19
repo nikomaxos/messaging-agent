@@ -59,13 +59,17 @@ public class DeviceRegistrationController {
             device = Device.builder()
                     .name(req.getDeviceName().trim())
                     .imei(req.getImei() != null ? req.getImei().trim() : null)
+                    .simIccid(req.getSimIccid() != null ? req.getSimIccid().trim() : null)
+                    .phoneNumber(req.getPhoneNumber() != null ? req.getPhoneNumber().trim() : null)
                     .group(group)
                     .registrationToken(UUID.randomUUID().toString())
                     .status(Device.Status.OFFLINE)
                     .build();
         } else {
-            // Re-registration: refresh token and update group/name
+            // Re-registration: refresh token and update group/name/sim
             device.setName(req.getDeviceName().trim());
+            device.setSimIccid(req.getSimIccid() != null ? req.getSimIccid().trim() : null);
+            device.setPhoneNumber(req.getPhoneNumber() != null ? req.getPhoneNumber().trim() : null);
             device.setGroup(group);
             device.setRegistrationToken(UUID.randomUUID().toString());
             device.setStatus(Device.Status.OFFLINE);
@@ -104,13 +108,15 @@ public class DeviceRegistrationController {
                 .map(d -> ResponseEntity.ok(new DeviceStatusResponse(
                         d.getId(), d.getName(), d.getStatus().name(),
                         d.getLastHeartbeat(),
-                        d.getGroup() != null ? d.getGroup().getId() : null)))
+                        d.getGroup() != null ? d.getGroup().getId() : null,
+                        d.getAutoPurge(), d.getLastPurgedAt())))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     public record DeviceStatusResponse(
             Long id, String name, String status,
-            java.time.Instant lastHeartbeat, Long groupId) {}
+            java.time.Instant lastHeartbeat, Long groupId,
+            String autoPurge, java.time.Instant lastPurgedAt) {}
 
     // ── DTOs ─────────────────────────────────────────────────────────────────
 
@@ -119,6 +125,8 @@ public class DeviceRegistrationController {
         @NotBlank private String deviceName;
         private String imei;                // optional but recommended for re-registration
         private Long groupId;              // which virtual SMSC group to join
+        private String simIccid;
+        private String phoneNumber;
     }
 
     public record RegistrationResponse(Long deviceId, String token, String groupName) {}

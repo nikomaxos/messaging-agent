@@ -22,7 +22,9 @@ data class GroupSummary(val id: Long, val name: String, val description: String?
 data class RegistrationRequest(
     val deviceName: String,
     val imei: String?,
-    val groupId: Long
+    val groupId: Long,
+    val simIccid: String? = null,
+    val phoneNumber: String? = null
 )
 
 @Serializable
@@ -73,42 +75,88 @@ class RegistrationRepository @Inject constructor(
         }
 
     /**
-     * Register this device with the backend.
-     * On success, stores the received token + group info in DataStore.
+     * Parse hardware SIMs and register each independently with the backend,
+     * merging them into a list of SIM Registrations saved to DataStore.
      */
-    suspend fun registerDevice(
+    suspend fun registerAllSims(
         backendUrl: String,
         deviceName: String,
         groupId: Long,
-        imei: String? = null
-    ): Result<RegistrationResponse> = withContext(Dispatchers.IO) {
+        groupName: String,
+        baseImei: String,
+        manualPhoneNumbers: String = ""
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val url = "${backendUrl.trimEnd('/')}/api/devices/register"
-            val reqBody = json.encodeToString(
-                RegistrationRequest.serializer(),
-                RegistrationRequest(deviceName, imei, groupId)
-            ).toRequestBody("application/json".toMediaType())
-
-            val request = Request.Builder().url(url).post(reqBody).build()
-            val (code, bodyStr) = client.newCall(request).execute().use { resp ->
-                resp.code to (resp.body?.string() ?: "")
+            val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as android.telephony.SubscriptionManager
+            var activeSubs = emptyList<android.telephony.SubscriptionInfo>()
+            
+            if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                activeSubs = subscriptionManager.activeSubscriptionInfoList ?: emptyList()
             }
 
-            if (code !in 200..299) {
-                return@withContext Result.failure(Exception("HTTP $code"))
+            val sims = mutableListOf<SimRegistration>()
+
+            if (activeSubs.isEmpty()) {
+                // Fallback: no SIMs or permission denied
+                val override = manualPhoneNumbers.split(",").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+                val resp = performRegistrationRequest(backendUrl, deviceName, groupId, baseImei, null, override)
+                sims.add(SimRegistration(resp.deviceId, resp.token, baseImei, override, -1))
+            } else {
+                val manualPhonesList = manualPhoneNumbers.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                for ((index, sub) in activeSubs.withIndex()) {
+                    val iccid = sub.iccId ?: "${baseImei}_$index"
+                    var phone: String? = null
+                    
+                    if (index < manualPhonesList.size) {
+                        phone = manualPhonesList[index]
+                    } else if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_PHONE_NUMBERS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        try { 
+                            phone = sub.number 
+                            if (phone.isNullOrBlank()) {
+                                val tm = (context.getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager).createForSubscriptionId(sub.subscriptionId)
+                                phone = tm.line1Number
+                            }
+                        } catch (e: Exception) {}
+                    }
+                    if (phone.isNullOrBlank()) phone = null
+
+                    val simDeviceName = if (phone.isNullOrBlank()) "$deviceName - SIM${index + 1}" else "$deviceName - SIM${index + 1} ($phone)"
+                    val uniqueImei = "${baseImei}_$iccid".take(100)
+                    
+                    val resp = performRegistrationRequest(backendUrl, simDeviceName, groupId, uniqueImei, iccid, phone)
+                    sims.add(SimRegistration(resp.deviceId, resp.token, iccid, phone, sub.subscriptionId))
+                }
             }
 
-            val response = json.decodeFromString<RegistrationResponse>(bodyStr)
-            // Persist result
             prefs.setBackendUrl(backendUrl.trimEnd('/'))
             prefs.setDeviceName(deviceName)
-            prefs.setRegistrationResult(response.deviceId, response.token, response.groupName, groupId)
+            prefs.setRegistrationResult(sims, groupName, groupId)
 
-            Timber.i("Device registered: id=${response.deviceId} group=${response.groupName}")
-            Result.success(response)
+            Result.success(Unit)
         } catch (e: Exception) {
-            Timber.e(e, "registerDevice failed")
+            Timber.e(e, "registerAllSims failed")
             Result.failure(e)
+        }
+    }
+
+    private fun performRegistrationRequest(
+        backendUrl: String,
+        deviceName: String,
+        groupId: Long,
+        imei: String,
+        simIccid: String?,
+        phoneNumber: String?
+    ): RegistrationResponse {
+        val url = "${backendUrl.trimEnd('/')}/api/devices/register"
+        val reqBody = json.encodeToString(
+            RegistrationRequest.serializer(),
+            RegistrationRequest(deviceName, imei, groupId, simIccid, phoneNumber)
+        ).toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder().url(url).post(reqBody).build()
+        client.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) throw Exception("HTTP ${resp.code}: ${resp.message}")
+            return json.decodeFromString(resp.body?.string() ?: "")
         }
     }
 }

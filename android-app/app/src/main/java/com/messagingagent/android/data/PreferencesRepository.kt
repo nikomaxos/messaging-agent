@@ -10,7 +10,32 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+
+
+
+@Serializable
+data class SimRegistration(
+    val deviceId: Long,
+    val deviceToken: String,
+    val simIccid: String,
+    val phoneNumber: String?,
+    val subscriptionId: Int
+)
+
+data class RegistrationState(
+    val backendUrl: String?,
+    val deviceName: String?,
+    val groupName: String?,
+    val groupId: Long?,
+    val sims: List<SimRegistration>
+) {
+    val isRegistered: Boolean get() = sims.isNotEmpty()
+}
 
 @Singleton
 class PreferencesRepository @Inject constructor(
@@ -18,12 +43,13 @@ class PreferencesRepository @Inject constructor(
 ) {
     companion object {
         val KEY_BACKEND_URL  = stringPreferencesKey("backend_url")
-        val KEY_DEVICE_TOKEN = stringPreferencesKey("device_token")
         val KEY_DEVICE_NAME  = stringPreferencesKey("device_name")
-        val KEY_DEVICE_ID    = longPreferencesKey("device_id")
         val KEY_GROUP_ID     = longPreferencesKey("group_id")
         val KEY_GROUP_NAME   = stringPreferencesKey("group_name")
         val KEY_AUTO_REBOOT_ENABLED = booleanPreferencesKey("auto_reboot_enabled")
+        val KEY_AUTO_PURGE = stringPreferencesKey("auto_purge_mode")
+        val KEY_LAST_PURGED_AT = longPreferencesKey("last_purged_at")
+        val KEY_SIM_REGISTRATIONS = stringPreferencesKey("sim_registrations")
     }
 
     suspend fun getBackendUrl(): String? =
@@ -32,20 +58,11 @@ class PreferencesRepository @Inject constructor(
     suspend fun setBackendUrl(url: String) =
         context.dataStore.edit { it[KEY_BACKEND_URL] = url }
 
-    suspend fun getDeviceToken(): String? =
-        context.dataStore.data.map { it[KEY_DEVICE_TOKEN] }.first()
-
-    suspend fun setDeviceToken(token: String) =
-        context.dataStore.edit { it[KEY_DEVICE_TOKEN] = token }
-
     suspend fun getDeviceName(): String? =
         context.dataStore.data.map { it[KEY_DEVICE_NAME] }.first()
 
     suspend fun setDeviceName(name: String) =
         context.dataStore.edit { it[KEY_DEVICE_NAME] = name }
-
-    suspend fun getDeviceId(): Long? =
-        context.dataStore.data.map { it[KEY_DEVICE_ID] }.first()
 
     suspend fun isAutoRebootEnabled(): Boolean =
         context.dataStore.data.map { it[KEY_AUTO_REBOOT_ENABLED] ?: false }.first()
@@ -53,10 +70,21 @@ class PreferencesRepository @Inject constructor(
     suspend fun setAutoRebootEnabled(enabled: Boolean) =
         context.dataStore.edit { it[KEY_AUTO_REBOOT_ENABLED] = enabled }
 
-    suspend fun setRegistrationResult(deviceId: Long, token: String, groupName: String, groupId: Long) =
+    suspend fun getAutoPurgeMode(): String =
+        context.dataStore.data.map { it[KEY_AUTO_PURGE] ?: "OFF" }.first()
+
+    suspend fun setAutoPurgeMode(mode: String) =
+        context.dataStore.edit { it[KEY_AUTO_PURGE] = mode }
+
+    suspend fun getLastPurgedAt(): Long =
+        context.dataStore.data.map { it[KEY_LAST_PURGED_AT] ?: 0L }.first()
+
+    suspend fun setLastPurgedAt(timestamp: Long) =
+        context.dataStore.edit { it[KEY_LAST_PURGED_AT] = timestamp }
+
+    suspend fun setRegistrationResult(sims: List<SimRegistration>, groupName: String, groupId: Long) =
         context.dataStore.edit {
-            it[KEY_DEVICE_ID]    = deviceId
-            it[KEY_DEVICE_TOKEN] = token
+            it[KEY_SIM_REGISTRATIONS] = Json.encodeToString(sims)
             it[KEY_GROUP_NAME]   = groupName
             it[KEY_GROUP_ID]     = groupId
         }
@@ -65,28 +93,21 @@ class PreferencesRepository @Inject constructor(
         context.dataStore.data.map { it[KEY_GROUP_NAME] }.first()
 
     fun settingsFlow() = context.dataStore.data.map {
-        Triple(it[KEY_BACKEND_URL], it[KEY_DEVICE_TOKEN], it[KEY_DEVICE_NAME])
+        val simsStr = it[KEY_SIM_REGISTRATIONS] ?: "[]"
+        val sims = try { Json.decodeFromString<List<SimRegistration>>(simsStr) } catch(e: Exception) { emptyList() }
+        Triple(it[KEY_BACKEND_URL], sims, it[KEY_DEVICE_NAME])
     }
 
     fun registrationFlow() = context.dataStore.data.map {
+        val simsStr = it[KEY_SIM_REGISTRATIONS] ?: "[]"
+        val sims = try { Json.decodeFromString<List<SimRegistration>>(simsStr) } catch(e: Exception) { emptyList() }
         RegistrationState(
             backendUrl  = it[KEY_BACKEND_URL],
             deviceName  = it[KEY_DEVICE_NAME],
-            deviceToken = it[KEY_DEVICE_TOKEN],
-            deviceId    = it[KEY_DEVICE_ID],
             groupName   = it[KEY_GROUP_NAME],
-            groupId     = it[KEY_GROUP_ID]
+            groupId     = it[KEY_GROUP_ID],
+            sims        = sims
         )
     }
 }
 
-data class RegistrationState(
-    val backendUrl: String?,
-    val deviceName: String?,
-    val deviceToken: String?,
-    val deviceId: Long?,
-    val groupName: String?,
-    val groupId: Long?
-) {
-    val isRegistered: Boolean get() = deviceToken != null && deviceId != null
-}

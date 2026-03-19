@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { getDevices, getGroups } from '../api/client'
 import { Device } from '../types'
-import { Battery, Wifi, Signal, Activity, Smartphone, CheckCircle, XCircle } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { Battery, Wifi, Signal, Activity, Smartphone, CheckCircle, XCircle, BatteryCharging } from 'lucide-react'
+import { formatDistanceToNow, format } from 'date-fns'
 
 function statusPill(status: Device['status']) {
   const map = {
@@ -40,8 +40,16 @@ function DeviceCard({ d }: { d: Device }) {
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div className="flex flex-col items-center bg-slate-800/50 rounded-lg p-2">
-          <Battery size={12} className="text-slate-400 mb-1" />
-          <span className={d.batteryPercent != null && d.batteryPercent < 20 ? 'text-red-400' : 'text-slate-300'}>
+          {d.isCharging ? (
+            <BatteryCharging size={12} className="text-emerald-400 mb-1 animate-pulse" />
+          ) : (
+            <Battery size={12} className={d.batteryPercent != null && d.batteryPercent < 20 ? 'text-red-400 mb-1' : 'text-slate-400 mb-1'} />
+          )}
+          <span className={
+            d.isCharging 
+              ? 'text-emerald-400 font-medium' 
+              : (d.batteryPercent != null && d.batteryPercent < 20 ? 'text-red-400' : 'text-slate-300')
+          }>
             {d.batteryPercent != null ? `${d.batteryPercent}%` : '—'}
           </span>
           <span className="text-slate-600 text-[9px]">Battery</span>
@@ -67,7 +75,7 @@ function DeviceCard({ d }: { d: Device }) {
         </span>
         <span>
           {d.lastHeartbeat
-            ? formatDistanceToNow(new Date(d.lastHeartbeat), { addSuffix: true })
+            ? format(new Date(d.lastHeartbeat), 'h:mm a').toLowerCase()
             : 'never'}
         </span>
       </div>

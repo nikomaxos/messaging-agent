@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmppRoutings, createSmppRouting, updateSmppRouting, deleteSmppRouting, getGroups, getSmppClients, getSmscSuppliers } from '../api/client'
 import { SmppClient, DeviceGroup, SmppRouting } from '../types'
 import { Plus, Trash2, Route, Edit2, X } from 'lucide-react'
+import { ConfirmModal } from '../components/ConfirmModal'
 
 // Modal Component for Create/Edit
 function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: any) {
@@ -269,6 +270,7 @@ export default function SmppRoutingPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRoute, setEditingRoute] = useState<any>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number, name: string } | null>(null)
 
   const deleteMut = useMutation({
     mutationFn: deleteSmppRouting,
@@ -287,6 +289,13 @@ export default function SmppRoutingPage() {
 
   return (
     <div className="p-8">
+      <ConfirmModal
+        isOpen={confirmDelete !== null}
+        title="Delete Route"
+        message={`Are you sure you want to delete the route for ${confirmDelete?.name}?`}
+        onConfirm={() => confirmDelete && deleteMut.mutate(confirmDelete.id)}
+        onCancel={() => setConfirmDelete(null)}
+      />
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Routing Configuration</h1>
@@ -315,7 +324,7 @@ export default function SmppRoutingPage() {
               <button onClick={() => openEditModal(r)} className="p-2 bg-white/5 text-slate-400 hover:text-white rounded transition" title="Edit Route">
                 <Edit2 size={15} />
               </button>
-              <button onClick={() => deleteMut.mutate(r.id)} className="p-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete Route">
+              <button onClick={() => setConfirmDelete({ id: r.id, name: r.smppClientName })} className="p-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete Route">
                 <Trash2 size={15} />
               </button>
             </div>

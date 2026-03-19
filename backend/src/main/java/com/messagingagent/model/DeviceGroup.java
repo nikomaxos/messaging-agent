@@ -17,6 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DeviceGroup {
 
     @Id
@@ -32,6 +33,14 @@ public class DeviceGroup {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    @Column(name = "dlr_delay_min_sec", nullable = false)
+    @Builder.Default
+    private int dlrDelayMinSec = 2;
+
+    @Column(name = "dlr_delay_max_sec", nullable = false)
+    @Builder.Default
+    private int dlrDelayMaxSec = 5;
 
     @JsonIgnore   // breaks Device→Group→List<Device> circular reference
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

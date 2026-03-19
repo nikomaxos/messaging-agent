@@ -4,6 +4,7 @@ import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient, d
 import { SmppClient } from '../types'
 import { Plus, Pencil, Trash2, X, Check, Unplug } from 'lucide-react'
 import { format } from 'date-fns'
+import { ConfirmModal } from '../components/ConfirmModal'
 
 export default function SmppClientsPage() {
   const qc = useQueryClient()
@@ -12,6 +13,7 @@ export default function SmppClientsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<Partial<SmppClient>>({})
   const [isCreating, setIsCreating] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
 
   const createMut = useMutation({
     mutationFn: createSmppClient,
@@ -71,6 +73,13 @@ export default function SmppClientsPage() {
 
   return (
     <div className="p-8">
+      <ConfirmModal
+        isOpen={confirmAction !== null}
+        title={confirmAction?.title || ''}
+        message={confirmAction?.message || ''}
+        onConfirm={() => confirmAction?.onConfirm()}
+        onCancel={() => setConfirmAction(null)}
+      />
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">SMPP Clients</h1>
@@ -197,7 +206,11 @@ export default function SmppClientsPage() {
                       ) : (
                         <>
                           {(c.activeSessions && c.activeSessions.length > 0) ? (
-                            <button onClick={() => { if(confirm(`Kick out all active connections for ${c.systemId}?`)) disconnectMut.mutate(c.systemId) }} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-400 hover:text-white hover:bg-orange-500 focus:ring-2 focus:outline-none focus:ring-orange-300 rounded transition" title="Disconnect All Active Binds">
+                            <button onClick={() => setConfirmAction({
+                              title: 'Disconnect Client',
+                              message: `Kick out all active connections for ${c.systemId}?`,
+                              onConfirm: () => disconnectMut.mutate(c.systemId)
+                            })} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-400 hover:text-white hover:bg-orange-500 focus:ring-2 focus:outline-none focus:ring-orange-300 rounded transition" title="Disconnect All Active Binds">
                               <Unplug size={14} /> Kick
                             </button>
                           ) : (
@@ -206,7 +219,11 @@ export default function SmppClientsPage() {
                             </button>
                           )}
                           <button onClick={() => startEdit(c)} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition" title="Edit"><Pencil size={15} /></button>
-                          <button onClick={() => deleteMut.mutate(c.id)} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
+                          <button onClick={() => setConfirmAction({
+                            title: 'Delete Client',
+                            message: `Are you sure you want to delete ${c.systemId}?`,
+                            onConfirm: () => deleteMut.mutate(c.id)
+                          })} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
                         </>
                       )}
                     </div>

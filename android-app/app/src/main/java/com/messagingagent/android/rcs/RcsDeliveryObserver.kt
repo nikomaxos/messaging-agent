@@ -60,117 +60,44 @@ class RcsDeliveryObserver @Inject constructor(
      * @param toAddress destination phone number
      * @return DeliveryStatus.DELIVERED, FAILED, or TIMEOUT
      */
-    suspend fun awaitDelivery(toAddress: String): RcsDeliveryStatus {
-        val result = withTimeoutOrNull(RECEIPT_TIMEOUT_MS) {
-            observeSmsThread(toAddress).first()
-        }
-        return result ?: RcsDeliveryStatus.TIMEOUT
-    }
-
-    /**
-     * Returns a cold Flow that emits once when a sent/failed status appears
-     * for messages addressed to [toAddress].
-     */
-    private fun observeSmsThread(toAddress: String) = callbackFlow<RcsDeliveryStatus> {
-        val resolver: ContentResolver = context.contentResolver
+    suspend fun awaitDelivery(toAddress: String, initialMaxId: Long): RcsDeliveryStatus {
+        val cleanDest = normalizeNumber(toAddress)
+        Timber.d("RcsDeliveryObserver: starting bugle_db poll for $cleanDest (messages > $initialMaxId)")
         
-        // Record latest known message ID before the intent fires
-        val priorMaxId = queryMaxId(resolver)
-        val priorMaxMmsId = queryMaxMmsId(resolver)
-        Timber.d("RcsDeliveryObserver: watching for delivery (priorMaxId=$priorMaxId, priorMaxMmsId=$priorMaxMmsId)")
-
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean, uri: Uri?) {
-                var status = checkForDelivery(resolver, priorMaxId)
-                if (status == null) {
-                    status = checkForMmsDelivery(resolver, priorMaxMmsId)
+        val result = withTimeoutOrNull(RECEIPT_TIMEOUT_MS) {
+            var status: RcsDeliveryStatus? = null
+            while (status == null) {
+                try {
+                    val tmpDb = "/data/local/tmp/bug_poll.db"
+                    com.topjohnwu.superuser.Shell.cmd("cp /data/data/com.google.android.apps.messaging/databases/bugle_db $tmpDb", "chmod 666 $tmpDb").exec()
+                    
+                    android.database.sqlite.SQLiteDatabase.openDatabase(tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
+                        db.rawQuery("SELECT message_status FROM messages WHERE _id > $initialMaxId AND message_status != 1 ORDER BY _id ASC LIMIT 1", null).use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val msgStatus = cursor.getInt(0)
+                                when (msgStatus) {
+                                    2, 13, 14 -> status = RcsDeliveryStatus.DELIVERED // 2=Sent, 13=Delivered, 14=Read
+                                    5, 8, 9 -> status = RcsDeliveryStatus.FAILED     // Failed/Error
+                                    // 3=Sending, 4=Outbox -> keep waiting
+                                }
+                            }
+                        }
+                    }
+                    com.topjohnwu.superuser.Shell.cmd("rm -f $tmpDb").exec()
+                } catch (e: Exception) {
+                    Timber.e("Error polling native SQLiteDatabase: ${e.message}")
                 }
                 
-                status?.let {
-                    Timber.i("RCS delivery status for $toAddress: $it")
-                    trySend(it)
-                    close()   // stop observing after first result
+                if (status == null) {
+                    kotlinx.coroutines.delay(300)
                 }
             }
+            status
         }
-
-        resolver.registerContentObserver(Uri.parse("content://sms"), true, observer)
-        resolver.registerContentObserver(Uri.parse("content://mms"), true, observer)
-
-        awaitClose {
-            resolver.unregisterContentObserver(observer)
-            Timber.d("RcsDeliveryObserver unregistered for $toAddress")
-        }
-    }
-
-    /**
-     * Query the SMS table for any new message (ID > priorMaxId)
-     * with type SENT or FAILED.
-     */
-    private fun checkForDelivery(resolver: ContentResolver, priorMaxId: Long): RcsDeliveryStatus? {
-        val cursor = resolver.query(
-            SMS_URI,
-            arrayOf(COL_ID, COL_TYPE),
-            "$COL_ID > ?",
-            arrayOf(priorMaxId.toString()),
-            "$COL_ID DESC"
-        ) ?: return null
-
-        cursor.use {
-            if (!it.moveToFirst()) return null
-            val typeIdx = it.getColumnIndexOrThrow(COL_TYPE)
-            return when (it.getInt(typeIdx)) {
-                TYPE_SENT, TYPE_OUTBOX, TYPE_QUEUED -> RcsDeliveryStatus.DELIVERED
-                TYPE_FAILED -> RcsDeliveryStatus.FAILED
-                else        -> null   // still in-flight
-            }
-        }
-    }
-
-    private fun checkForMmsDelivery(resolver: ContentResolver, priorMaxMmsId: Long): RcsDeliveryStatus? {
-        val cursor = resolver.query(
-            Uri.parse("content://mms"),
-            arrayOf("_id", "msg_box"),
-            "_id > ?",
-            arrayOf(priorMaxMmsId.toString()),
-            "_id DESC"
-        ) ?: return null
-
-        cursor.use {
-            if (!it.moveToFirst()) return null
-            val boxIdx = it.getColumnIndexOrThrow("msg_box")
-            return when (it.getInt(boxIdx)) {
-                2, 4 -> RcsDeliveryStatus.DELIVERED // 2=Sent, 4=Outbox
-                5 -> RcsDeliveryStatus.FAILED       // 5=Failed
-                else -> null
-            }
-        }
-    }
-
-    private fun queryMaxId(resolver: ContentResolver): Long {
-        val cursor = resolver.query(
-            SMS_URI,
-            arrayOf("_id"),
-            null,
-            null,
-            "_id DESC LIMIT 1"
-        ) ?: return 0L
-        return cursor.use { c ->
-            if (c.moveToFirst()) c.getLong(0) else 0L
-        }
-    }
-
-    private fun queryMaxMmsId(resolver: ContentResolver): Long {
-        val cursor = resolver.query(
-            Uri.parse("content://mms"),
-            arrayOf("_id"),
-            null,
-            null,
-            "_id DESC LIMIT 1"
-        ) ?: return 0L
-        return cursor.use { c ->
-            if (c.moveToFirst()) c.getLong(0) else 0L
-        }
+        
+        val finalStatus = result ?: RcsDeliveryStatus.TIMEOUT
+        Timber.i("RCS delivery status for $cleanDest resolved to: $finalStatus")
+        return finalStatus
     }
 
     private fun normalizeNumber(number: String): String =

@@ -77,4 +77,8 @@ export const updateSmppRouting = (id: number, d: any) => api.put(`/smpp/routings
 export const deleteSmppRouting = (id: number) => api.delete(`/smpp/routings/${id}`)
 
 // ── Message Logs ──────────────────────────────────────────────────────────
-export const getLogs = (page = 0) => api.get(`/logs?page=${page}&size=50`).then((r: any) => r.data)
+export const getLogs = (page = 0, filters?: Record<string, any>) => 
+  api.get('/logs', { params: { page, size: 50, ...filters } }).then((r: any) => r.data)
+
+export const getDeviceLogs = (page = 0, filters?: Record<string, any>) =>
+  api.get('/logs/device', { params: { page, size: 50, ...filters } }).then((r: any) => r.data)

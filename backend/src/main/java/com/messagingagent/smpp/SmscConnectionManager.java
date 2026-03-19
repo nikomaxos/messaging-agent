@@ -1,6 +1,5 @@
 package com.messagingagent.smpp;
 
-import com.cloudhopper.commons.charset.CharsetUtil;
 import com.cloudhopper.smpp.SmppBindType;
 import com.cloudhopper.smpp.SmppConstants;
 import com.cloudhopper.smpp.SmppSession;
@@ -37,6 +36,7 @@ import java.util.concurrent.*;
 public class SmscConnectionManager {
 
     private final SmscSupplierRepository supplierRepository;
+    private final com.messagingagent.repository.MessageLogRepository messageLogRepository;
     
     private DefaultSmppClient smppClient;
     private final Map<Long, UpstreamSessionInfo> activeSessions = new ConcurrentHashMap<>();
@@ -182,33 +182,54 @@ public class SmscConnectionManager {
     /**
      * Sends an SMS via the specified SMSC supplier using standard CloudHopper SubmitSm.
      */
-    public boolean submitMessage(Long supplierId, String source, String dest, String text) {
+    public String submitMessage(Long supplierId, String source, String dest, String text) {
         @SuppressWarnings("null")
         @lombok.NonNull Long finalSupplierId = supplierId; // Fix lint warning
         UpstreamSessionInfo info = activeSessions.get(finalSupplierId);
         if (info == null || info.session() == null || !info.session().isBound()) {
             log.error("Cannot route. SMSC Session not active for supplierId={}", finalSupplierId);
-            return false;
+            return null;
         }
         
         SmppSession session = info.session();
         SmscSupplier supplier = supplierRepository.findById(finalSupplierId).orElse(null);
-        if (supplier == null) return false;
+        if (supplier == null) return null;
 
         try {
-            SubmitSm sm = new SubmitSm();
-            sm.setSourceAddress(new Address((byte) supplier.getSourceTon(), (byte) supplier.getSourceNpi(), source));
-            sm.setDestAddress(new Address((byte) supplier.getDestTon(), (byte) supplier.getDestNpi(), dest));
-            
-            byte[] textBytes = CharsetUtil.encode(text, CharsetUtil.CHARSET_GSM);
-            sm.setShortMessage(textBytes);
-            // Can set registeredDelivery, dataCoding etc here...
+            LongSmsHelper.SmsPart[] parts = LongSmsHelper.createParts(text);
+            String firstMessageId = null;
 
-            SubmitSmResp resp = session.submit(sm, 10000);
-            return resp.getCommandStatus() == SmppConstants.STATUS_OK;
+            for (LongSmsHelper.SmsPart part : parts) {
+                SubmitSm sm = new SubmitSm();
+                sm.setSourceAddress(new Address((byte) supplier.getSourceTon(), (byte) supplier.getSourceNpi(), source));
+                sm.setDestAddress(new Address((byte) supplier.getDestTon(), (byte) supplier.getDestNpi(), dest));
+                
+                sm.setShortMessage(part.payload());
+                sm.setDataCoding(part.dataCoding());
+
+                if (part.hasUdh()) {
+                    sm.setEsmClass(SmppConstants.ESM_CLASS_UDHI_MASK);
+                }
+                sm.setRegisteredDelivery(SmppConstants.REGISTERED_DELIVERY_SMSC_RECEIPT_REQUESTED);
+
+                SubmitSmResp resp = session.submit(sm, 10000);
+                if (resp.getCommandStatus() == SmppConstants.STATUS_OK) {
+                    if (firstMessageId == null) {
+                        firstMessageId = resp.getMessageId() != null ? resp.getMessageId() : "OK";
+                    }
+                } else {
+                    log.error("Failed partial SUBMIT_SM. Part status: {}", resp.getCommandStatus());
+                    return null;
+                }
+            }
+
+            // Increment sent counter natively
+            supplier.setSentCount(supplier.getSentCount() + 1);
+            supplierRepository.save(supplier);
+            return firstMessageId;
         } catch (Exception e) {
             log.error("Failed to SUBMIT_SM to SMSC id={}: {}", supplierId, e.getMessage());
-            return false;
+            return null;
         }
     }
 
@@ -227,10 +248,35 @@ public class SmscConnectionManager {
                 supplier.getName(), pduRequest.getName(), pduRequest.getCommandStatus());
                 
             if (pduRequest instanceof DeliverSm) {
-                log.info("DeliverSM arriving from SMSC [{}]", supplier.getName());
-                // Handle DLRs or MT SMS arriving from the provider...
+                DeliverSm deliverSm = (DeliverSm) pduRequest;
+                try {
+                    String receiptedMessageId = null;
+                    if (deliverSm.getOptionalParameter(SmppConstants.TAG_RECEIPTED_MSG_ID) != null) {
+                        receiptedMessageId = new String(deliverSm.getOptionalParameter(SmppConstants.TAG_RECEIPTED_MSG_ID).getValue(), java.nio.charset.StandardCharsets.UTF_8);
+                        receiptedMessageId = receiptedMessageId.replace("\0", "");
+                    } else if (deliverSm.getShortMessage() != null) {
+                        String msg = new String(deliverSm.getShortMessage(), java.nio.charset.StandardCharsets.UTF_8);
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)id:\\s*([^\\s]+)").matcher(msg);
+                        if (m.find()) {
+                            receiptedMessageId = m.group(1);
+                        } else {
+                            // some providers use plain text for the ID if no other text is present
+                            receiptedMessageId = msg.trim().split(" ")[0];
+                        }
+                    }
+
+                    if (receiptedMessageId != null) {
+                        log.info("Parsed fallback receipted message id: {}", receiptedMessageId);
+                        messageLogRepository.findBySupplierMessageId(receiptedMessageId).ifPresent(l -> {
+                            l.setFallbackDlrReceivedAt(Instant.now());
+                            messageLogRepository.save(l);
+                        });
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse DeliverSM for DLR", e);
+                }
                 
-                DeliverSmResp resp = new DeliverSmResp();
+                com.cloudhopper.smpp.pdu.DeliverSmResp resp = new com.cloudhopper.smpp.pdu.DeliverSmResp();
                 resp.setCommandStatus(SmppConstants.STATUS_OK);
                 return resp;
             } else if (pduRequest instanceof EnquireLink) {

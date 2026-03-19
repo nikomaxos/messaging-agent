@@ -4,15 +4,22 @@ import com.messagingagent.model.MessageLog;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-public interface MessageLogRepository extends JpaRepository<MessageLog, Long> {
+public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, JpaSpecificationExecutor<MessageLog> {
     Optional<MessageLog> findBySmppMessageId(String smppMessageId);
+    Optional<MessageLog> findBySupplierMessageId(String supplierMessageId);
     Page<MessageLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<MessageLog> findByStatus(MessageLog.Status status, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = :status AND m.deviceGroup.id = :groupId ORDER BY m.createdAt ASC LIMIT 1")
+    Optional<MessageLog> findFirstByStatusAndDeviceGroupIdOrderByCreatedAtAsc(
+            @org.springframework.data.repository.query.Param("status") MessageLog.Status status,
+            @org.springframework.data.repository.query.Param("groupId") Long groupId);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional

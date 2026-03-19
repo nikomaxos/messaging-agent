@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Telephony - RCS -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- SMS -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
@@ -69,6 +70,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".receiver.AutoPurgeReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
         <!-- Provide APK files for self-updating (Fallback OTA) -->
         <provider

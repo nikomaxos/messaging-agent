@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getGroups, createGroup, updateGroup, deleteGroup } from '../api/client'
 import { DeviceGroup } from '../types'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { ConfirmModal } from '../components/ConfirmModal'
 
 type Mode = 'view' | 'create' | 'edit'
 
@@ -11,7 +12,8 @@ export default function GroupsPage() {
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const [mode, setMode] = useState<Mode>('view')
   const [editing, setEditing] = useState<DeviceGroup | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', active: true })
+  const [form, setForm] = useState({ name: '', description: '', active: true, dlrDelayMinSec: 2, dlrDelayMaxSec: 5 })
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number, name: string } | null>(null)
 
   const createMut = useMutation({
     mutationFn: createGroup,
@@ -26,10 +28,10 @@ export default function GroupsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['groups'] })
   })
 
-  const resetForm = () => { setMode('view'); setEditing(null); setForm({ name: '', description: '', active: true }) }
+  const resetForm = () => { setMode('view'); setEditing(null); setForm({ name: '', description: '', active: true, dlrDelayMinSec: 2, dlrDelayMaxSec: 5 }) }
   const openCreate = () => { resetForm(); setMode('create') }
   const openEdit = (g: DeviceGroup) => {
-    setEditing(g); setForm({ name: g.name, description: g.description ?? '', active: g.active }); setMode('edit')
+    setEditing(g); setForm({ name: g.name, description: g.description ?? '', active: g.active, dlrDelayMinSec: g.dlrDelayMinSec ?? 2, dlrDelayMaxSec: g.dlrDelayMaxSec ?? 5 }); setMode('edit')
   }
 
   const handleSave = () => {
@@ -39,6 +41,13 @@ export default function GroupsPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConfirmModal
+        isOpen={confirmDelete !== null}
+        title="Delete Group"
+        message={`Are you sure you want to delete ${confirmDelete?.name}?`}
+        onConfirm={() => confirmDelete && deleteMut.mutate(confirmDelete.id)}
+        onCancel={() => setConfirmDelete(null)}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Device Groups</h1>
@@ -64,6 +73,16 @@ export default function GroupsPage() {
               <input className="inp" placeholder="Optional description"
                 value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">DLR Delay Min (sec)</label>
+              <input className="inp" type="number" min={0} placeholder="2"
+                value={form.dlrDelayMinSec} onChange={e => setForm(f => ({ ...f, dlrDelayMinSec: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">DLR Delay Max (sec)</label>
+              <input className="inp" type="number" min={0} placeholder="5"
+                value={form.dlrDelayMaxSec} onChange={e => setForm(f => ({ ...f, dlrDelayMaxSec: Number(e.target.value) }))} />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
@@ -86,6 +105,7 @@ export default function GroupsPage() {
           <thead><tr className="px-3">
             <th className="px-4 pt-4 pb-3">Name</th>
             <th className="px-4">Description</th>
+            <th className="px-4">DLR Delay</th>
             <th className="px-4">Status</th>
             <th className="px-4">Created</th>
             <th className="px-4 text-right">Actions</th>
@@ -95,6 +115,7 @@ export default function GroupsPage() {
               <tr key={g.id}>
                 <td className="px-4 font-medium text-slate-200">{g.name}</td>
                 <td className="px-4 text-slate-400">{g.description || '—'}</td>
+                <td className="px-4 text-slate-400 text-xs font-mono">{g.dlrDelayMinSec ?? 2}–{g.dlrDelayMaxSec ?? 5} sec</td>
                 <td className="px-4">
                   <span className={`pill ${g.active ? 'pill-green' : 'pill-gray'}`}>
                     {g.active ? 'Active' : 'Inactive'}
@@ -107,7 +128,7 @@ export default function GroupsPage() {
                       <Pencil size={13} />
                     </button>
                     <button className="btn-danger !px-2 !py-1"
-                      onClick={() => window.confirm('Delete this group?') && deleteMut.mutate(g.id)}>
+                      onClick={() => setConfirmDelete({ id: g.id, name: g.name })}>
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -115,7 +136,7 @@ export default function GroupsPage() {
               </tr>
             ))}
             {groups.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No groups yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No groups yet</td></tr>
             )}
           </tbody>
         </table>

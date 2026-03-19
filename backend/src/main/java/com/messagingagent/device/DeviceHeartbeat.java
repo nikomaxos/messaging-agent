@@ -8,6 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 public class DeviceHeartbeat {
     private Integer batteryPercent;
+    private Boolean isCharging;
     private Integer wifiSignalDbm;
     private Integer gsmSignalDbm;
     private Integer gsmSignalAsu;

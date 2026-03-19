@@ -14,6 +14,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class SmscSupplier {
 
     @Id
@@ -72,6 +73,10 @@ public class SmscSupplier {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    @Column
+    @Builder.Default
+    private int sentCount = 0;
 
     @CreationTimestamp
     private Instant createdAt;

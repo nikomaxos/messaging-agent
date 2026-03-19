@@ -13,13 +13,25 @@ android {
 
     defaultConfig {
         applicationId = "com.messagingagent.android"
-        minSdk = 29          // Android 10+ required for RCS IMS APIs
-        targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        minSdk = 26          // Android 10+ required for RCS IMS APIs
+        targetSdk = 34
+        versionCode = 48
+        versionName = "1.0.48"
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -62,6 +74,7 @@ dependencies {
     // Root access - libsu
     implementation("com.github.topjohnwu.libsu:core:5.3.0")
     implementation("com.github.topjohnwu.libsu:service:5.3.0")
+    implementation("com.github.topjohnwu.libsu:io:5.3.0")
 
     // Kotlin serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")

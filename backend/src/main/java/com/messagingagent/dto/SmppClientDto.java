@@ -17,16 +17,16 @@ public class SmppClientDto {
     private String systemId;
     private boolean active;
     private Instant createdAt;
-    private List<SmppSessionDto> sessions;
+    private List<SmppSessionDto> activeSessions;
 
-    public static SmppClientDto fromEntity(SmppClient client, List<SmppSessionDto> sessions) {
+    public static SmppClientDto fromEntity(SmppClient client, List<SmppSessionDto> activeSessions) {
         return new SmppClientDto(
                 client.getId(),
                 client.getName(),
                 client.getSystemId(),
                 client.isActive(),
                 client.getCreatedAt(),
-                sessions
+                activeSessions
         );
     }
 }

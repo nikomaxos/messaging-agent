@@ -43,19 +43,20 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 @HiltViewModel
 class SetupViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val prefs: PreferencesRepository,
+    val prefs: PreferencesRepository,
     private val registrationRepo: RegistrationRepository,
     val wsClient: WebSocketRelayClient
 ) : ViewModel() {
 
     val registrationState = prefs.registrationFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly,
-            RegistrationState(null, null, null, null, null, null))
+            RegistrationState(backendUrl = null, deviceName = null, groupName = null, groupId = null, sims = emptyList()))
 
     // Keep URL and name in ViewModel so they survive step transitions
     // without relying on DataStore timing
     var pendingUrl  by mutableStateOf("")
     var pendingName by mutableStateOf("")
+    var manualPhones by mutableStateOf("")
 
     var groups   by mutableStateOf<List<GroupSummary>>(emptyList())
     var loading  by mutableStateOf(false)
@@ -85,7 +86,7 @@ class SetupViewModel @Inject constructor(
             loading = true
             error = null
             val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-            registrationRepo.registerDevice(pendingUrl, pendingName, selectedGroup.id, androidId)
+            registrationRepo.registerAllSims(pendingUrl, pendingName, selectedGroup.id, selectedGroup.name, androidId, manualPhones)
                 .onSuccess { step = Step.DONE }
                 .onFailure { error = "Registration failed at ${pendingUrl}/api/devices/register\n${it.message}" }
             loading = false
@@ -100,6 +101,16 @@ class SetupActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        requestPermissions(
+            arrayOf(
+                android.Manifest.permission.READ_PHONE_STATE,
+                android.Manifest.permission.READ_PHONE_NUMBERS,
+                android.Manifest.permission.SEND_SMS,
+                android.Manifest.permission.RECEIVE_SMS,
+                android.Manifest.permission.READ_SMS,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ), 101)
         setContent {
             MessagingAgentTheme {
                 SetupScreen(vm = vm, onStart = {
@@ -212,6 +223,14 @@ fun GroupPickStep(vm: SetupViewModel) {
         }
     }
 
+    Spacer(Modifier.height(8.dp))
+    AgentTextField(
+        "Manual Phone Numbers (Optional, comma separated. E.g +3069...,+44...)",
+        vm.manualPhones,
+        { vm.manualPhones = it }
+    )
+    Spacer(Modifier.height(8.dp))
+
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(
             onClick = { vm.step = SetupViewModel.Step.URL; vm.error = null },
@@ -247,32 +266,44 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
     var isChecking  by remember { mutableStateOf(true) }   // only true on very first poll
     var liveDetail  by remember { mutableStateOf("") }
 
-    LaunchedEffect(state.deviceToken) {
-        val token = state.deviceToken ?: return@LaunchedEffect
+    LaunchedEffect(state.sims) {
+        val token = state.sims.firstOrNull()?.deviceToken ?: return@LaunchedEffect
         val url   = state.backendUrl ?: vm.pendingUrl
         if (url.isBlank()) return@LaunchedEffect
 
         while (true) {
             try {
                 val reqUrl = "${url.trim()}/api/devices/register/status/$token"
-                val resp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    httpClient.newCall(
-                        okhttp3.Request.Builder().url(reqUrl).build()
-                    ).execute()
-                }
-                resp.use { r ->
-                    if (r.isSuccessful) {
-                        val body = r.body?.string() ?: ""
-                        isOnline  = body.contains("\"ONLINE\"")
-                        liveDetail = if (isOnline) "Connected to backend" else "Backend reachable — offline"
-                    } else {
-                        isOnline  = false
-                        liveDetail = "Backend returned HTTP ${r.code}"
+                
+                // Do ALL network string reads in the IO thread!
+                val (success, online, code) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    httpClient.newCall(okhttp3.Request.Builder().url(reqUrl).build()).execute().use { r ->
+                        val b = r.body?.string() ?: ""
+                        if (r.isSuccessful && b.isNotEmpty()) {
+                            try {
+                                val json = org.json.JSONObject(b)
+                                if (json.has("autoPurge")) {
+                                    vm.prefs.setAutoPurgeMode(json.optString("autoPurge", "OFF"))
+                                }
+                            } catch (e: Exception) {
+                                timber.log.Timber.e(e, "Failed to parse DeviceStatusResponse")
+                            }
+                        }
+                        Triple(r.isSuccessful, b.contains("\"ONLINE\""), r.code)
                     }
+                }
+
+                if (success) {
+                    isOnline = online
+                    liveDetail = if (isOnline) "Connected to backend" else "Backend reachable — offline"
+                } else {
+                    isOnline = false
+                    liveDetail = "Backend returned HTTP $code"
                 }
             } catch (e: Exception) {
                 isOnline  = false
-                liveDetail = "Cannot reach backend: ${e.message}"
+                val errName = e.javaClass.simpleName
+                liveDetail = "Cannot reach backend: ${e.message ?: errName}"
             }
             isChecking = false          // first poll done — status is now known
             kotlinx.coroutines.delay(10_000)
@@ -356,14 +387,30 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
             }
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Column {
+                    val androidId = android.provider.Settings.Secure.getString(
+                        androidx.compose.ui.platform.LocalContext.current.contentResolver, 
+                        android.provider.Settings.Secure.ANDROID_ID
+                    ) ?: "Unknown"
+                    Text("Phone ID", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text(androidId, color = Color(0xFF4ADE80), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    
+                    Spacer(Modifier.height(8.dp))
                     Text("APK Version", color = Color(0xFF6B7280), fontSize = 11.sp)
                     Text(com.messagingagent.android.BuildConfig.VERSION_NAME, color = Color(0xFF4ADE80), fontSize = 12.sp,
                          fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Device ID", color = Color(0xFF6B7280), fontSize = 11.sp)
-                    Text("#${state.deviceId ?: "—"}", color = Color(0xFF6B7280), fontSize = 12.sp,
-                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    Text("Registered SIMs / Devices", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    if (state.sims.isEmpty()) {
+                        Text("—", color = Color(0xFF6B7280), fontSize = 12.sp)
+                    } else {
+                        state.sims.forEachIndexed { index, sim ->
+                            val tokenHex = sim.deviceToken.take(16)
+                            val phoneInfo = if (!sim.phoneNumber.isNullOrBlank()) " (${sim.phoneNumber})" else ""
+                            Text("SIM${index + 1}: #${sim.deviceId}$phoneInfo  $tokenHex", color = Color(0xFF6B7280), fontSize = 12.sp,
+                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        }
+                    }
                 }
             }
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {

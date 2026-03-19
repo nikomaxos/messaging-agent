@@ -14,6 +14,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Device {
 
     public enum Status {
@@ -44,6 +45,15 @@ public class Device {
 
     // Heartbeat data
     private Integer batteryPercent;
+    
+    @Column(name = "is_charging")
+    private Boolean isCharging;
+    
+    @Column(name = "sim_iccid", length = 50)
+    private String simIccid;
+    
+    @Column(name = "phone_number", length = 50)
+    private String phoneNumber;
     private Integer wifiSignalDbm;
     private Integer gsmSignalDbm;
     private Integer gsmSignalAsu;
@@ -51,6 +61,11 @@ public class Device {
     private Boolean rcsCapable;
     @Builder.Default
     private Boolean autoRebootEnabled = false;
+    @Builder.Default
+    @Column(name = "auto_purge", length = 20)
+    private String autoPurge = "OFF";
+    @Column(name = "last_purged_at")
+    private Instant lastPurgedAt;
     private String activeNetworkType;
     private String apkVersion;
     private String apkUpdateStatus;

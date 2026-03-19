@@ -10,7 +10,9 @@ import SmppServerPage from './pages/SmppServerPage'
 import SmppClientsPage from './pages/SmppClientsPage'
 import SmppRoutingPage from './pages/SmppRoutingPage'
 import SmscsPage from './pages/SmscsPage'
-import LogsPage from './pages/LogsPage'
+import SystemLogsPage from './pages/SystemLogsPage'
+import DeviceLogsPage from './pages/DeviceLogsPage'
+import MessageTrackingPage from './pages/MessageTrackingPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -32,7 +34,9 @@ export default function App() {
             <Route path="smscs" element={<SmscsPage />} />
             <Route path="smpp/clients" element={<SmppClientsPage />} />
             <Route path="smpp/routing" element={<SmppRoutingPage />} />
-            <Route path="logs" element={<LogsPage />} />
+            <Route path="logs/messages" element={<MessageTrackingPage />} />
+            <Route path="logs/system" element={<SystemLogsPage />} />
+            <Route path="logs/device" element={<DeviceLogsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

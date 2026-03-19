@@ -17,6 +17,7 @@ public class MessageLog {
 
     public enum Status {
         RECEIVED,       // PDU received from upstream
+        QUEUED,         // Wait listed (agents busy)
         DISPATCHED,     // Sent to Android device
         DELIVERED,      // RCS delivery confirmed
         RCS_FAILED,     // Target has no RCS
@@ -29,6 +30,17 @@ public class MessageLog {
 
     @Column(length = 50)
     private String smppMessageId;
+
+    @Column(length = 50)
+    private String supplierMessageId;
+
+    @Column(length = 50)
+    private String customerMessageId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_message_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private MessageLog parentMessage;
 
     @Column(length = 20)
     private String sourceAddress;
@@ -49,6 +61,11 @@ public class MessageLog {
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Device device;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "device_group_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private DeviceGroup deviceGroup;
+
     @Column(length = 1000)
     private String errorDetail;
 
@@ -58,6 +75,12 @@ public class MessageLog {
     private Instant deliveredAt;
     
     private Instant fallbackStartedAt;
+
+    private Instant dispatchedAt;
+    
+    private Instant rcsDlrReceivedAt;
+    
+    private Instant fallbackDlrReceivedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "smsc_supplier_id")

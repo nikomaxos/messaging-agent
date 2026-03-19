@@ -67,6 +67,10 @@ public class DeviceController {
                 device.setAutoRebootEnabled(req.getAutoRebootEnabled());
                 messagingTemplate.convertAndSend("/queue/commands." + id, "SET_AUTO_REBOOT=" + req.getAutoRebootEnabled());
             }
+            if (req.getAutoPurge() != null) {
+                device.setAutoPurge(req.getAutoPurge());
+                messagingTemplate.convertAndSend("/queue/commands." + id, "SET_AUTO_PURGE=" + req.getAutoPurge());
+            }
             groupRepository.findById(req.getGroupId()).ifPresent(device::setGroup);
             return ResponseEntity.ok(deviceRepository.save(device));
         }).orElse(ResponseEntity.notFound().build());
@@ -106,5 +110,6 @@ public class DeviceController {
         private String imei;
         private Long groupId;
         private Boolean autoRebootEnabled;
+        private String autoPurge;
     }
 }

@@ -34,6 +34,15 @@ public class DeviceWebSocketController {
     }
 
     /**
+     * Lightweight ping — just confirms device is alive and triggers queue drain.
+     * No sensor data, minimal overhead. Sent every ~5 seconds.
+     */
+    @MessageMapping("/ping")
+    public void receivePing(@Header("deviceToken") String deviceToken) {
+        webSocketService.handlePing(deviceToken);
+    }
+
+    /**
      * Devices send delivery results to /app/delivery.result.
      */
     @MessageMapping("/delivery.result")
@@ -41,7 +50,7 @@ public class DeviceWebSocketController {
                                        @Header("deviceToken") String deviceToken) {
         log.info("Delivery result from device token={}: correlationId={} result={}",
                 deviceToken, result.getCorrelationId(), result.getResult());
-        webSocketService.handleDeliveryResult(result);
+        webSocketService.handleDeliveryResult(result, deviceToken);
     }
 
     /**
@@ -54,5 +63,15 @@ public class DeviceWebSocketController {
         if (status != null) {
             webSocketService.handleApkStatus(deviceToken, status);
         }
+    }
+
+    /**
+     * Devices send batched logs to /app/device.logs on each heartbeat.
+     * Payload: JSON array of { level, event, detail } objects.
+     */
+    @MessageMapping("/device.logs")
+    public void receiveDeviceLogs(@Payload java.util.List<Map<String, String>> logs,
+                                   @Header("deviceToken") String deviceToken) {
+        webSocketService.handleDeviceLogs(deviceToken, logs);
     }
 }
