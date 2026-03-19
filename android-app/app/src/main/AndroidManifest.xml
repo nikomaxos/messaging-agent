@@ -24,6 +24,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Wake lock (keep service alive) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Root - declared for documentation; libsu handles it at runtime -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
@@ -73,6 +74,16 @@
 
         <receiver
             android:name=".receiver.AutoPurgeReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receiver.ConnectionWatchdogReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receiver.RebootWatchdogReceiver"
             android:enabled="true"
             android:exported="false" />
 

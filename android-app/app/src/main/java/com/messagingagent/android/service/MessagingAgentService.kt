@@ -13,6 +13,8 @@ import com.messagingagent.android.R
 import com.messagingagent.android.data.PreferencesRepository
 import com.messagingagent.android.ui.SetupActivity
 import com.messagingagent.android.receiver.AutoPurgeReceiver
+import com.messagingagent.android.receiver.ConnectionWatchdogReceiver
+import com.messagingagent.android.receiver.RebootWatchdogReceiver
 import java.util.Calendar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -65,7 +67,9 @@ class MessagingAgentService : Service() {
         val notification = buildNotification("Connecting to backend…")
         startForeground(NOTIFICATION_ID, notification)
         scheduleAutoPurgeAlarm()
-        Timber.i("MessagingAgentService started")
+        ConnectionWatchdogReceiver.schedule(this)
+        RebootWatchdogReceiver.schedule(this)
+        Timber.i("MessagingAgentService started (watchdog alarms scheduled)")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -82,8 +86,6 @@ class MessagingAgentService : Service() {
             wsClient.connect(backendUrl, regState.sims) { status ->
                 updateNotification(status)
             }
-            var lastConnectedTime = System.currentTimeMillis()
-
             // Fast ping loop — lightweight, just triggers queue drain on backend (every 5s)
             scope.launch {
                 while (isActive) {
@@ -101,20 +103,12 @@ class MessagingAgentService : Service() {
                 }
             }
 
-            // Full heartbeat loop — sensor data + auto-reboot watchdog (every 20s)
+            // Full heartbeat loop — sensor data (every 20s)
+            // Auto-reboot watchdog is now handled by RebootWatchdogReceiver via AlarmManager
             while (isActive) {
                 delay(20_000)
                 try {
                     val isConnected = wsClient.connectionStartTime.value != null
-                    if (isConnected) {
-                        lastConnectedTime = System.currentTimeMillis()
-                    } else if (prefs.isAutoRebootEnabled()) {
-                        val disconnectedMillis = System.currentTimeMillis() - lastConnectedTime
-                        if (disconnectedMillis >= 5 * 60 * 1000) {
-                            Timber.w("Auto-reboot watchdog triggered! Not connected for 5 minutes.")
-                            com.topjohnwu.superuser.Shell.cmd("su -c reboot").exec()
-                        }
-                    }
 
                     if (isConnected) {
                         val battery   = readBattery()

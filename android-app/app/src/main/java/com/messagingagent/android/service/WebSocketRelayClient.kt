@@ -138,6 +138,13 @@ class WebSocketRelayClient @Inject constructor(
                     webSocket.send("SUBSCRIBE\nid:sub-sms-$i\ndestination:/queue/sms.${sim.deviceId}\n\n\u0000")
                     webSocket.send("SUBSCRIBE\nid:sub-cmd-$i\ndestination:/queue/commands.${sim.deviceId}\n\n\u0000")
                 }
+
+                // Flush any buffered logs accumulated while offline
+                val bufferedLogs = drainNewLogs()
+                if (bufferedLogs.isNotEmpty()) {
+                    addLog("INFO", "Flushing ${bufferedLogs.size} buffered logs from offline period")
+                    sendDeviceLogs(bufferedLogs, baseToken)
+                }
                 
                 pingJob = CoroutineScope(Dispatchers.IO).launch {
                     while (isActive) {

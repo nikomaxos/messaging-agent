@@ -50,6 +50,7 @@ class PreferencesRepository @Inject constructor(
         val KEY_AUTO_PURGE = stringPreferencesKey("auto_purge_mode")
         val KEY_LAST_PURGED_AT = longPreferencesKey("last_purged_at")
         val KEY_SIM_REGISTRATIONS = stringPreferencesKey("sim_registrations")
+        val KEY_LAST_CONNECTED_TIME = longPreferencesKey("last_connected_time")
     }
 
     suspend fun getBackendUrl(): String? =
@@ -109,5 +110,11 @@ class PreferencesRepository @Inject constructor(
             sims        = sims
         )
     }
+
+    suspend fun getLastConnectedTime(): Long =
+        context.dataStore.data.map { it[KEY_LAST_CONNECTED_TIME] ?: 0L }.first()
+
+    suspend fun setLastConnectedTime(timestamp: Long) =
+        context.dataStore.edit { it[KEY_LAST_CONNECTED_TIME] = timestamp }
 }
 
