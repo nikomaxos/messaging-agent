@@ -12,13 +12,15 @@ import android.telephony.SubscriptionManager
 data class RcsSendResult(
     val success: Boolean,
     val noRcs: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val sentEarly: Boolean = false  // true = fast-path DB verify confirmed message entered bugle_db
 )
 
 @Singleton
 class RcsSender @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val dlrTracker: PendingDlrTracker
+    private val dlrTracker: PendingDlrTracker,
+    private val prefs: com.messagingagent.android.data.PreferencesRepository
 ) {
 
     private companion object {
@@ -30,6 +32,8 @@ class RcsSender @Inject constructor(
     }
 
     private var sentMessageCount = 0
+    private var consecutiveSendButtonFailures = 0
+    private val RESTART_THRESHOLD = 3
 
     suspend fun sendRcs(correlationId: String, deviceToken: String, to: String, text: String, subscriptionId: Int, dlrDelayMinSec: Int = 2, dlrDelayMaxSec: Int = 5): RcsSendResult {
         if (!isMessagesInstalled()) {
@@ -85,8 +89,8 @@ class RcsSender @Inject constructor(
                 return RcsSendResult(success = false, error = "am start failed: ${shellResult.err}")
             }
 
-            // Wait minimally for Google Messages UI to render
-            kotlinx.coroutines.delay(400)
+            // Wait for Google Messages UI to render and sms_body to populate the compose field
+            kotlinx.coroutines.delay(800)
 
             var clicked = false
 
@@ -95,42 +99,47 @@ class RcsSender @Inject constructor(
                 Timber.i("Fast-path: Tapping cached Send button at $cachedSendX, $cachedSendY")
                 Shell.cmd("input tap $cachedSendX $cachedSendY").exec()
                 clicked = true
-                kotlinx.coroutines.delay(200)
+                kotlinx.coroutines.delay(100)
 
                 // If a dialog was previously detected and its coords cached, tap it just in case
                 if (cachedDialogX > 0 && cachedDialogY > 0) {
                     Shell.cmd("input tap $cachedDialogX $cachedDialogY").exec()
-                    kotlinx.coroutines.delay(100)
                 }
 
-                // Verify it actually sent by looking at the DB immediately (the status should change from draft/unsent to sending/sent)
+                // Quick single-attempt DB verify — confirm the tap actually sent the message.
+                // Without this, a missed tap causes the DLR watchdog to pick up the NEXT
+                // message's DB entry and falsely attribute delivery to the missed one.
+                kotlinx.coroutines.delay(500)
                 var fastPathSuccess = false
-                for (j in 0 until 3) {
-                    val pDb = "${context.filesDir.absolutePath}/bug_fast.db"
-                    val pSrc = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
-                    val pUid = android.os.Process.myUid()
+                val pDb = "${context.filesDir.absolutePath}/bug_fast.db"
+                val pSrc = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
+                val pUid = android.os.Process.myUid()
+                try {
                     com.topjohnwu.superuser.Shell.cmd("cp '$pSrc' '$pDb' && cp '$pSrc-wal' '$pDb-wal' 2>/dev/null; cp '$pSrc-shm' '$pDb-shm' 2>/dev/null; chown $pUid:$pUid '$pDb' '$pDb-wal' '$pDb-shm' 2>/dev/null; chmod 600 '$pDb' '$pDb-wal' '$pDb-shm' 2>/dev/null").exec()
-                    try {
-                        android.database.sqlite.SQLiteDatabase.openDatabase(pDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
-                            db.rawQuery("SELECT _id FROM messages WHERE _id > $initialMaxId ORDER BY _id ASC LIMIT 1", null).use { cursor ->
-                                if (cursor.moveToFirst()) {
-                                    fastPathSuccess = true
-                                }
-                            }
+                    android.database.sqlite.SQLiteDatabase.openDatabase(pDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
+                        db.rawQuery("SELECT _id FROM messages WHERE _id > $initialMaxId ORDER BY _id ASC LIMIT 1", null).use { cursor ->
+                            if (cursor.moveToFirst()) fastPathSuccess = true
                         }
-                    } catch (e: Exception) { }
-                    Shell.cmd("rm -f $pDb", "rm -f $pDb-wal", "rm -f $pDb-shm").exec()
-                    
-                    if (fastPathSuccess) break
-                    kotlinx.coroutines.delay(200)
-                }
+                    }
+                } catch (e: Exception) { Timber.w(e, "Fast-path DB check failed") }
+                Shell.cmd("rm -f $pDb", "rm -f $pDb-wal", "rm -f $pDb-shm").exec()
 
                 if (fastPathSuccess) {
-                    Timber.i("Fast-path successful. Screen tap was recognized.")
-                    Shell.cmd("input keyevent 3").exec() // HOME key
+                    Timber.i("Fast-path verified: message entered bugle_db — sending SENT immediately")
+                    exitMessagesCleanly()
+                    dlrTracker.addPending(PendingDlr(
+                        correlationId = correlationId,
+                        destinationAddress = cleanTo,
+                        initialMaxId = initialMaxId,
+                        deviceToken = deviceToken,
+                        bugleMessageId = 0,
+                        dlrDelayMinSec = dlrDelayMinSec,
+                        dlrDelayMaxSec = dlrDelayMaxSec
+                    ))
+                    return RcsSendResult(success = true, sentEarly = true)
                 } else {
-                    Timber.w("Fast-path tap failed to register a new message. Falling back to slow UiAutomator dump...")
-                    clicked = false // Reset and proceed to slow path
+                    Timber.w("Fast-path tap did NOT register in bugle_db — falling back to slow path")
+                    clicked = false // Reset — slow path will re-discover and re-tap
                 }
             }
 
@@ -143,14 +152,16 @@ class RcsSender @Inject constructor(
                 // Match exact button elements for sending, capturing the entire <node> tag to inspect attributes
                 val sendBtnRegex = """<node[^>]*resource-id="[^"]*send_message_button[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*>""".toRegex(RegexOption.IGNORE_CASE)
                 val sendDescRegex = """<node[^>]*content-desc="(?i)send\s+[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*>""".toRegex()
+                // Newer Google Messages versions use Jetpack Compose test tags
+                val composeSendRegex = """<node[^>]*resource-id="Compose:Draft:Send"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*>""".toRegex()
                 
-                val match = sendBtnRegex.find(xml) ?: sendDescRegex.find(xml)
+                val match = sendBtnRegex.find(xml) ?: composeSendRegex.find(xml) ?: sendDescRegex.find(xml)
                 
                 if (match != null) {
                     val fullNode = match.value
                     if (fullNode.contains("SMS", ignoreCase = true)) {
                         Timber.w("RCS not available (Send button indicates SMS: $fullNode). Aborting dispatch to $to.")
-                        Shell.cmd("input keyevent 3").exec()
+                        exitMessagesCleanly()
                         return RcsSendResult(success = false, noRcs = true, error = "Recipient does not have RCS capabilities")
                     }
 
@@ -188,20 +199,36 @@ class RcsSender @Inject constructor(
                         kotlinx.coroutines.delay(200)
                     }
 
-                    Shell.cmd("input keyevent 3").exec() // HOME key
+                    exitMessagesCleanly()
                     break
                 }
                 
                 Timber.w("Send button not found in UI dump. Retrying (attempt ${i + 1}/6)...")
-                kotlinx.coroutines.delay(200)
+                kotlinx.coroutines.delay(300)
             }
             } // Close slow path block
             
             if (!clicked) {
-                Timber.e("Failed to find or click the Send button in Google Messages. Aborting process.")
-                Shell.cmd("input keyevent 3").exec() // Send Android back to Home to clear screen
-                return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator")
+                consecutiveSendButtonFailures++
+                Timber.e("Failed to find or click the Send button in Google Messages. Consecutive failures: $consecutiveSendButtonFailures/$RESTART_THRESHOLD")
+                exitMessagesCleanly()
+                
+                if (consecutiveSendButtonFailures >= RESTART_THRESHOLD) {
+                    val selfHealingOn = kotlinx.coroutines.runBlocking { prefs.isSelfHealingEnabled() }
+                    if (selfHealingOn) {
+                        Timber.w("🔄 RESTART THRESHOLD REACHED ($RESTART_THRESHOLD consecutive send-button failures). Self-healing enabled — restarting Google Messages...")
+                        restartGoogleMessages()
+                    } else {
+                        Timber.w("🔄 RESTART THRESHOLD REACHED ($RESTART_THRESHOLD consecutive send-button failures). Self-healing DISABLED — skipping restart.")
+                        consecutiveSendButtonFailures = 0  // Reset counter anyway to avoid spam logging
+                    }
+                }
+                
+                return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator (fail #$consecutiveSendButtonFailures)")
             }
+            
+            // Send button was successfully clicked — reset failure counter
+            consecutiveSendButtonFailures = 0
 
             // The "Send" button has been tapped. Capture the exact bugle_db _id of the new message.
             var bugleMessageId = 0L
@@ -236,11 +263,59 @@ class RcsSender @Inject constructor(
         }
     }
 
+    /**
+     * Exit Google Messages by pressing HOME.
+     * HOME is safe — it doesn't affect our own app's activity stack.
+     * The am start intent flags (CLEAR_TOP | NEW_TASK) handle fresh state on next launch.
+     */
+    private suspend fun exitMessagesCleanly() {
+        Shell.cmd("input keyevent 3").exec()   // HOME
+        kotlinx.coroutines.delay(300)          // Let launcher fully appear before next am start
+    }
+
     private fun isMessagesInstalled(): Boolean {
         return try {
             context.packageManager.getPackageInfo(MESSAGES_PKG, 0)
             true
         } catch (e: Exception) { false }
     }
-}
 
+    /**
+     * Force-stop Google Messages, clear cached coordinates, wait, and re-launch.
+     * Called when consecutive send-button failures reach the threshold.
+     * Safe: each failed message was already reported as ERROR to backend before this runs.
+     */
+    private suspend fun restartGoogleMessages() {
+        try {
+            // 1. Force-stop Google Messages
+            Timber.i("🛑 Force-stopping Google Messages...")
+            Shell.cmd("am force-stop $MESSAGES_PKG").exec()
+            kotlinx.coroutines.delay(1000)
+
+            // 2. Clear cached button coordinates — they may be stale after restart
+            cachedSendX = -1
+            cachedSendY = -1
+            cachedDialogX = -1
+            cachedDialogY = -1
+            Timber.i("🧹 Cleared cached button coordinates")
+
+            // 3. Wait for the app to fully stop
+            kotlinx.coroutines.delay(2000)
+
+            // 4. Re-launch Google Messages to its main activity so it reinitializes
+            Timber.i("🚀 Re-launching Google Messages...")
+            Shell.cmd("am start -n $MESSAGES_PKG/.ui.ConversationListActivity").exec()
+            kotlinx.coroutines.delay(2000)
+
+            // 5. Go back to home so the next dispatch gets a clean state
+            Shell.cmd("input keyevent 3").exec()  // HOME
+            kotlinx.coroutines.delay(500)
+
+            // 6. Reset counter — give the fresh app a chance
+            consecutiveSendButtonFailures = 0
+            Timber.i("✅ Google Messages restarted successfully. Counter reset.")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to restart Google Messages")
+        }
+    }
+}

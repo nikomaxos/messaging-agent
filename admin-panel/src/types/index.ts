@@ -32,6 +32,12 @@ export interface Device {
   activeNetworkType?: string
   apkVersion?: string
   apkUpdateStatus?: string
+  autostartPinned?: boolean
+  silentMode?: boolean
+  callBlockEnabled?: boolean
+  selfHealingEnabled?: boolean
+  adbWifiAddress?: string
+  sendIntervalSeconds?: number
 }
 
 export interface SmppSession {
@@ -74,6 +80,7 @@ export interface MessageLog {
   createdAt: string
   dispatchedAt?: string
   rcsDlrReceivedAt?: string
+  rcsSentAt?: string
   fallbackStartedAt?: string
   fallbackDlrReceivedAt?: string
   deliveredAt?: string
@@ -124,4 +131,12 @@ export interface SmscSupplier {
   dlrsReceived: number
   failed: number
   inQueue: number
+}
+
+export interface AppUser {
+  id: number
+  username: string
+  role: string
+  active: boolean
+  createdAt: string
 }

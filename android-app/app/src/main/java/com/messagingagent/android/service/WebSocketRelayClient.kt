@@ -66,6 +66,10 @@ class WebSocketRelayClient @Inject constructor(
     /** Pending retry job (cancel on new connect). */
     private var retryJob: Job? = null
 
+    /** Call blocker coroutine */
+    @Volatile private var callBlockEnabled = false
+    private var callBlockJob: Job? = null
+
     /** STOMP periodic ping job to prevent backend server from forcibly closing idle TCP connection */
     private var pingJob: Job? = null
 
@@ -245,6 +249,14 @@ class WebSocketRelayClient @Inject constructor(
                         result = if (result.noRcs) "NO_RCS" else "ERROR",
                         errorDetail = result.error
                     ), sim.deviceToken)
+                } else if (result.sentEarly) {
+                    // Fast-path: DB verify confirmed message entered bugle_db.
+                    // Send SENT immediately to unlock device — skip DLR watchdog latency.
+                    Timber.i("Fast-path SENT: sending immediately for ${dispatch.correlationId}")
+                    sendDeliveryResult(DeliveryResult(
+                        correlationId = dispatch.correlationId,
+                        result = "SENT"
+                    ), sim.deviceToken)
                 }
             }
         } catch (e: Exception) {
@@ -368,11 +380,121 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("INFO", "Auto-reboot set to $enabled")
                 }
             }
+            body.startsWith("SET_SELF_HEALING=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val enabled = body.substringAfter("=").toBooleanStrictOrNull() ?: false
+                    prefs.setSelfHealingEnabled(enabled)
+                    addLog("INFO", "Self-healing set to $enabled")
+                }
+            }
             body.startsWith("SET_AUTO_PURGE=") -> {
                 CoroutineScope(Dispatchers.IO).launch {
                     val mode = body.substringAfter("=").uppercase()
                     prefs.setAutoPurgeMode(mode)
                     addLog("INFO", "Auto-Purge mode set to $mode")
+                }
+            }
+            body == "PIN_AUTOSTART" -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    addLog("INFO", "🛡️ PIN_AUTOSTART command received — re-applying device hardening")
+                    try {
+                        com.topjohnwu.superuser.Shell.cmd(
+                            "settings put system volume_ring 0",
+                            "settings put system volume_notification 0",
+                            "cmd audio set-volume STREAM_RING 0 2>/dev/null",
+                            "cmd audio set-volume STREAM_NOTIFICATION 0 2>/dev/null"
+                        ).exec()
+                        addLog("INFO", "🔇 Ringer set to SILENT via root")
+
+                        com.topjohnwu.superuser.Shell.cmd(
+                            "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.AutoUpdateReceiver 2>/dev/null",
+                            "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.UpdateCheckJob 2>/dev/null"
+                        ).exec()
+                        addLog("INFO", "🛡️ MIUI Security Center auto-update disabled")
+
+                        addLog("INFO", "✅ Device hardening re-applied successfully")
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Failed to re-apply device hardening: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("SET_SILENT=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val enabled = body.substringAfter("=").toBooleanStrictOrNull() ?: false
+                    addLog("INFO", "🔇 Silent mode set to $enabled")
+                    try {
+                        if (enabled) {
+                            // Use AudioManager API via the app context for reliable ringer mode change
+                            try {
+                                val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                                audioManager.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
+                                audioManager.setStreamVolume(android.media.AudioManager.STREAM_RING, 0, 0)
+                                audioManager.setStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION, 0, 0)
+                                audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, 0, 0)
+                            } catch (e: Exception) {
+                                addLog("WARN", "AudioManager failed: ${e.message}, using root fallback")
+                            }
+                            // Root fallback + DND + disable vibration
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "settings put system volume_ring 0",
+                                "settings put system volume_notification 0",
+                                "settings put system volume_alarm 0",
+                                "settings put global zen_mode 2",
+                                "settings put system vibrate_when_ringing 0",
+                                "settings put system haptic_feedback_enabled 0",
+                                "cmd notification set_dnd on 2>/dev/null"
+                            ).exec()
+                            addLog("INFO", "🔇 Phone set to SILENT + DND + vibration off")
+                        } else {
+                            try {
+                                val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                                audioManager.ringerMode = android.media.AudioManager.RINGER_MODE_NORMAL
+                            } catch (_: Exception) {}
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "settings put global zen_mode 0",
+                                "settings put system vibrate_when_ringing 1",
+                                "settings put system haptic_feedback_enabled 1",
+                                "cmd notification set_dnd off 2>/dev/null"
+                            ).exec()
+                            addLog("INFO", "🔔 Phone ringer + vibration restored to NORMAL")
+                        }
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Failed to set silent mode: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("SET_CALL_BLOCK=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val enabled = body.substringAfter("=").toBooleanStrictOrNull() ?: false
+                    addLog("INFO", "📵 Call blocking set to $enabled")
+                    callBlockEnabled = enabled
+                    if (enabled && callBlockJob == null) {
+                        callBlockJob = CoroutineScope(Dispatchers.IO).launch {
+                            addLog("INFO", "📵 Call blocker started")
+                            while (isActive) {
+                                try {
+                                    val result = com.topjohnwu.superuser.Shell.cmd(
+                                        "dumpsys telephony.registry | grep -i 'mCallState=1' | head -1"
+                                    ).exec()
+                                    val output = result.out.joinToString("")
+                                    if (output.contains("mCallState=1")) {
+                                        addLog("INFO", "📵 Incoming call detected — rejecting!")
+                                        com.topjohnwu.superuser.Shell.cmd(
+                                            "input keyevent KEYCODE_ENDCALL"
+                                        ).exec()
+                                        delay(1000)
+                                    }
+                                } catch (e: Exception) {
+                                    addLog("WARN", "Call blocker check failed: ${e.message}")
+                                }
+                                delay(2000)
+                            }
+                        }
+                    } else if (!enabled) {
+                        callBlockJob?.cancel()
+                        callBlockJob = null
+                        addLog("INFO", "📵 Call blocker stopped")
+                    }
                 }
             }
         }

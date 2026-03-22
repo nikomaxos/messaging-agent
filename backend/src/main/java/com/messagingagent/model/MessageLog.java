@@ -2,7 +2,6 @@ package com.messagingagent.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 
@@ -69,7 +68,7 @@ public class MessageLog {
     @Column(length = 1000)
     private String errorDetail;
 
-    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     private Instant deliveredAt;
@@ -79,6 +78,8 @@ public class MessageLog {
     private Instant dispatchedAt;
     
     private Instant rcsDlrReceivedAt;
+    
+    private Instant rcsSentAt;
     
     private Instant fallbackDlrReceivedAt;
 

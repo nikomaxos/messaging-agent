@@ -94,6 +94,7 @@ public class RcsDispatchService {
                     .destinationAddress(event.getDestinationAddress())
                     .messageText(event.getMessageText())
                     .status(MessageLog.Status.FAILED)
+                    .createdAt(Instant.ofEpochMilli(event.getTimestampMs()))
                     .build());
             smppResponseService.sendDeliveryFailure(event.getCorrelationId(), "NO_GROUP");
             return;
@@ -112,6 +113,7 @@ public class RcsDispatchService {
                     .status(MessageLog.Status.QUEUED)
                     .device(null) // No device assigned yet
                     .deviceGroup(group) // Attach to the virtual SMSC for queue draining
+                    .createdAt(Instant.ofEpochMilli(event.getTimestampMs()))
                     .rcsExpiresAt(selection != null && selection.rcsExpirationSeconds != null && selection.rcsExpirationSeconds > 0 ? Instant.now().plus(selection.rcsExpirationSeconds, ChronoUnit.SECONDS) : null)
                     .resendTrigger(selection != null ? selection.resendTrigger : null)
                     .fallbackSmsc(selection != null ? selection.fallbackSmsc : null)
@@ -128,6 +130,7 @@ public class RcsDispatchService {
 
         Device device = selectedDevice.get();
         log.info("Dispatching to device id={} name={}", device.getId(), device.getName());
+        loadBalancer.recordDispatch(device.getId());
         
         // Lock the device to BUSY
         device.setStatus(Device.Status.BUSY);
@@ -148,6 +151,7 @@ public class RcsDispatchService {
                 .status(MessageLog.Status.DISPATCHED)
                 .device(device)
                 .deviceGroup(group)
+                .createdAt(Instant.ofEpochMilli(event.getTimestampMs()))
                 .rcsExpiresAt(expiresAt)
                 .resendTrigger(selection != null ? selection.resendTrigger : null)
                 .fallbackSmsc(selection != null ? selection.fallbackSmsc : null)
@@ -201,6 +205,7 @@ public class RcsDispatchService {
                     && result.getResult() == SmsDeliveryResultEvent.Result.DELIVERED) {
                 log.info("DELIVERED result overriding {} for correlationId={} — carrier confirmation wins",
                         logEntry.getStatus(), result.getCorrelationId());
+                logEntry.setErrorDetail(null); // Clear stale timeout/error detail
                 // Fall through to process the DELIVERED result
             }
 
@@ -211,6 +216,7 @@ public class RcsDispatchService {
             // Device unlock + queue drain happens in DeviceWebSocketService.handleDeliveryResult.
             if (result.getResult() == SmsDeliveryResultEvent.Result.SENT) {
                 log.info("SENT signal for correlationId={} — device freed, DLR pending", result.getCorrelationId());
+                logEntry.setRcsSentAt(Instant.now());
                 messageLogRepository.save(logEntry);
                 return;
             }

@@ -69,6 +69,25 @@ public class Device {
     private String activeNetworkType;
     private String apkVersion;
     private String apkUpdateStatus;
+    @Builder.Default
+    @Column(name = "autostart_pinned")
+    private Boolean autostartPinned = false;
+    @Builder.Default
+    @Column(name = "silent_mode")
+    private Boolean silentMode = false;
+    @Builder.Default
+    @Column(name = "call_block_enabled")
+    private Boolean callBlockEnabled = false;
+    @Builder.Default
+    @Column(name = "self_healing_enabled")
+    private Boolean selfHealingEnabled = false;
+    @Builder.Default
+    @Column(name = "send_interval_seconds")
+    private Double sendIntervalSeconds = 0.0;
+    @Column(name = "adb_wifi_address")
+    private String adbWifiAddress;
+    @Column(name = "last_dispatched_at")
+    private Instant lastDispatchedAt;
 
     private Instant lastHeartbeat;
     private String sessionId;        // WebSocket session ID when online

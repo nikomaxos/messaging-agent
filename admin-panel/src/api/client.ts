@@ -51,6 +51,7 @@ export const getDevice      = (id: number) => api.get(`/devices/${id}`).then((r:
 export const createDevice   = (d: any) => api.post('/devices', d).then((r: any) => r.data)
 export const updateDevice   = (id: number, d: any) => api.put(`/devices/${id}`, d).then((r: any) => r.data)
 export const deleteDevice   = (id: number) => api.delete(`/devices/${id}`)
+export const getDevicePerformance = () => api.get('/devices/performance').then((r: any) => r.data)
 
 // ── SMPP Server, Clients & Routing ──────────────────────────────────────────
 export const getServerConfig  = () => api.get('/admin/smpp/server').then((r: any) => r.data)
@@ -77,8 +78,15 @@ export const updateSmppRouting = (id: number, d: any) => api.put(`/smpp/routings
 export const deleteSmppRouting = (id: number) => api.delete(`/smpp/routings/${id}`)
 
 // ── Message Logs ──────────────────────────────────────────────────────────
-export const getLogs = (page = 0, filters?: Record<string, any>) => 
-  api.get('/logs', { params: { page, size: 50, ...filters } }).then((r: any) => r.data)
+export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC') => 
+  api.get('/logs', { params: { page, size: 50, sortBy, sortDir, ...filters } }).then((r: any) => r.data)
 
 export const getDeviceLogs = (page = 0, filters?: Record<string, any>) =>
   api.get('/logs/device', { params: { page, size: 50, ...filters } }).then((r: any) => r.data)
+
+// ── Users ─────────────────────────────────────────────────────────────────
+export const getUsers       = () => api.get('/users').then((r: any) => r.data)
+export const createUser     = (d: any) => api.post('/users', d).then((r: any) => r.data)
+export const updateUser     = (id: number, d: any) => api.put(`/users/${id}`, d).then((r: any) => r.data)
+export const resetPassword  = (id: number, password: string) => api.put(`/users/${id}/password`, { password }).then((r: any) => r.data)
+export const deleteUser     = (id: number) => api.delete(`/users/${id}`)

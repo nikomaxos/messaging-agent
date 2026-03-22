@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Wifi, WifiOff, Activity } from 'lucide-react'
+import { Wifi, WifiOff, Activity, RefreshCw } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
@@ -25,6 +25,7 @@ export default function SystemLogsPage() {
   const [connEvents, setConnEvents] = useState<ConnEvent[]>([])
   const [wsConnected, setWsConnected] = useState(false)
   const stompRef = useRef<Client | null>(null)
+  const refreshingRef = useRef(false)
 
   const addEvent = (level: ConnEvent['level'], device: string, event: string, detail?: string) => {
     setConnEvents(prev => [
@@ -45,13 +46,13 @@ export default function SystemLogsPage() {
         setWsConnected(true)
         addEvent('INFO', 'System', 'Admin WebSocket connected')
 
-        // Device status events
+        // Device status events — skip ONLINE/OFFLINE (now in Device Logs)
         client.subscribe('/topic/devices', msg => {
           try {
             const d = JSON.parse(msg.body)
-            const level = d.status === 'ONLINE' ? 'INFO' : 'WARN'
-            addEvent(level, d.name ?? 'Unknown', `Device ${d.status}`,
-              d.lastHeartbeat ? `last heartbeat: ${d.lastHeartbeat}` : undefined)
+            if (d.status === 'ONLINE' || d.status === 'OFFLINE') return
+            // Non-status updates (e.g. APK update) still show here
+            addEvent('INFO', d.name ?? 'Unknown', `Device update`, JSON.stringify(d))
           } catch (_) {}
         })
 
@@ -65,7 +66,9 @@ export default function SystemLogsPage() {
       },
       onDisconnect: () => {
         setWsConnected(false)
-        addEvent('WARN', 'System', 'Admin WebSocket disconnected')
+        if (!refreshingRef.current) {
+          addEvent('INFO', 'System', 'Admin WebSocket disconnected')
+        }
       },
       onStompError: frame => {
         setWsConnected(false)
@@ -89,9 +92,22 @@ export default function SystemLogsPage() {
               : <><WifiOff size={12} className="text-amber-400" /> WebSocket reconnecting…</>}
           </p>
         </div>
-        <button className="btn-secondary" onClick={() => setConnEvents([])}>
-          Clear
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => {
+            refreshingRef.current = true
+            setConnEvents([])
+            stompRef.current?.deactivate()
+            setTimeout(() => {
+              refreshingRef.current = false
+              stompRef.current?.activate()
+            }, 300)
+          }}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button className="btn-secondary" onClick={() => setConnEvents([])}>
+            Clear
+          </button>
+        </div>
       </div>
 
       <div className="glass overflow-hidden">

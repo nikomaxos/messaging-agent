@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getDevices, getGroups, createDevice, updateDevice, deleteDevice } from '../api/client'
+import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance } from '../api/client'
 import { Device, DeviceGroup } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Copy, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse } from 'lucide-react'
 import { FormatDistanceToNowOptions, formatDistanceToNow, format } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
@@ -27,6 +27,7 @@ export default function DevicesPage() {
   const [autoFetch, setAutoFetch] = useState(false)
   const [uploadingApk, setUploadingApk] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [autostartToast, setAutostartToast] = useState<string | null>(null)
   
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
   const stompRef = useRef<Client | null>(null)
@@ -41,9 +42,14 @@ export default function DevicesPage() {
   })
 
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
+  const { data: perfScores = {} } = useQuery({
+    queryKey: ['device-performance'],
+    queryFn: getDevicePerformance,
+    refetchInterval: 30_000,
+  })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
-  const [form, setForm] = useState({ name: '', imei: '', groupId: '' })
+  const [form, setForm] = useState({ name: '', imei: '', groupId: '', phoneNumber: '' })
 
   const handleRefresh = async () => {
     await refetch()
@@ -67,7 +73,7 @@ export default function DevicesPage() {
       })
       if (res.ok) {
         setUploadSuccess(true)
-        setTimeout(() => setUploadSuccess(false), 3000)
+        setTimeout(() => setUploadSuccess(false), 20000)
       }
       else alert('Failed to upload APK.')
     } catch (err) {
@@ -106,7 +112,8 @@ export default function DevicesPage() {
                       gsmSignalDbm: event.gsmSignalDbm !== undefined && event.gsmSignalDbm !== "" ? event.gsmSignalDbm : d.gsmSignalDbm,
                       activeNetworkType: event.activeNetworkType !== undefined && event.activeNetworkType !== "" ? event.activeNetworkType : d.activeNetworkType,
                       apkVersion: event.apkVersion !== undefined && event.apkVersion !== "" ? event.apkVersion : d.apkVersion,
-                      apkUpdateStatus: event.apkUpdateStatus !== undefined ? event.apkUpdateStatus : d.apkUpdateStatus }
+                      apkUpdateStatus: event.apkUpdateStatus !== undefined ? event.apkUpdateStatus : d.apkUpdateStatus,
+                      autostartPinned: event.autostartPinned !== undefined ? event.autostartPinned : d.autostartPinned }
                   : d
               )
             )
@@ -132,12 +139,12 @@ export default function DevicesPage() {
     onError: (err: any) => alert('Failed to delete device: ' + (err.response?.data?.message || err.message))
   })
 
-  const reset = () => { setShowForm(false); setEditing(null); setForm({ name: '', imei: '', groupId: '' }) }
+  const reset = () => { setShowForm(false); setEditing(null); setForm({ name: '', imei: '', groupId: '', phoneNumber: '' }) }
   const openEdit = (d: Device) => {
-    setEditing(d); setForm({ name: d.name, imei: d.imei ?? '', groupId: String(d.group?.id ?? '') }); setShowForm(true)
+    setEditing(d); setForm({ name: d.name, imei: d.imei ?? '', groupId: String(d.group?.id ?? ''), phoneNumber: d.phoneNumber ?? '' }); setShowForm(true)
   }
   const save = () => {
-    const payload = { ...form, groupId: form.groupId ? Number(form.groupId) : null }
+    const payload = { ...form, groupId: form.groupId ? Number(form.groupId) : null, phoneNumber: form.phoneNumber || null }
     if (editing) updateMut.mutate({ id: editing.id, d: payload })
     else createMut.mutate(payload)
   }
@@ -152,22 +159,40 @@ export default function DevicesPage() {
 
   const sendCommand = async (id: number, command: string) => {
     const token = localStorage.getItem('jwt')
-    await fetch(`/api/devices/${id}/command`, {
+    const res = await fetch(`/api/devices/${id}/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ command })
     })
+    if (res.ok && command === 'PIN_AUTOSTART') {
+      setAutostartToast('🛡️ Autostart protection applied')
+      setTimeout(() => setAutostartToast(null), 3000)
+    }
   }
 
   const toggleAutoReboot = (d: Device) => {
-    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, groupId: d.group?.id, autoRebootEnabled: !d.autoRebootEnabled } })
+    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, phoneNumber: d.phoneNumber, groupId: d.group?.id, autoRebootEnabled: !d.autoRebootEnabled } })
+  }
+
+  const toggleSilentMode = (d: Device) => {
+    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, phoneNumber: d.phoneNumber, groupId: d.group?.id, silentMode: !d.silentMode } })
+  }
+
+  const toggleCallBlock = (d: Device) => {
+    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, phoneNumber: d.phoneNumber, groupId: d.group?.id, callBlockEnabled: !d.callBlockEnabled } })
   }
 
   const setAutoPurge = (d: Device, value: string) => {
-    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, groupId: d.group?.id, autoPurge: value } })
+    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, phoneNumber: d.phoneNumber, groupId: d.group?.id, autoPurge: value } })
   }
 
-  const copyToken = (token?: string) => token && navigator.clipboard.writeText(token)
+  const setSendInterval = (d: Device, value: number) => {
+    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, phoneNumber: d.phoneNumber, groupId: d.group?.id, sendIntervalSeconds: value } })
+  }
+
+  const toggleSelfHealing = (d: Device) => {
+    updateMut.mutate({ id: d.id, d: { name: d.name, imei: d.imei, phoneNumber: d.phoneNumber, groupId: d.group?.id, selfHealingEnabled: !d.selfHealingEnabled } })
+  }
 
   const statusClass = (s: Device['status']) =>
     ({ ONLINE: 'pill-green', OFFLINE: 'pill-gray', BUSY: 'pill-yellow', MAINTENANCE: 'pill-yellow' }[s])
@@ -190,6 +215,9 @@ export default function DevicesPage() {
               : <><WifiOff size={12} className="text-slate-500" /> Reconnecting…</>}
             {refreshToast && (
               <span className="ml-2 text-emerald-400 text-xs font-medium">{refreshToast}</span>
+            )}
+            {autostartToast && (
+              <span className="ml-2 text-emerald-400 text-xs font-medium animate-pulse">{autostartToast}</span>
             )}
           </p>
         </div>
@@ -219,11 +247,16 @@ export default function DevicesPage() {
       {showForm && (
         <div className="glass p-5 space-y-4">
           <h2 className="text-sm font-semibold text-slate-300">{editing ? 'Edit' : 'New'} Device</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Device Name *</label>
               <input id="device-name" className="inp" placeholder="Pixel 8 #1"
                 value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5">Phone Number</label>
+              <input className="inp" placeholder="+30 690 123 4567"
+                value={form.phoneNumber} onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))} />
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
@@ -260,7 +293,7 @@ export default function DevicesPage() {
             <th className="px-4">APK (v)</th>
             <th className="px-4">RCS</th>
             <th className="px-4">Last Seen</th>
-            <th className="px-4">Token</th>
+            <th className="px-4">Score</th>
             <th className="px-4 text-right">Actions</th>
           </tr></thead>
           <tbody>
@@ -268,6 +301,8 @@ export default function DevicesPage() {
               <tr key={d.id}>
                 <td className="px-4">
                   <div className="font-medium text-slate-200">{d.name}</div>
+                  {d.phoneNumber && <div className="text-[10px] text-brand-400 font-medium">{d.phoneNumber}</div>}
+                  {d.adbWifiAddress && <div className="text-[10px] text-teal-400 font-mono cursor-pointer hover:text-teal-300 transition" onClick={() => navigator.clipboard.writeText(`adb connect ${d.adbWifiAddress}`)} title="Click to copy adb connect command">🔌 {d.adbWifiAddress}</div>}
                   <div className="text-[10px] text-slate-500">{d.imei ? d.imei : `Device ID: #${d.id}`}</div>
                 </td>
                 <td className="px-4">
@@ -306,12 +341,50 @@ export default function DevicesPage() {
                   {d.lastHeartbeat ? format(new Date(d.lastHeartbeat), 'h:mm a').toLowerCase() : 'never'}
                 </td>
                 <td className="px-4">
-                  {d.registrationToken && (
-                    <button title="Copy token"
-                      onClick={() => copyToken(d.registrationToken)}
-                      className="text-slate-500 hover:text-brand-400 transition"
-                    ><Copy size={13} /></button>
-                  )}
+                  {(() => {
+                    const perf = (perfScores as any)[d.id]
+                    if (!perf) return <span className="text-slate-500 text-xs">—</span>
+                    const s2h = perf.score2h
+                    const s7d = perf.score7d
+                    if (!s2h && !s7d) return <span className="text-slate-500 text-xs">—</span>
+                    const scoreColor = (s: number) => s >= 80 ? 'text-emerald-400' : s >= 50 ? 'text-amber-400' : 'text-red-400'
+                    const barColor = (s: number) => s >= 80 ? 'bg-emerald-500' : s >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                    return (
+                      <div className="relative group cursor-help">
+                        <div className="space-y-0.5">
+                          {s2h && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-slate-500 w-4">2h</span>
+                              <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${barColor(s2h.score)} rounded-full transition-all`} style={{ width: `${s2h.score}%` }} />
+                              </div>
+                              <span className={`text-[9px] font-bold ${scoreColor(s2h.score)}`}>{s2h.score}</span>
+                            </div>
+                          )}
+                          {s7d && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] text-slate-500 w-4">7d</span>
+                              <div className="w-10 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${barColor(s7d.score)} rounded-full transition-all`} style={{ width: `${s7d.score}%` }} />
+                              </div>
+                              <span className={`text-[9px] font-bold ${scoreColor(s7d.score)}`}>{s7d.score}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-slate-800 border border-slate-700 text-slate-200 text-[10px] leading-tight rounded-lg px-3 py-2 whitespace-nowrap z-50 shadow-xl">
+                          <b>Last 2 Hours</b><br/>
+                          ⚡ Latency: <b>{s2h?.avgLatencySeconds ?? 0}s</b> avg<br/>
+                          ✅ Delivery: <b>{Math.round((s2h?.successRate ?? 1) * 100)}%</b><br/>
+                          📨 Dispatched: <b>{s2h?.totalDispatched ?? 0}</b><br/>
+                          <br/>
+                          <b>Last 7 Days</b><br/>
+                          ⚡ Latency: <b>{s7d?.avgLatencySeconds ?? 0}s</b> avg<br/>
+                          ✅ Delivery: <b>{Math.round((s7d?.successRate ?? 1) * 100)}%</b><br/>
+                          📨 Dispatched: <b>{s7d?.totalDispatched ?? 0}</b>
+                        </span>
+                      </div>
+                    )
+                  })()}
                 </td>
                 <td className="px-4 text-right overflow-visible">
                   <div className="flex items-center justify-end gap-2">
@@ -339,6 +412,28 @@ export default function DevicesPage() {
                         <option value="ALL">All</option>
                       </select>
                     </div>
+                    <div className="flex flex-col items-start mr-2">
+                      <label className="text-[10px] text-slate-500 leading-none mb-0.5 flex items-center gap-0.5">
+                        Submitting Interval
+                        <span className="relative group">
+                          <Info size={14} className="text-slate-600 hover:text-brand-400 cursor-help transition" />
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 hidden group-hover:block bg-slate-800 border border-slate-700 text-slate-200 text-[10px] leading-tight rounded-lg px-3 py-2 whitespace-nowrap z-50 shadow-xl">
+                            Throttle: wait X seconds between dispatches.<br/>
+                            Set to <b>0</b> for instant delivery (no delay).<br/>
+                            E.g. <b>5</b> = max 12 msg/min, <b>2.5</b> = 24 msg/min<br/>
+                            Creates a queue during burst sends.
+                          </span>
+                        </span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        className="bg-[#12121f] text-[10px] text-slate-300 border border-white/5 rounded px-1 py-0.5 w-12 text-center"
+                        value={d.sendIntervalSeconds ?? 0}
+                        onChange={e => setSendInterval(d, parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
                     <label className="flex items-center gap-1 cursor-pointer text-[10px] text-slate-500 mr-2 leading-none">
                       <input type="checkbox" className="accent-brand-500" checked={d.autoRebootEnabled ?? false} onChange={() => toggleAutoReboot(d)} />
                       <span className="flex items-center gap-0.5">
@@ -353,6 +448,38 @@ export default function DevicesPage() {
                         </span>
                       </span>
                     </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-slate-500 mr-2 leading-none">
+                      <input type="checkbox" className="accent-cyan-500" checked={d.selfHealingEnabled ?? false} onChange={() => toggleSelfHealing(d)} />
+                      <span className="flex items-center gap-0.5">
+                        Self<br/>Healing
+                        <span className="relative group">
+                          <Info size={14} className="text-slate-600 hover:text-brand-400 cursor-help transition" />
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 hidden group-hover:block bg-slate-800 border border-slate-700 text-slate-200 text-[10px] leading-tight rounded-lg px-3 py-2 whitespace-nowrap z-50 shadow-xl">
+                            Reboots device when (last 2h):<br/>
+                            • Delivery rate &lt; 50%, OR<br/>
+                            • Avg latency &gt; 30 seconds<br/>
+                            Restarts Google Messages bot:<br/>
+                            • After 3 consecutive send-button failures<br/>
+                            Checked every 5 minutes.
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-slate-500 mr-2 leading-none">
+                      <input type="checkbox" className="accent-amber-500" checked={d.silentMode ?? false} onChange={() => toggleSilentMode(d)} />
+                      <span className="flex items-center gap-0.5">
+                        <VolumeX size={11} className={d.silentMode ? 'text-amber-400' : ''} />
+                        Silent
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-slate-500 mr-2 leading-none">
+                      <input type="checkbox" className="accent-red-500" checked={d.callBlockEnabled ?? false} onChange={() => toggleCallBlock(d)} />
+                      <span className="flex items-center gap-0.5">
+                        <PhoneOff size={11} className={d.callBlockEnabled ? 'text-red-400' : ''} />
+                        Block<br/>Calls
+                      </span>
+                    </label>
+                    <button className={`btn-secondary !px-2 !py-1 ${d.autostartPinned ? '!text-emerald-400' : '!text-amber-400'}`} title="Pin Autostart (MIUI protection)" onClick={() => confirmAndSendCommand(d.id, 'PIN_AUTOSTART')}><ShieldCheck size={13} /></button>
                     <button className="btn-secondary !px-2 !py-1 text-brand-400" title="Push APK Update" onClick={() => confirmAndSendCommand(d.id, 'UPDATE_APK')}><DownloadCloud size={13} /></button>
                     <button className="btn-secondary !px-2 !py-1 text-emerald-400" title="Reconnect" onClick={() => confirmAndSendCommand(d.id, 'RECONNECT')}><RefreshCcw size={13} /></button>
                     <button className="btn-danger !px-2 !py-1" title="Reboot" onClick={() => confirmAndSendCommand(d.id, 'REBOOT')}><Power size={13} /></button>

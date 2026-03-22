@@ -32,13 +32,48 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.status IN :statuses AND m.createdAt >= :startDate")
     long countByStatusesSince(@org.springframework.data.repository.query.Param("statuses") java.util.List<MessageLog.Status> statuses, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.smscSupplier.id = :supplierId AND m.createdAt >= :startDate")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE (m.smscSupplier.id = :supplierId OR m.fallbackSmsc.id = :supplierId) AND m.createdAt >= :startDate")
     long countTotalBySmscSince(@org.springframework.data.repository.query.Param("supplierId") Long supplierId, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.smscSupplier.id = :supplierId AND m.status IN :statuses AND m.createdAt >= :startDate")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE (m.smscSupplier.id = :supplierId OR m.fallbackSmsc.id = :supplierId) AND m.status IN :statuses AND m.createdAt >= :startDate")
     long countBySmscAndStatusesSince(@org.springframework.data.repository.query.Param("supplierId") Long supplierId, @org.springframework.data.repository.query.Param("statuses") java.util.List<MessageLog.Status> statuses, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
 
     @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = :status AND m.rcsExpiresAt < :now")
     java.util.List<MessageLog> findExpiredLogs(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("now") java.time.Instant now);
+
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = 'DISPATCHED' AND m.dispatchedAt < :cutoff AND m.fallbackStartedAt IS NULL")
+    java.util.List<MessageLog> findStaleDispatched(@org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
+
+    // --- Performance scoring queries (rolling 2h window, per device) ---
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (rcs_dlr_received_at - dispatched_at))), 0) " +
+                "FROM message_log WHERE device_id = :deviceId AND status = 'DELIVERED' " +
+                "AND dispatched_at >= :since AND rcs_dlr_received_at IS NOT NULL",
+        nativeQuery = true)
+    double avgDeliveryLatencySeconds(
+            @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT COUNT(*) FROM message_log WHERE device_id = :deviceId AND status = 'DELIVERED' AND dispatched_at >= :since",
+        nativeQuery = true)
+    long countDeliveredByDevice(
+            @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT COUNT(*) FROM message_log WHERE device_id = :deviceId AND status = 'FAILED' AND dispatched_at >= :since",
+        nativeQuery = true)
+    long countFailedByDevice(
+            @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT COUNT(*) FROM message_log WHERE device_id = :deviceId AND status IN ('DELIVERED','FAILED','RCS_FAILED','DISPATCHED') AND dispatched_at >= :since",
+        nativeQuery = true)
+    long countDispatchedByDevice(
+            @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since);
 }
 

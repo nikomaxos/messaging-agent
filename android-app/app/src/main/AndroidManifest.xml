@@ -25,6 +25,11 @@
     <!-- Wake lock (keep service alive) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Audio control (silent mode) -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Call blocking -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- Root - declared for documentation; libsu handles it at runtime -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 

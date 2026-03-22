@@ -49,6 +49,7 @@ class PreferencesRepository @Inject constructor(
         val KEY_AUTO_REBOOT_ENABLED = booleanPreferencesKey("auto_reboot_enabled")
         val KEY_AUTO_PURGE = stringPreferencesKey("auto_purge_mode")
         val KEY_LAST_PURGED_AT = longPreferencesKey("last_purged_at")
+        val KEY_SELF_HEALING_ENABLED = booleanPreferencesKey("self_healing_enabled")
         val KEY_SIM_REGISTRATIONS = stringPreferencesKey("sim_registrations")
         val KEY_LAST_CONNECTED_TIME = longPreferencesKey("last_connected_time")
     }
@@ -82,6 +83,12 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setLastPurgedAt(timestamp: Long) =
         context.dataStore.edit { it[KEY_LAST_PURGED_AT] = timestamp }
+
+    suspend fun isSelfHealingEnabled(): Boolean =
+        context.dataStore.data.map { it[KEY_SELF_HEALING_ENABLED] ?: false }.first()
+
+    suspend fun setSelfHealingEnabled(enabled: Boolean) =
+        context.dataStore.edit { it[KEY_SELF_HEALING_ENABLED] = enabled }
 
     suspend fun setRegistrationResult(sims: List<SimRegistration>, groupName: String, groupId: Long) =
         context.dataStore.edit {

@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface DeviceLogRepository extends JpaRepository<DeviceLog, Integer>, JpaSpecificationExecutor<DeviceLog> {
     Page<DeviceLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    void deleteByDeviceId(Long deviceId);
 }

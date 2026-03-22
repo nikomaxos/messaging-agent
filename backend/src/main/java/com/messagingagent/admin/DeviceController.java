@@ -23,6 +23,7 @@ public class DeviceController {
     private final DeviceRepository deviceRepository;
     private final DeviceGroupRepository groupRepository;
     private final com.messagingagent.repository.MessageLogRepository messageLogRepository;
+    private final com.messagingagent.repository.DeviceLogRepository deviceLogRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @GetMapping
@@ -63,6 +64,9 @@ public class DeviceController {
         return deviceRepository.findById(id).map(device -> {
             device.setName(req.getName());
             device.setImei(req.getImei());
+            if (req.getPhoneNumber() != null) {
+                device.setPhoneNumber(req.getPhoneNumber().isBlank() ? null : req.getPhoneNumber().trim());
+            }
             if (req.getAutoRebootEnabled() != null) {
                 device.setAutoRebootEnabled(req.getAutoRebootEnabled());
                 messagingTemplate.convertAndSend("/queue/commands." + id, "SET_AUTO_REBOOT=" + req.getAutoRebootEnabled());
@@ -70,6 +74,20 @@ public class DeviceController {
             if (req.getAutoPurge() != null) {
                 device.setAutoPurge(req.getAutoPurge());
                 messagingTemplate.convertAndSend("/queue/commands." + id, "SET_AUTO_PURGE=" + req.getAutoPurge());
+            }
+            if (req.getSendIntervalSeconds() != null) {
+                device.setSendIntervalSeconds(req.getSendIntervalSeconds());
+            }
+            if (req.getSilentMode() != null) {
+                device.setSilentMode(req.getSilentMode());
+                messagingTemplate.convertAndSend("/queue/commands." + id, "SET_SILENT=" + req.getSilentMode());
+            }
+            if (req.getCallBlockEnabled() != null) {
+                device.setCallBlockEnabled(req.getCallBlockEnabled());
+                messagingTemplate.convertAndSend("/queue/commands." + id, "SET_CALL_BLOCK=" + req.getCallBlockEnabled());
+            }
+            if (req.getSelfHealingEnabled() != null) {
+                device.setSelfHealingEnabled(req.getSelfHealingEnabled());
             }
             groupRepository.findById(req.getGroupId()).ifPresent(device::setGroup);
             return ResponseEntity.ok(deviceRepository.save(device));
@@ -80,6 +98,7 @@ public class DeviceController {
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!deviceRepository.existsById(id)) return ResponseEntity.notFound().build();
+        deviceLogRepository.deleteByDeviceId(id);
         messageLogRepository.clearDeviceReferences(id);
         deviceRepository.deleteById(id);
         return ResponseEntity.noContent().build();
@@ -99,6 +118,22 @@ public class DeviceController {
                             "apkUpdateStatus", "Sent"
                     ));
                 }
+                if ("PIN_AUTOSTART".equals(command)) {
+                    device.setAutostartPinned(true);
+                    deviceRepository.save(device);
+                    // Create device log entry
+                    deviceLogRepository.save(com.messagingagent.model.DeviceLog.builder()
+                            .device(device)
+                            .level("INFO")
+                            .event("AUTOSTART_PINNED")
+                            .detail("MIUI autostart protection applied via admin panel")
+                            .build());
+                    // Broadcast to UI for real-time feedback
+                    messagingTemplate.convertAndSend("/topic/devices", Map.of(
+                            "id", device.getId(),
+                            "autostartPinned", true
+                    ));
+                }
             }
             return ResponseEntity.ok().<Void>build();
         }).orElse(ResponseEntity.notFound().build());
@@ -108,8 +143,13 @@ public class DeviceController {
     public static class DeviceRequest {
         @NotBlank private String name;
         private String imei;
+        private String phoneNumber;
         private Long groupId;
         private Boolean autoRebootEnabled;
         private String autoPurge;
+        private Double sendIntervalSeconds;
+        private Boolean silentMode;
+        private Boolean callBlockEnabled;
+        private Boolean selfHealingEnabled;
     }
 }

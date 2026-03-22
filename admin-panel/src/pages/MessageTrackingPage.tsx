@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getLogs, getGroups, getDevices } from '../api/client'
 import { MessageLog, DeviceGroup, Device } from '../types'
-import { RefreshCw, Search, X, Info } from 'lucide-react'
+import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { format } from 'date-fns'
 
 const statusClass = (s: MessageLog['status']) => ({
@@ -21,18 +21,37 @@ export default function MessageTrackingPage() {
   const [appliedFilters, setAppliedFilters] = useState(filters)
   
   const [selectedLog, setSelectedLog] = useState<MessageLog | null>(null)
+  const [sortBy, setSortBy] = useState('createdAt')
+  const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('DESC')
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [intervalSec, setIntervalSec] = useState(5)
 
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: getDevices })
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['logs', page, appliedFilters],
-    queryFn: () => getLogs(page, appliedFilters),
-    refetchInterval: 2500,
+    queryKey: ['logs', page, appliedFilters, sortBy, sortDir],
+    queryFn: () => getLogs(page, appliedFilters, sortBy, sortDir),
+    refetchInterval: autoRefresh ? Math.max(intervalSec, 1) * 1000 : false,
     placeholderData: (prev: any) => prev,
   })
 
   const logs: MessageLog[] = data?.content ?? []
   const totalPages: number = data?.totalPages ?? 0
+
+  const toggleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortDir(d => d === 'DESC' ? 'ASC' : 'DESC')
+    } else {
+      setSortBy(field)
+      setSortDir('DESC')
+    }
+    setPage(0)
+  }
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortBy !== field) return <ChevronsUpDown size={12} className="inline ml-0.5 text-slate-600" />
+    return sortDir === 'ASC' ? <ChevronUp size={12} className="inline ml-0.5 text-brand-400" /> : <ChevronDown size={12} className="inline ml-0.5 text-brand-400" />
+  }
 
   const applyFilters = () => {
     setPage(0)
@@ -53,13 +72,30 @@ export default function MessageTrackingPage() {
           <h1 className="text-xl font-bold text-white mb-1">Message Tracking</h1>
           <p className="text-slate-400 text-sm">Monitor and filter all SMS/RCS inbound and outbound traffic.</p>
         </div>
-        <button className="btn-secondary" onClick={() => refetch()}>
-          <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+            <div className="w-9 h-5 bg-slate-700 peer-checked:bg-brand-600 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+          </label>
+          <span className="text-xs text-slate-400 whitespace-nowrap">Auto</span>
+          <input
+            type="number"
+            min={1}
+            max={999}
+            value={intervalSec}
+            onChange={e => setIntervalSec(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-14 bg-[#12121f] text-sm text-white border border-white/10 rounded px-2 py-1 text-center"
+            title="Refresh interval (seconds)"
+          />
+          <span className="text-xs text-slate-500">s</span>
+          <button className="btn-secondary" onClick={() => refetch()}>
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters Toolbar */}
-      <div className="glass p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
+      <form onSubmit={e => { e.preventDefault(); applyFilters() }} className="glass p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
           <select className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
@@ -73,7 +109,7 @@ export default function MessageTrackingPage() {
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Sender ID</label>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From</label>
           <input className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
                  placeholder="e.g. Info" value={filters.senderId} onChange={e => setFilters({ ...filters, senderId: e.target.value })} />
         </div>
@@ -109,23 +145,32 @@ export default function MessageTrackingPage() {
                  placeholder="Provider ID" value={filters.supplierMessageId} onChange={e => setFilters({ ...filters, supplierMessageId: e.target.value })} />
         </div>
         <div className="flex gap-2">
-          <button onClick={applyFilters} className="bg-brand-600 hover:bg-brand-500 text-white flex-1 rounded text-sm py-1.5 font-medium transition flex justify-center items-center gap-2">
+          <button type="submit" className="bg-brand-600 hover:bg-brand-500 text-white flex-1 rounded text-sm py-1.5 font-medium transition flex justify-center items-center gap-2">
             <Search size={14} /> Search
           </button>
-          <button onClick={clearFilters} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 rounded text-sm font-medium transition flex justify-center items-center" title="Clear Filters">
+          <button type="button" onClick={clearFilters} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 rounded text-sm font-medium transition flex justify-center items-center" title="Clear Filters">
             <X size={14} />
           </button>
         </div>
-      </div>
+      </form>
 
       {/* Main Table */}
       <div className="glass overflow-x-auto">
+        {/* Top pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5 justify-end px-4 pt-3 pb-1">
+            <button className="text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page === 0} onClick={() => setPage(p => p - 1)}>←</button>
+            <span className="text-[10px] text-slate-500">{page + 1}/{totalPages}</span>
+            <button className="text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>→</button>
+          </div>
+        )}
         <table className="tbl">
           <thead><tr>
             <th className="px-4 pt-4 pb-3">#</th>
-            <th className="px-4">Time</th>
-            <th className="px-4">From</th>
-            <th className="px-4">To</th>
+            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('createdAt')}>Timestamp <SortIcon field="createdAt" /></th>
+            <th className="px-2">Time</th>
+            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('sourceAddress')}>From <SortIcon field="sourceAddress" /></th>
+            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('destinationAddress')}>To <SortIcon field="destinationAddress" /></th>
             <th className="px-4">Message</th>
             <th className="px-4">Status</th>
             <th className="px-4">Route</th>
@@ -133,7 +178,7 @@ export default function MessageTrackingPage() {
           </tr></thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
             )}
             {logs.map(l => (
               <tr key={l.id} className="cursor-pointer hover:bg-white/[0.02]" onClick={() => setSelectedLog(l)}>
@@ -144,12 +189,24 @@ export default function MessageTrackingPage() {
                     <div className="mt-0.5"><span className="text-[10px] uppercase text-amber-600/70 font-bold inline-block mr-1 w-5">Out</span> {format(new Date(l.fallbackStartedAt), 'MMM d, HH:mm:ss')}</div>
                   )}
                 </td>
+                <td className="px-2 py-3">
+                  {(() => {
+                    const startTime = l.createdAt;
+                    const endTime = l.rcsDlrReceivedAt || (l.status === 'DELIVERED' && l.fallbackStartedAt ? l.fallbackStartedAt : null);
+                    if (!endTime || !startTime) return null;
+                    const diffSec = (new Date(endTime).getTime() - new Date(startTime).getTime()) / 1000;
+                    if (diffSec < 0) return null;
+                    const label = diffSec >= 60 ? `${Math.floor(diffSec / 60)}m ${Math.round(diffSec % 60)}s` : `${diffSec.toFixed(1)}s`;
+                    const color = diffSec <= 30 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/15' : diffSec <= 60 ? 'text-orange-400 bg-orange-500/10 border-orange-500/15' : 'text-red-400 bg-red-500/10 border-red-500/15';
+                    return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1.5 py-0.5 border ${color}`}>⏱ {label}</span>;
+                  })()}
+                </td>
                 <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.sourceAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.destinationAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
                   {l.messageText ?? '—'}
                 </td>
-                <td className="px-4 py-3"><span className={`pill ${l.status === 'DELIVERED' && l.fallbackStartedAt ? 'pill-green border-amber-500/30 object-contained' : statusClass(l.status)}`}>{l.status === 'DELIVERED' && l.fallbackStartedAt ? 'DELIVERED (FALLBACK)' : l.status}</span></td>
+                <td className="px-4 py-3"><span className={`pill ${l.status === 'DELIVERED' && l.fallbackStartedAt ? 'pill-green border-amber-500/30 object-contained' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : statusClass(l.status)}`}>{l.status === 'DELIVERED' && l.fallbackStartedAt ? 'DELIVERED (FALLBACK)' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'DISPATCHED TO RCS' : l.status}</span></td>
                 <td className="px-4 py-3 text-xs text-slate-400">
                   {l.fallbackStartedAt && l.deviceGroup && l.fallbackSmsc ? (
                     <div className="flex items-center gap-1.5">
@@ -176,7 +233,7 @@ export default function MessageTrackingPage() {
               </tr>
             ))}
             {!isLoading && logs.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-500">No matching messages found</td></tr>
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-500">No matching messages found</td></tr>
             )}
           </tbody>
         </table>
@@ -209,7 +266,7 @@ export default function MessageTrackingPage() {
                   <div className={`text-sm font-bold ${selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED' ? 'text-red-400' : 'text-emerald-400'}`}>{selectedLog.status}</div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Source (Sender ID)</div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">From</div>
                   <div className="text-sm font-mono text-slate-300">{selectedLog.sourceAddress}</div>
                 </div>
                 <div className="space-y-1">
@@ -248,13 +305,16 @@ export default function MessageTrackingPage() {
                       <div className="p-2 text-slate-400">2. Dispatched to RCS/Device Group</div>
                       <div className="p-2 font-mono text-slate-300">{selectedLog.dispatchedAt ? format(new Date(selectedLog.dispatchedAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
 
-                      <div className="p-2 text-slate-400">3. Final DLR from RCS Network</div>
+                      <div className="p-2 text-teal-400">3. Dispatched to RCS Network</div>
+                      <div className="p-2 font-mono text-teal-300">{selectedLog.rcsSentAt ? format(new Date(selectedLog.rcsSentAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
+
+                      <div className="p-2 text-slate-400">4. Final DLR from RCS Network</div>
                       <div className="p-2 font-mono text-slate-300">{selectedLog.rcsDlrReceivedAt ? format(new Date(selectedLog.rcsDlrReceivedAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
 
-                      <div className="p-2 text-amber-500/80">4. Fallback Dispatched to SMSC</div>
+                      <div className="p-2 text-amber-500/80">5. Fallback Dispatched to SMSC</div>
                       <div className="p-2 font-mono text-amber-400/80">{selectedLog.fallbackStartedAt ? format(new Date(selectedLog.fallbackStartedAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
                       
-                      <div className="p-2 text-amber-500/80">5. Final DLR from Fallback SMSC</div>
+                      <div className="p-2 text-amber-500/80">6. Final DLR from Fallback SMSC</div>
                       <div className="p-2 font-mono text-amber-400/80">{selectedLog.fallbackDlrReceivedAt ? format(new Date(selectedLog.fallbackDlrReceivedAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
                    </div>
                 </div>

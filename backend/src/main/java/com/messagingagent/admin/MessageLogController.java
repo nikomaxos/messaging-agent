@@ -36,10 +36,13 @@ public class MessageLogController {
             @RequestParam(required = false)    Long deviceId,
             @RequestParam(required = false)    Long deviceGroupId,
             @RequestParam(required = false)    java.time.Instant startDate,
-            @RequestParam(required = false)    java.time.Instant endDate) {
+            @RequestParam(required = false)    java.time.Instant endDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC")      String sortDir) {
 
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
         PageRequest pageable = PageRequest.of(page, Math.min(size, 200),
-                Sort.by(Sort.Direction.DESC, "createdAt"));
+                Sort.by(direction, sortBy));
 
         org.springframework.data.jpa.domain.Specification<MessageLog> spec = (root, query, cb) -> {
             java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
@@ -50,10 +53,10 @@ public class MessageLogController {
                 } catch (IllegalArgumentException ignored) {}
             }
             if (senderId != null && !senderId.isBlank()) {
-                predicates.add(cb.equal(root.get("sourceAddress"), senderId));
+                predicates.add(cb.equal(cb.lower(root.get("sourceAddress")), senderId.trim().toLowerCase()));
             }
             if (destinationNumber != null && !destinationNumber.isBlank()) {
-                predicates.add(cb.equal(root.get("destinationAddress"), destinationNumber));
+                predicates.add(cb.like(root.get("destinationAddress"), destinationNumber.trim() + "%"));
             }
             if (clientMessageId != null && !clientMessageId.isBlank()) {
                 predicates.add(cb.equal(root.get("customerMessageId"), clientMessageId));

@@ -1,0 +1,1 @@
+ALTER TABLE device ADD COLUMN autostart_pinned BOOLEAN DEFAULT FALSE;

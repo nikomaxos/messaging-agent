@@ -4,15 +4,20 @@ import com.messagingagent.kafka.SmsDeliveryResultEvent;
 import com.messagingagent.kafka.SmsInboundEvent;
 import com.messagingagent.model.Device;
 import com.messagingagent.repository.DeviceRepository;
+import com.messagingagent.routing.RoundRobinLoadBalancer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import com.messagingagent.model.DeviceGroup;
 import com.messagingagent.model.DeviceLog;
@@ -33,6 +38,8 @@ public class DeviceWebSocketService {
     private final DeviceRepository deviceRepository;
     private final MessageLogRepository messageLogRepository;
     private final DeviceLogRepository deviceLogRepository;
+    private final RoundRobinLoadBalancer loadBalancer;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     /** Send an SMS dispatch command to a specific device via its STOMP user-queue. */
     public void sendSmsToDevice(Device device, SmsInboundEvent event) {
@@ -80,7 +87,16 @@ public class DeviceWebSocketService {
             device.setRcsCapable(heartbeat.getRcsCapable());
             device.setActiveNetworkType(heartbeat.getActiveNetworkType());
             device.setApkVersion(heartbeat.getApkVersion());
+            // Sync phoneNumber from heartbeat only if device doesn't already have one
+            // (admin-panel edits take priority over auto-detection)
+            if (heartbeat.getPhoneNumber() != null && !heartbeat.getPhoneNumber().isBlank()
+                    && (device.getPhoneNumber() == null || device.getPhoneNumber().isBlank())) {
+                device.setPhoneNumber(heartbeat.getPhoneNumber().trim());
+            }
             device.setApkUpdateStatus(null);
+            if (heartbeat.getAdbWifiAddress() != null && !heartbeat.getAdbWifiAddress().isBlank()) {
+                device.setAdbWifiAddress(heartbeat.getAdbWifiAddress().trim());
+            }
             // Only set ONLINE if device was OFFLINE (reconnected). NEVER override BUSY!
             if (device.getStatus() != Device.Status.BUSY) {
                 if (device.getStatus() == Device.Status.OFFLINE) {
@@ -93,6 +109,14 @@ public class DeviceWebSocketService {
             }
             device.setLastHeartbeat(Instant.now());
             deviceRepository.save(device);
+
+            // Push critical config back to device on every heartbeat to keep DataStore in sync
+            // (covers cases where the device was offline when admin panel sent the command)
+            messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_AUTO_REBOOT=" + device.getAutoRebootEnabled());
+            messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_SILENT=" + device.getSilentMode());
+            messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_CALL_BLOCK=" + device.getCallBlockEnabled());
+            messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_AUTO_PURGE=" + (device.getAutoPurge() != null ? device.getAutoPurge() : "OFF"));
+            messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_SELF_HEALING=" + device.getSelfHealingEnabled());
             log.debug("Heartbeat from device {}: battery={}% charging={} wifi={}dBm gsm={}dBm network={}",
                     device.getName(), heartbeat.getBatteryPercent(), heartbeat.getIsCharging(),
                     heartbeat.getWifiSignalDbm(), heartbeat.getGsmSignalDbm(),
@@ -134,7 +158,16 @@ public class DeviceWebSocketService {
                     messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", device.getId(), "status", "ONLINE"));
                     
                     if (device.getGroup() != null) {
-                        drainQueueForGroup(device.getGroup());
+                        // If device has a send interval, schedule delayed drain
+                        double interval = device.getSendIntervalSeconds() != null ? device.getSendIntervalSeconds() : 0.0;
+                        if (interval > 0) {
+                            long delayMs = (long) (interval * 1000);
+                            log.debug("Device {} has {}s send interval, scheduling drain in {}ms", device.getName(), interval, delayMs);
+                            DeviceGroup grp = device.getGroup();
+                            scheduler.schedule(() -> drainQueueForGroup(grp), delayMs, TimeUnit.MILLISECONDS);
+                        } else {
+                            drainQueueForGroup(device.getGroup());
+                        }
                     }
                 }
             });
@@ -143,25 +176,53 @@ public class DeviceWebSocketService {
 
     /** 
      * Drain the message queue for the given DeviceGroup.
-     * Synchronized at the DB layer via simple ordering, but this attempts to find the oldest QUEUED message
-     * and push it actively to an online device.
+     * Dispatches queued messages to ALL available ONLINE devices for maximum TPS.
+     * Uses the load balancer for fair device selection.
      */
     private synchronized void drainQueueForGroup(DeviceGroup group) {
         List<Device> onlineDevices = deviceRepository.findByGroupAndStatus(group, Device.Status.ONLINE);
         if (onlineDevices.isEmpty()) {
             return;
         }
-        
-        // Find the oldest queued message for this group
-        Optional<MessageLog> queuedOpt = messageLogRepository.findFirstByStatusAndDeviceGroupIdOrderByCreatedAtAsc(
-                MessageLog.Status.QUEUED, group.getId()
-        );
 
-        if (queuedOpt.isPresent()) {
+        // Track the earliest cooldown expiry for scheduling a delayed re-drain
+        long earliestCooldownMs = Long.MAX_VALUE;
+
+        // Drain as many queued messages as there are available devices
+        while (true) {
+            // Re-fetch available (non-rate-limited) devices
+            List<Device> available = onlineDevices.stream().filter(d -> {
+                double interval = d.getSendIntervalSeconds() != null ? d.getSendIntervalSeconds() : 0.0;
+                if (interval > 0 && d.getLastDispatchedAt() != null) {
+                    long elapsedMs = Duration.between(d.getLastDispatchedAt(), Instant.now()).toMillis();
+                    long intervalMs = (long) (interval * 1000);
+                    if (elapsedMs < intervalMs) {
+                        return false; // still in cooldown
+                    }
+                }
+                return d.getStatus() == Device.Status.ONLINE;
+            }).collect(java.util.stream.Collectors.toList());
+
+            if (available.isEmpty()) {
+                break;
+            }
+
+            Optional<MessageLog> queuedOpt = messageLogRepository.findFirstByStatusAndDeviceGroupIdOrderByCreatedAtAsc(
+                    MessageLog.Status.QUEUED, group.getId()
+            );
+            if (queuedOpt.isEmpty()) {
+                break; // no more queued messages
+            }
+
             MessageLog queued = queuedOpt.get();
-            Device target = onlineDevices.get(0); // Take the first available
+            Optional<Device> selectedOpt = loadBalancer.selectDevice(group, available);
+            if (selectedOpt.isEmpty()) {
+                break;
+            }
+            Device target = selectedOpt.get();
+            loadBalancer.recordDispatch(target.getId());
 
-            log.info("Draining QUEUED message id={} to device id={}", queued.getSmppMessageId(), target.getId());
+            log.info("Draining QUEUED message id={} to device id={} (fair LB)", queued.getSmppMessageId(), target.getId());
 
             // Lock device
             target.setStatus(Device.Status.BUSY);
@@ -171,18 +232,40 @@ public class DeviceWebSocketService {
             // Dispatch message
             queued.setStatus(MessageLog.Status.DISPATCHED);
             queued.setDevice(target);
+            queued.setDispatchedAt(Instant.now());
             messageLogRepository.save(queued);
+
+            // Track dispatch time for rate limiting
+            target.setLastDispatchedAt(Instant.now());
+            deviceRepository.save(target);
 
             SmsInboundEvent event = new SmsInboundEvent();
             event.setCorrelationId(queued.getSmppMessageId());
             event.setSourceAddress(queued.getSourceAddress());
             event.setDestinationAddress(queued.getDestinationAddress());
             event.setMessageText(queued.getMessageText());
-            // We ignore systemId here since routing already happened.
-            
             sendSmsToDevice(target, event);
-            
-            // If there's more online devices, we could potentially recursively drain more, but 1-by-1 is safe.
+
+            // Remove from available pool (now BUSY)
+            onlineDevices.remove(target);
+        }
+
+        // Schedule a delayed re-drain for any devices in rate-limit cooldown
+        for (Device d : onlineDevices) {
+            double interval = d.getSendIntervalSeconds() != null ? d.getSendIntervalSeconds() : 0.0;
+            if (interval > 0 && d.getLastDispatchedAt() != null) {
+                long elapsedMs = Duration.between(d.getLastDispatchedAt(), Instant.now()).toMillis();
+                long intervalMs = (long) (interval * 1000);
+                long remaining = intervalMs - elapsedMs;
+                if (remaining > 0 && remaining < earliestCooldownMs) {
+                    earliestCooldownMs = remaining;
+                }
+            }
+        }
+        if (earliestCooldownMs < Long.MAX_VALUE) {
+            log.debug("Scheduling delayed drain in {}ms for group {}", earliestCooldownMs, group.getName());
+            DeviceGroup grp = group;
+            scheduler.schedule(() -> drainQueueForGroup(grp), earliestCooldownMs, TimeUnit.MILLISECONDS);
         }
     }
 
