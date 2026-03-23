@@ -73,24 +73,112 @@ class MessagingAgentService : Service() {
         ConnectionWatchdogReceiver.schedule(this)
         RebootWatchdogReceiver.schedule(this)
         enforceDeviceHardening()
-        Timber.i("MessagingAgentService started (watchdog alarms scheduled)")
+        deployExternalKeepalive()
+        Timber.i("MessagingAgentService started (watchdog alarms + keepalive deployed)")
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Timber.w("MessagingAgentService task removed — scheduling last-ditch restart")
+        // Last-ditch: fire a delayed restart via root (runs even if our process dies)
+        try {
+            com.topjohnwu.superuser.Shell.cmd(
+                "(sleep 5; am set-stopped-state com.messagingagent.android false; am startservice -n com.messagingagent.android/.service.MessagingAgentService 2>/dev/null || am start-foreground-service -n com.messagingagent.android/.service.MessagingAgentService 2>/dev/null) &"
+            ).exec()
+        } catch (e: Exception) {
+            Timber.e(e, "Last-ditch restart failed")
+        }
     }
 
     /**
      * Device hardening applied on every service start:
+     * - Force MIUI autostart permission via root
+     * - Disable MIUI battery saver restrictions
+     * - Clear force-stopped flag
      * - Pin MIUI Security Center version to prevent autostart breakage
-     * Note: Silent mode and call blocking are now controlled via admin panel switches.
+     * - Add to battery optimization whitelist
      */
     private fun enforceDeviceHardening() {
-        // Pin MIUI Security Center to prevent autostart permission breakage
         try {
             com.topjohnwu.superuser.Shell.cmd(
+                // Clear the force-stopped flag (in case MIUI killed us)
+                "am set-stopped-state com.messagingagent.android false",
+                // Force MIUI autostart permission
+                "appops set com.messagingagent.android AUTO_START allow 2>/dev/null",
+                // Ensure we're in the battery optimization whitelist
+                "dumpsys deviceidle whitelist +com.messagingagent.android 2>/dev/null",
+                // Disable MIUI battery saver for our app
+                "cmd appops set com.messagingagent.android RUN_IN_BACKGROUND allow 2>/dev/null",
+                "cmd appops set com.messagingagent.android RUN_ANY_IN_BACKGROUND allow 2>/dev/null",
+                // Pin MIUI Security Center to prevent autostart permission breakage
                 "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.AutoUpdateReceiver 2>/dev/null",
-                "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.UpdateCheckJob 2>/dev/null"
+                "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.UpdateCheckJob 2>/dev/null",
+                // Disable MIUI power-save kill for our app
+                "cmd appops set com.messagingagent.android MIUI_BACKGROUND_START allow 2>/dev/null",
+                // Increase logcat buffer to 16MB so crash logs survive longer
+                "logcat -G 16M 2>/dev/null",
+                "setprop persist.logd.size 16777216 2>/dev/null"
             ).exec()
-            Timber.i("🛡️ Device hardening: MIUI Security Center auto-update disabled")
+            Timber.i("🛡️ Device hardening: MIUI autostart + battery saver + whitelist applied")
         } catch (e: Exception) {
-            Timber.w(e, "Could not disable MIUI Security Center updates (may not be MIUI)")
+            Timber.w(e, "Device hardening partially failed (may not be MIUI)")
+        }
+
+        // Enable ADB over TCP (separate from main hardening to avoid port flapping)
+        enableAdbOverTcp()
+    }
+
+    /**
+     * Enable ADB over TCP on port 5555 once. Checks if already enabled to avoid
+     * restarting adbd on every service start (which would cause port flapping
+     * and conflict with Android's wireless debugging feature).
+     */
+    private fun enableAdbOverTcp() {
+        try {
+            val currentPort = com.topjohnwu.superuser.Shell.cmd("getprop persist.adb.tcp.port").exec()
+                .out.firstOrNull()?.trim() ?: ""
+            if (currentPort == "5555") {
+                Timber.d("ADB TCP already enabled on port 5555 — skipping")
+                return
+            }
+            Timber.i("Enabling ADB over TCP on port 5555 (was: '$currentPort')")
+            com.topjohnwu.superuser.Shell.cmd(
+                "setprop persist.adb.tcp.port 5555",
+                "stop adbd",
+                "start adbd"
+            ).exec()
+            Timber.i("ADB over TCP enabled on port 5555 and adbd restarted")
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to enable ADB over TCP")
+        }
+    }
+
+    /**
+     * Deploy and launch an external keepalive watchdog script that runs independently
+     * of the app process. This script survives force-stop and will restart the app
+     * within 30 seconds if MIUI or the OS kills it.
+     */
+    private fun deployExternalKeepalive() {
+        try {
+            val scriptDest = "/data/local/tmp/ma_keepalive.sh"
+            // Copy script from APK assets to filesystem
+            val scriptContent = assets.open("keepalive.sh").bufferedReader().readText()
+            val tmpFile = java.io.File(filesDir, "keepalive.sh")
+            tmpFile.writeText(scriptContent)
+
+            com.topjohnwu.superuser.Shell.cmd(
+                "cp '${tmpFile.absolutePath}' '$scriptDest'",
+                "chmod 755 '$scriptDest'",
+                "chown root:root '$scriptDest'",
+                // Kill any stale keepalive instance and relaunch
+                "if [ -f /data/local/tmp/ma_keepalive.lock ]; then kill \$(cat /data/local/tmp/ma_keepalive.lock) 2>/dev/null; rm -f /data/local/tmp/ma_keepalive.lock; fi",
+                // Launch as a detached root process (survives app death)
+                "setsid sh '$scriptDest' </dev/null >/dev/null 2>&1 &"
+            ).exec()
+            tmpFile.delete()
+            Timber.i("🛡️ External keepalive watchdog deployed and launched")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to deploy external keepalive script")
         }
     }
 
@@ -244,10 +332,10 @@ class MessagingAgentService : Service() {
 
                 val resolved = mutableListOf<PendingDlr>()
 
-                // Copy bugle_db + WAL to temp, then query with Android SQLiteDatabase API
+                // Copy bugle_db ONLY (no WAL/SHM) to avoid native SQLite crash from corrupt WAL
                 try {
                     com.topjohnwu.superuser.Shell.cmd(
-                        "cp '$srcDb' '$tmpDb' && cp '$srcDb-wal' '$tmpDb-wal' 2>/dev/null; cp '$srcDb-shm' '$tmpDb-shm' 2>/dev/null; chown $uid:$uid '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' 2>/dev/null; chmod 600 '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' 2>/dev/null"
+                        "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
                     ).exec()
 
                     android.database.sqlite.SQLiteDatabase.openDatabase(
@@ -317,17 +405,24 @@ class MessagingAgentService : Service() {
                                                     }
                                                 }
                                             }
-                                            8 -> {
-                                                // FAILED — definitive send failure
-                                                Timber.w("❌ DLR FAILED: ${p.correlationId} — status=8 (send failure, age=${ageMs/1000}s)")
-                                                try {
-                                                    wsClient.sendDeliveryResultAsync(
-                                                        DeliveryResult(p.correlationId, "ERROR"),
-                                                        p.deviceToken
-                                                    )
-                                                } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
-                                                resolved.add(p)
-                                                deliveredAt.remove(p.correlationId)
+                                            8, 5, 9, 3 -> {
+                                                // ERROR-like statuses — but don't report immediately!
+                                                // Google Messages can set transient error statuses before
+                                                // the message is actually processed. Wait at least 8 seconds.
+                                                if (ageMs > 8_000) {
+                                                    Timber.w("❌ DLR FAILED: ${p.correlationId} — bugle status=$status (age=${ageMs/1000}s)")
+                                                    try {
+                                                        wsClient.sendDeliveryResultAsync(
+                                                            DeliveryResult(p.correlationId, "ERROR", "bugle_status=$status"),
+                                                            p.deviceToken
+                                                        )
+                                                    } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
+                                                    resolved.add(p)
+                                                    deliveredAt.remove(p.correlationId)
+                                                } else {
+                                                    // Transient — keep waiting for status to settle
+                                                    Timber.d("⏳ DLR WAIT: ${p.correlationId} — bugle status=$status transient (age=${ageMs/1000}s < 8s)")
+                                                }
                                             }
                                             1 -> {
                                                 // SENDING — message still being submitted to RCS network.
@@ -343,10 +438,10 @@ class MessagingAgentService : Service() {
                                                     } catch (e: Exception) { Timber.e(e, "Failed to send SENT via WebSocket") }
                                                 }
                                                 if (ageMs > 15_000) {
-                                                    Timber.w("❌ DLR STUCK SENDING: ${p.correlationId} — status=1 for ${ageMs/1000}s, treating as ERROR")
+                                                    Timber.w("❌ DLR STUCK SENDING: ${p.correlationId} — bugle status=1 for ${ageMs/1000}s, treating as ERROR")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "ERROR"),
+                                                            DeliveryResult(p.correlationId, "ERROR", "bugle_status=1 (stuck sending ${ageMs/1000}s)"),
                                                             p.deviceToken
                                                         )
                                                     } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
@@ -354,7 +449,18 @@ class MessagingAgentService : Service() {
                                                 }
                                             }
                                             else -> {
-                                                // Other transient states (5=queued, etc.) — keep waiting
+                                                // Unknown status — log it and keep waiting up to 8s, then report as ERROR
+                                                if (ageMs > 8_000) {
+                                                    Timber.w("❌ DLR UNKNOWN: ${p.correlationId} — bugle status=$status (age=${ageMs/1000}s)")
+                                                    try {
+                                                        wsClient.sendDeliveryResultAsync(
+                                                            DeliveryResult(p.correlationId, "ERROR", "bugle_status=$status (unknown)"),
+                                                            p.deviceToken
+                                                        )
+                                                    } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
+                                                    resolved.add(p)
+                                                    deliveredAt.remove(p.correlationId)
+                                                }
                                             }
                                         }
                                     }

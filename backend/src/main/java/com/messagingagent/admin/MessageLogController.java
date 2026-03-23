@@ -48,9 +48,19 @@ public class MessageLogController {
             java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
             
             if (status != null && !status.isBlank()) {
-                try {
-                    predicates.add(cb.equal(root.get("status"), MessageLog.Status.valueOf(status)));
-                } catch (IllegalArgumentException ignored) {}
+                if ("DISPATCHED_TO_RCS".equals(status)) {
+                    predicates.add(cb.equal(root.get("status"), MessageLog.Status.DISPATCHED));
+                    predicates.add(cb.isNotNull(root.get("rcsSentAt")));
+                } else {
+                    try {
+                        MessageLog.Status statusEnum = MessageLog.Status.valueOf(status);
+                        predicates.add(cb.equal(root.get("status"), statusEnum));
+                        // When filtering plain DISPATCHED, exclude those already sent to RCS
+                        if (statusEnum == MessageLog.Status.DISPATCHED) {
+                            predicates.add(cb.isNull(root.get("rcsSentAt")));
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+                }
             }
             if (senderId != null && !senderId.isBlank()) {
                 predicates.add(cb.equal(cb.lower(root.get("sourceAddress")), senderId.trim().toLowerCase()));

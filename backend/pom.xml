@@ -167,6 +167,12 @@
             <artifactId>spring-kafka-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- ADB library — pure Java ADB protocol for remote desktop -->
+        <dependency>
+            <groupId>com.tananaev</groupId>
+            <artifactId>adblib</artifactId>
+            <version>1.3</version>
+        </dependency>
     </dependencies>
 
     <repositories>

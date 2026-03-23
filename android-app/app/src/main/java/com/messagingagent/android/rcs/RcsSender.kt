@@ -19,7 +19,7 @@ data class RcsSendResult(
 @Singleton
 class RcsSender @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val dlrTracker: PendingDlrTracker,
+    internal val dlrTracker: PendingDlrTracker,
     private val prefs: com.messagingagent.android.data.PreferencesRepository
 ) {
 
@@ -55,7 +55,7 @@ class RcsSender @Inject constructor(
             val tmpDb = "${context.filesDir.absolutePath}/bug_init.db"
             val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
             val uid = android.os.Process.myUid()
-            com.topjohnwu.superuser.Shell.cmd("cp '$srcDb' '$tmpDb' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'").exec()
+            com.topjohnwu.superuser.Shell.cmd("cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'").exec()
             try {
                 android.database.sqlite.SQLiteDatabase.openDatabase(tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
                     db.rawQuery("SELECT MAX(_id) FROM messages", null).use { cursor ->
@@ -110,33 +110,40 @@ class RcsSender @Inject constructor(
                 // Without this, a missed tap causes the DLR watchdog to pick up the NEXT
                 // message's DB entry and falsely attribute delivery to the missed one.
                 kotlinx.coroutines.delay(500)
-                var fastPathSuccess = false
+                var fastPathBugleId = 0L
                 val pDb = "${context.filesDir.absolutePath}/bug_fast.db"
                 val pSrc = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
                 val pUid = android.os.Process.myUid()
                 try {
-                    com.topjohnwu.superuser.Shell.cmd("cp '$pSrc' '$pDb' && cp '$pSrc-wal' '$pDb-wal' 2>/dev/null; cp '$pSrc-shm' '$pDb-shm' 2>/dev/null; chown $pUid:$pUid '$pDb' '$pDb-wal' '$pDb-shm' 2>/dev/null; chmod 600 '$pDb' '$pDb-wal' '$pDb-shm' 2>/dev/null").exec()
+                    com.topjohnwu.superuser.Shell.cmd("cp '$pSrc' '$pDb' && rm -f '$pDb-wal' '$pDb-shm' && chown $pUid:$pUid '$pDb' && chmod 600 '$pDb'").exec()
                     android.database.sqlite.SQLiteDatabase.openDatabase(pDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
                         db.rawQuery("SELECT _id FROM messages WHERE _id > $initialMaxId ORDER BY _id ASC LIMIT 1", null).use { cursor ->
-                            if (cursor.moveToFirst()) fastPathSuccess = true
+                            if (cursor.moveToFirst()) fastPathBugleId = cursor.getLong(0)
                         }
                     }
                 } catch (e: Exception) { Timber.w(e, "Fast-path DB check failed") }
                 Shell.cmd("rm -f $pDb", "rm -f $pDb-wal", "rm -f $pDb-shm").exec()
 
-                if (fastPathSuccess) {
-                    Timber.i("Fast-path verified: message entered bugle_db — sending SENT immediately")
-                    exitMessagesCleanly()
-                    dlrTracker.addPending(PendingDlr(
-                        correlationId = correlationId,
-                        destinationAddress = cleanTo,
-                        initialMaxId = initialMaxId,
-                        deviceToken = deviceToken,
-                        bugleMessageId = 0,
-                        dlrDelayMinSec = dlrDelayMinSec,
-                        dlrDelayMaxSec = dlrDelayMaxSec
-                    ))
-                    return RcsSendResult(success = true, sentEarly = true)
+                if (fastPathBugleId > 0) {
+                    // Guard: if another pending DLR already claimed this _id, don't duplicate
+                    val isDuplicate = dlrTracker.hasPendingWithBugleId(fastPathBugleId)
+                    if (isDuplicate) {
+                        Timber.w("Fast-path _id=$fastPathBugleId already claimed by another pending DLR — falling back to slow path")
+                        clicked = false
+                    } else {
+                        Timber.i("Fast-path verified: message entered bugle_db as _id=$fastPathBugleId — sending SENT immediately")
+                        exitMessagesCleanly()
+                        dlrTracker.addPending(PendingDlr(
+                            correlationId = correlationId,
+                            destinationAddress = cleanTo,
+                            initialMaxId = initialMaxId,
+                            deviceToken = deviceToken,
+                            bugleMessageId = fastPathBugleId,
+                            dlrDelayMinSec = dlrDelayMinSec,
+                            dlrDelayMaxSec = dlrDelayMaxSec
+                        ))
+                        return RcsSendResult(success = true, sentEarly = true)
+                    }
                 } else {
                     Timber.w("Fast-path tap did NOT register in bugle_db — falling back to slow path")
                     clicked = false // Reset — slow path will re-discover and re-tap
@@ -235,7 +242,7 @@ class RcsSender @Inject constructor(
             val capDb = "${context.filesDir.absolutePath}/bug_cap.db"
             val capSrc = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
             val capUid = android.os.Process.myUid()
-            com.topjohnwu.superuser.Shell.cmd("cp '$capSrc' '$capDb' && cp '$capSrc-wal' '$capDb-wal' 2>/dev/null; cp '$capSrc-shm' '$capDb-shm' 2>/dev/null; chown $capUid:$capUid '$capDb' '$capDb-wal' '$capDb-shm' 2>/dev/null; chmod 600 '$capDb' '$capDb-wal' '$capDb-shm' 2>/dev/null").exec()
+            com.topjohnwu.superuser.Shell.cmd("cp '$capSrc' '$capDb' && rm -f '$capDb-wal' '$capDb-shm' && chown $capUid:$capUid '$capDb' && chmod 600 '$capDb'").exec()
             try {
                 android.database.sqlite.SQLiteDatabase.openDatabase(capDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
                     db.rawQuery("SELECT _id FROM messages WHERE _id > ? ORDER BY _id ASC LIMIT 1", arrayOf(initialMaxId.toString())).use { cursor ->

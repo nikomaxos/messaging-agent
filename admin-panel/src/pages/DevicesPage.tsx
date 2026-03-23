@@ -26,6 +26,20 @@ export default function DevicesPage() {
   const [refreshToast, setRefreshToast] = useState<string | null>(null)
   const [autoFetch, setAutoFetch] = useState(false)
   const [uploadingApk, setUploadingApk] = useState(false)
+  const [serverApkName, setServerApkName] = useState<string | null>(null)
+
+  const fetchApkInfo = async () => {
+    try {
+      const token = localStorage.getItem('jwt')
+      const res = await fetch('/api/apk/info', { headers: { 'Authorization': `Bearer ${token}` } })
+      if (res.ok) {
+        const info = await res.json()
+        if (info.exists) setServerApkName(info.filename)
+      }
+    } catch {}
+  }
+
+  useEffect(() => { fetchApkInfo() }, [])
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [autostartToast, setAutostartToast] = useState<string | null>(null)
   
@@ -74,6 +88,7 @@ export default function DevicesPage() {
       if (res.ok) {
         setUploadSuccess(true)
         setTimeout(() => setUploadSuccess(false), 20000)
+        fetchApkInfo()
       }
       else alert('Failed to upload APK.')
     } catch (err) {
@@ -227,9 +242,12 @@ export default function DevicesPage() {
             Auto Fetch (10s)
           </label>
           <input type="file" accept=".apk" ref={fileRef} className="hidden" onChange={handleFileUpload} />
-          <button className={`btn-secondary whitespace-nowrap ${uploadSuccess ? '!bg-green-600/20 !border-green-500/50 !text-green-400' : ''}`} onClick={() => fileRef.current?.click()} disabled={uploadingApk} title="Upload a new APK to the server">
-            {uploadingApk ? <RefreshCw size={14} className="animate-spin" /> : uploadSuccess ? <Check size={14} /> : <Upload size={14} />} {uploadSuccess ? 'APK Uploaded' : 'Upload APK'}
-          </button>
+          <div className="flex flex-col items-end">
+            <button className={`btn-secondary whitespace-nowrap ${uploadSuccess ? '!bg-green-600/20 !border-green-500/50 !text-green-400' : ''}`} onClick={() => fileRef.current?.click()} disabled={uploadingApk} title="Upload a new APK to the server">
+              {uploadingApk ? <RefreshCw size={14} className="animate-spin" /> : uploadSuccess ? <Check size={14} /> : <Upload size={14} />} {uploadSuccess ? 'APK Uploaded' : 'Upload APK'}
+            </button>
+            {serverApkName && <span className="text-[10px] text-slate-500 mt-0.5">{serverApkName}</span>}
+          </div>
           <button
             className="btn-secondary"
             onClick={handleRefresh}

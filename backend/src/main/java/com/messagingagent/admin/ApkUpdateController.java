@@ -40,12 +40,37 @@ public class ApkUpdateController {
         try {
             Path path = Paths.get(APK_DIR, APK_FILE_NAME);
             Files.write(path, file.getBytes());
-            log.info("New APK uploaded successfully: {}", file.getOriginalFilename());
+            // Save the original filename so we can extract the version from it
+            String origName = file.getOriginalFilename();
+            Files.writeString(Paths.get(APK_DIR, "apk-meta.txt"), origName != null ? origName : "unknown");
+            log.info("New APK uploaded successfully: {}", origName);
             return ResponseEntity.ok("APK uploaded successfully");
         } catch (IOException e) {
             log.error("Failed to upload APK", e);
             return ResponseEntity.internalServerError().body("Failed to save APK");
         }
+    }
+
+    @GetMapping("/api/apk/info")
+    public ResponseEntity<?> getApkInfo() {
+        File file = new File(APK_DIR, APK_FILE_NAME);
+        if (!file.exists()) {
+            return ResponseEntity.ok(java.util.Map.of("exists", false));
+        }
+        String filename = "unknown";
+        try {
+            Path metaPath = Paths.get(APK_DIR, "apk-meta.txt");
+            if (metaPath.toFile().exists()) {
+                filename = Files.readString(metaPath).trim();
+            }
+        } catch (IOException ignored) {}
+
+        return ResponseEntity.ok(java.util.Map.of(
+            "exists", true,
+            "filename", filename,
+            "sizeBytes", file.length(),
+            "lastModified", new java.util.Date(file.lastModified()).toString()
+        ));
     }
 
     @GetMapping("/api/public/apk/download")

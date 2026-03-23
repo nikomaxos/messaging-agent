@@ -12,8 +12,8 @@ admin-panel/dist/
 android-app/.gradle/
 android-app/local.properties
 android-app/app/build/
+android-app/apk-updates/
 *.apk
-!MessagingAgent-debug*.apk
 *.aab
 *.keystore
 
@@ -26,4 +26,31 @@ android-app/app/build/
 # Docker
 .env
 
+# Logs & temp files
 *.log
+*.txt
+*.sql
+*.bak
+*.old
+*.tmp
+
+# Database copies
+*.db
+
+# Binaries & archives
+*.zip
+sqlite3_arm64
+sqlite_tools/
+
+# Root-level node
+/node_modules/
+/package.json
+/package-lock.json
+
+# Data & scripts
+*.json
+!admin-panel/**/*.json
+!android-app/**/*.json
+!backend/**/*.json
+!.agent/**/*.json
+!.vscode/**/*.json

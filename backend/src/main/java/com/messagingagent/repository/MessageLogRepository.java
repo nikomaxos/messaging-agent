@@ -41,6 +41,8 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = :status AND m.rcsExpiresAt < :now")
     java.util.List<MessageLog> findExpiredLogs(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 
+    java.util.List<MessageLog> findByStatusAndRcsSentAtIsNotNull(MessageLog.Status status);
+
     @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = 'DISPATCHED' AND m.dispatchedAt < :cutoff AND m.fallbackStartedAt IS NULL")
     java.util.List<MessageLog> findStaleDispatched(@org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
 

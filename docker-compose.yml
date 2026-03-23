@@ -98,6 +98,11 @@ services:
       ADMIN_USER: admin
       ADMIN_PASS: changeme
       SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
+      ADB_VENDOR_KEYS: /home/msgagent/.android/adbkey
+      HOME: /home/msgagent
+    volumes:
+      - ${USERPROFILE:-.}/.android:/home/msgagent/.android:ro
+      - ./android-app/apk-updates:/tmp/updates
     ports:
       - "9090:9090"   # REST API + WebSocket
       - "2775:2775"   # SMPP server port

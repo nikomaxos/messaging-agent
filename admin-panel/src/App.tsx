@@ -14,6 +14,7 @@ import SystemLogsPage from './pages/SystemLogsPage'
 import DeviceLogsPage from './pages/DeviceLogsPage'
 import MessageTrackingPage from './pages/MessageTrackingPage'
 import UsersPage from './pages/UsersPage'
+import RemoteDesktopPage from './pages/RemoteDesktopPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="logs/system" element={<SystemLogsPage />} />
             <Route path="logs/device" element={<DeviceLogsPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="remote" element={<RemoteDesktopPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -81,4 +81,12 @@ class PendingDlrTracker @Inject constructor(
             saveToPrefs()
         }
     }
+
+    /**
+     * Check if any pending DLR already has the given bugle_db _id.
+     * Used to prevent duplicate _id assignments which cause false deliveries.
+     */
+    fun hasPendingWithBugleId(bugleId: Long): Boolean {
+        return bugleId > 0 && pendingList.any { it.bugleMessageId == bugleId }
+    }
 }

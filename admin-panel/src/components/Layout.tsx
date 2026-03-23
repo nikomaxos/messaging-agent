@@ -1,7 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
-  LayoutDashboard, Layers, Smartphone, FileText, LogOut, Users, Route as RouteIcon, Server, UserCog
+  LayoutDashboard, Layers, Smartphone, FileText, LogOut, Users, Route as RouteIcon, Server, UserCog, Monitor
 } from 'lucide-react'
 
 const nav = [
@@ -15,6 +15,7 @@ const nav = [
   { to: '/logs/messages', icon: <FileText size={18} className="text-amber-400" />, label: 'Message Tracking' },
   { to: '/logs/device',   icon: <Smartphone size={18} className="text-teal-400" />, label: 'Device Logs' },
   { to: '/logs/system',   icon: <Server size={18} className="text-indigo-400" />, label: 'System Logs' },
+  { to: '/remote',       icon: <Monitor size={18} className="text-violet-400" />, label: 'Remote Desktop' },
   { to: '/users',          icon: <UserCog size={18} className="text-rose-400" />, label: 'Users' },
 ]
 

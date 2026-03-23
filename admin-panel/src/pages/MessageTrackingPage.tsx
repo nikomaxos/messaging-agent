@@ -25,18 +25,20 @@ export default function MessageTrackingPage() {
   const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('DESC')
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [intervalSec, setIntervalSec] = useState(5)
+  const [perPage, setPerPage] = useState(50)
 
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: getDevices })
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['logs', page, appliedFilters, sortBy, sortDir],
-    queryFn: () => getLogs(page, appliedFilters, sortBy, sortDir),
+    queryKey: ['logs', page, appliedFilters, sortBy, sortDir, perPage],
+    queryFn: () => getLogs(page, appliedFilters, sortBy, sortDir, perPage),
     refetchInterval: autoRefresh ? Math.max(intervalSec, 1) * 1000 : false,
     placeholderData: (prev: any) => prev,
   })
 
   const logs: MessageLog[] = data?.content ?? []
   const totalPages: number = data?.totalPages ?? 0
+  const totalElements: number = data?.totalElements ?? 0
 
   const toggleSort = (field: string) => {
     if (sortBy === field) {
@@ -103,6 +105,7 @@ export default function MessageTrackingPage() {
             <option value="">All</option>
             <option value="RECEIVED">RECEIVED</option>
             <option value="DISPATCHED">DISPATCHED</option>
+            <option value="DISPATCHED_TO_RCS">DISPATCHED TO RCS</option>
             <option value="DELIVERED">DELIVERED</option>
             <option value="RCS_FAILED">RCS FAILED</option>
             <option value="FAILED">FAILED</option>
@@ -157,15 +160,35 @@ export default function MessageTrackingPage() {
       {/* Main Table */}
       <div className="glass overflow-x-auto">
         {/* Top pagination */}
-        {totalPages > 1 && (
+        {totalPages > 1 ? (
           <div className="flex items-center gap-1.5 justify-end px-4 pt-3 pb-1">
+            <button className="text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page === 0} onClick={() => setPage(0)}>«</button>
             <button className="text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page === 0} onClick={() => setPage(p => p - 1)}>←</button>
             <span className="text-[10px] text-slate-500">{page + 1}/{totalPages}</span>
             <button className="text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>→</button>
+            <button className="text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
+            <span className="text-[10px] text-slate-600 ml-1">({totalElements.toLocaleString()})</span>
+            <select className="text-[10px] bg-slate-800/60 text-slate-400 border border-white/5 rounded px-1 py-0.5 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+              <option value={10}>10/pg</option>
+              <option value={50}>50/pg</option>
+              <option value={100}>100/pg</option>
+              <option value={500}>500/pg</option>
+            </select>
+          </div>
+        ) : totalElements > 0 && (
+          <div className="flex items-center justify-end gap-1.5 px-4 pt-3 pb-1">
+            <span className="text-[10px] text-slate-600">({totalElements.toLocaleString()} results)</span>
+            <select className="text-[10px] bg-slate-800/60 text-slate-400 border border-white/5 rounded px-1 py-0.5 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+              <option value={10}>10/pg</option>
+              <option value={50}>50/pg</option>
+              <option value={100}>100/pg</option>
+              <option value={500}>500/pg</option>
+            </select>
           </div>
         )}
         <table className="tbl">
-          <thead><tr>
+          <thead className="sticky top-0 z-10 bg-[#12121f] shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+          <tr>
             <th className="px-4 pt-4 pb-3">#</th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('createdAt')}>Timestamp <SortIcon field="createdAt" /></th>
             <th className="px-2">Time</th>
@@ -175,7 +198,8 @@ export default function MessageTrackingPage() {
             <th className="px-4">Status</th>
             <th className="px-4">Route</th>
             <th className="px-4">Status Details</th>
-          </tr></thead>
+          </tr>
+          </thead>
           <tbody>
             {isLoading && (
               <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
@@ -239,11 +263,30 @@ export default function MessageTrackingPage() {
         </table>
       </div>
 
-      {totalPages > 1 && (
+      {totalPages > 1 ? (
         <div className="flex items-center gap-2 justify-center">
+          <button className="btn-secondary !px-3" disabled={page === 0} onClick={() => setPage(0)}>«</button>
           <button className="btn-secondary !px-3" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
           <span className="text-slate-400 text-sm">Page {page + 1} of {totalPages}</span>
           <button className="btn-secondary !px-3" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
+          <button className="btn-secondary !px-3" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
+          <span className="text-slate-500 text-xs ml-2">({totalElements.toLocaleString()} results)</span>
+          <select className="text-xs bg-[#12121f] text-slate-400 border border-white/10 rounded px-2 py-1 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+            <option value={10}>10 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
+            <option value={500}>500 / page</option>
+          </select>
+        </div>
+      ) : totalElements > 0 && (
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-slate-500 text-xs">({totalElements.toLocaleString()} results)</span>
+          <select className="text-xs bg-[#12121f] text-slate-400 border border-white/10 rounded px-2 py-1 cursor-pointer" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+            <option value={10}>10 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
+            <option value={500}>500 / page</option>
+          </select>
         </div>
       )}
 

@@ -394,6 +394,108 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("INFO", "Auto-Purge mode set to $mode")
                 }
             }
+            body.startsWith("RECHECK_DLR=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val correlationId = body.substringAfter("=").trim()
+                    addLog("INFO", "🔄 DLR re-check requested for $correlationId")
+                    try {
+                        // Look up the pending DLR entry for this correlationId
+                        val pending = rcsSender.dlrTracker.getPendingDlrs()
+                            .firstOrNull { it.correlationId == correlationId }
+                        
+                        if (pending != null && pending.bugleMessageId > 0) {
+                            // We have the exact bugle_db message ID — query it directly
+                            val tmpDb = "${context.filesDir.absolutePath}/dlr_recheck.db"
+                            val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
+                            val uid = android.os.Process.myUid()
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
+                            ).exec()
+
+                            var deliveryResult: String? = null
+                            var errorDetail: String? = null
+                            try {
+                                android.database.sqlite.SQLiteDatabase.openDatabase(
+                                    tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+                                ).use { db ->
+                                    db.rawQuery(
+                                        "SELECT message_status FROM messages WHERE _id = ?",
+                                        arrayOf(pending.bugleMessageId.toString())
+                                    ).use { cursor ->
+                                        if (cursor.moveToFirst()) {
+                                            when (cursor.getInt(0)) {
+                                                2, 13, 14 -> { deliveryResult = "DELIVERED"; errorDetail = null }
+                                                11 -> { deliveryResult = "DELIVERED"; errorDetail = "SEEN/READ" }
+                                                8, 5, 9 -> { deliveryResult = "ERROR"; errorDetail = "RCS send failed (bugle status=${cursor.getInt(0)})" }
+                                                // 1 = still sending, don't report yet
+                                            }
+                                        }
+                                    }
+                                }
+                            } finally {
+                                com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' '$tmpDb-journal'").exec()
+                            }
+
+                            if (deliveryResult != null) {
+                                addLog("INFO", "🔄 DLR re-check: $correlationId → $deliveryResult (bugleId=${pending.bugleMessageId})")
+                                sendDeliveryResultAsync(
+                                    DeliveryResult(correlationId, deliveryResult!!, errorDetail),
+                                    pending.deviceToken
+                                )
+                                rcsSender.dlrTracker.removeResolved(listOf(pending))
+                            } else {
+                                addLog("INFO", "🔄 DLR re-check: $correlationId — still pending in bugle_db")
+                            }
+                        } else if (pending != null) {
+                            // We know about it but don't have the bugle_db ID — try fallback query
+                            val tmpDb = "${context.filesDir.absolutePath}/dlr_recheck.db"
+                            val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
+                            val uid = android.os.Process.myUid()
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
+                            ).exec()
+
+                            var deliveryResult: String? = null
+                            var errorDetail: String? = null
+                            try {
+                                android.database.sqlite.SQLiteDatabase.openDatabase(
+                                    tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+                                ).use { db ->
+                                    db.rawQuery(
+                                        "SELECT _id, message_status FROM messages WHERE _id > ? ORDER BY _id ASC LIMIT 1",
+                                        arrayOf(pending.initialMaxId.toString())
+                                    ).use { cursor ->
+                                        if (cursor.moveToFirst()) {
+                                            when (cursor.getInt(1)) {
+                                                2, 13, 14 -> { deliveryResult = "DELIVERED" }
+                                                11 -> { deliveryResult = "DELIVERED"; errorDetail = "SEEN/READ" }
+                                                8, 5, 9 -> { deliveryResult = "ERROR"; errorDetail = "RCS send failed" }
+                                            }
+                                        }
+                                    }
+                                }
+                            } finally {
+                                com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' '$tmpDb-journal'").exec()
+                            }
+
+                            if (deliveryResult != null) {
+                                addLog("INFO", "🔄 DLR re-check fallback: $correlationId → $deliveryResult")
+                                sendDeliveryResultAsync(
+                                    DeliveryResult(correlationId, deliveryResult!!, errorDetail),
+                                    pending.deviceToken
+                                )
+                                rcsSender.dlrTracker.removeResolved(listOf(pending))
+                            } else {
+                                addLog("INFO", "🔄 DLR re-check fallback: $correlationId — still pending")
+                            }
+                        } else {
+                            addLog("WARN", "🔄 DLR re-check: $correlationId — not found in pending tracker (already GC'd or resolved)")
+                        }
+                    } catch (e: Exception) {
+                        addLog("ERROR", "🔄 DLR re-check failed for $correlationId: ${e.message}")
+                    }
+                }
+            }
             body == "PIN_AUTOSTART" -> {
                 CoroutineScope(Dispatchers.IO).launch {
                     addLog("INFO", "🛡️ PIN_AUTOSTART command received — re-applying device hardening")

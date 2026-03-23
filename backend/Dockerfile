@@ -16,12 +16,12 @@ RUN mvn -B package -DskipTests
 # ─── Runtime Stage ────────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-jammy AS runtime
 
-# Install curl for health check
-RUN apt-get update -q && apt-get install -y --no-install-recommends curl \
+# Install curl for health check, adb for remote desktop feature
+RUN apt-get update -q && apt-get install -y --no-install-recommends curl android-tools-adb \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r msgagent && useradd -r -g msgagent msgagent
+# Create non-root user with home dir (needed for ADB keys)
+RUN groupadd -r msgagent && useradd -r -g msgagent -m msgagent
 
 WORKDIR /app
 

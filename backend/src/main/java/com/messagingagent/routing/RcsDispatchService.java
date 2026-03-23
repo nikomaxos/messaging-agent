@@ -21,6 +21,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import com.messagingagent.model.SmppRouting;
 import com.messagingagent.model.SmppRoutingDestination;
 import com.messagingagent.model.SmscSupplier;
@@ -46,6 +51,19 @@ public class RcsDispatchService {
     private final SmppClientRepository smppClientRepository;
     private final SmppRoutingRepository smppRoutingRepository;
     private final SmscConnectionManager smscConnectionManager;
+
+    /**
+     * Delay failure DELIVER_SM by 10s to allow a late DELIVERED result to cancel it.
+     * If DELIVERED arrives before the 10s elapses, the failure is cancelled.
+     */
+    private static final int FAILURE_DLR_HOLD_SECONDS = 10;
+    private final ScheduledExecutorService failureDlrScheduler =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "failure-dlr-hold");
+                t.setDaemon(true);
+                return t;
+            });
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> pendingFailures = new ConcurrentHashMap<>();
 
     @KafkaListener(topics = "sms.inbound", groupId = "messaging-agent")
     public void handleInboundSms(SmsInboundEvent event) {
@@ -100,71 +118,32 @@ public class RcsDispatchService {
             return;
         }
 
-        List<Device> onlineDevices = deviceRepository.findByGroupAndStatus(group, Device.Status.ONLINE);
-
-        Optional<Device> selectedDevice = loadBalancer.selectDevice(group, onlineDevices);
-        if (selectedDevice.isEmpty()) {
-            log.info("No online/free devices in group '{}'. Queueing message id={}.", group.getName(), event.getCorrelationId());
-            MessageLog msgLog = MessageLog.builder()
-                    .smppMessageId(event.getCorrelationId())
-                    .sourceAddress(event.getSourceAddress())
-                    .destinationAddress(event.getDestinationAddress())
-                    .messageText(event.getMessageText())
-                    .status(MessageLog.Status.QUEUED)
-                    .device(null) // No device assigned yet
-                    .deviceGroup(group) // Attach to the virtual SMSC for queue draining
-                    .createdAt(Instant.ofEpochMilli(event.getTimestampMs()))
-                    .rcsExpiresAt(selection != null && selection.rcsExpirationSeconds != null && selection.rcsExpirationSeconds > 0 ? Instant.now().plus(selection.rcsExpirationSeconds, ChronoUnit.SECONDS) : null)
-                    .resendTrigger(selection != null ? selection.resendTrigger : null)
-                    .fallbackSmsc(selection != null ? selection.fallbackSmsc : null)
-                    .build();
-            // Let the device entity reference the device group through a proxy field, or simply rely on the queue drain query
-            // Since MessageLog has a reference to Device but not DeviceGroup directly, we can't cleanly query "QUEUED messages for a DeviceGroup".
-            // WAIT - the current query `findFirstByStatusAndDeviceGroupIdOrderByCreatedAtAsc` relies on `m.device.group.id`, but if `m.device` is null, that JOIN fails!
-            // I need to add `DeviceGroup` to the `MessageLog` schema. Let me just use a simpler design: queue per-group using an explicit column.
-            messageLogRepository.save(msgLog);
-            
-            // Wait, MessageLog schema *doesn't* have a `group` column. I must add `DeviceGroup` to `MessageLog` schema. Let me rollback this logic for a moment.
-            return;
-        }
-
-        Device device = selectedDevice.get();
-        log.info("Dispatching to device id={} name={}", device.getId(), device.getName());
-        loadBalancer.recordDispatch(device.getId());
-        
-        // Lock the device to BUSY
-        device.setStatus(Device.Status.BUSY);
-        deviceRepository.save(device);
-
-        Instant expiresAt = null;
-        if (selection != null && selection.rcsExpirationSeconds != null && selection.rcsExpirationSeconds > 0) {
-            expiresAt = Instant.now().plus(selection.rcsExpirationSeconds, ChronoUnit.SECONDS);
-        }
-
-        // Persist message log
+        // Always queue the message first, then let the synchronized drainQueueForGroup
+        // handle dispatch. This prevents race conditions where multiple Kafka consumer
+        // threads select the same device before the BUSY flag is committed.
         MessageLog msgLog = MessageLog.builder()
                 .smppMessageId(event.getCorrelationId())
                 .customerMessageId(event.getCorrelationId())
                 .sourceAddress(event.getSourceAddress())
                 .destinationAddress(event.getDestinationAddress())
                 .messageText(event.getMessageText())
-                .status(MessageLog.Status.DISPATCHED)
-                .device(device)
+                .status(MessageLog.Status.QUEUED)
+                .device(null)
                 .deviceGroup(group)
                 .createdAt(Instant.ofEpochMilli(event.getTimestampMs()))
-                .rcsExpiresAt(expiresAt)
+                .rcsExpiresAt(selection != null && selection.rcsExpirationSeconds != null && selection.rcsExpirationSeconds > 0 ? Instant.now().plus(selection.rcsExpirationSeconds, ChronoUnit.SECONDS) : null)
                 .resendTrigger(selection != null ? selection.resendTrigger : null)
                 .fallbackSmsc(selection != null ? selection.fallbackSmsc : null)
-                .dispatchedAt(Instant.now())
                 .build();
         messageLogRepository.save(msgLog);
+        log.info("Queued message id={} for group '{}'. Triggering drain.", event.getCorrelationId(), group.getName());
 
-        // Inject per-group DLR delay configuration into the dispatch payload
+        // Inject DLR delay settings for when the message gets dispatched
         event.setDlrDelayMinSec(group.getDlrDelayMinSec());
         event.setDlrDelayMaxSec(group.getDlrDelayMaxSec());
 
-        // Send to device via WebSocket
-        deviceWebSocketService.sendSmsToDevice(device, event);
+        // Trigger synchronized queue drain
+        deviceWebSocketService.drainQueueForGroup(group);
     }
 
     @KafkaListener(topics = "sms.delivery.result", groupId = "messaging-agent")
@@ -179,9 +158,9 @@ public class RcsDispatchService {
             }
             
             // Guard: DELIVERED is the ultimate truth — carrier confirmed delivery is immutable.
-            // But if current state is FAILED/RCS_FAILED (e.g. from expiration timeout),
-            // a DELIVERED result from the APK should override it — the message WAS delivered.
+            // Also cancel any pending failure DELIVER_SM for this correlationId.
             if (logEntry.getStatus() == MessageLog.Status.DELIVERED) {
+                cancelPendingFailure(result.getCorrelationId());
                 // Already delivered — but update errorDetail if provided (e.g., SEEN/READ from status=11)
                 if (result.getErrorDetail() != null && !result.getErrorDetail().isEmpty()) {
                     logEntry.setErrorDetail(result.getErrorDetail());
@@ -203,6 +182,7 @@ public class RcsDispatchService {
             }
             if ((logEntry.getStatus() == MessageLog.Status.FAILED || logEntry.getStatus() == MessageLog.Status.RCS_FAILED)
                     && result.getResult() == SmsDeliveryResultEvent.Result.DELIVERED) {
+                cancelPendingFailure(result.getCorrelationId());
                 log.info("DELIVERED result overriding {} for correlationId={} — carrier confirmation wins",
                         logEntry.getStatus(), result.getCorrelationId());
                 logEntry.setErrorDetail(null); // Clear stale timeout/error detail
@@ -224,14 +204,18 @@ public class RcsDispatchService {
             // For final DLRs (DELIVERED, ERROR, NO_RCS), record the DLR timestamp
             logEntry.setRcsDlrReceivedAt(Instant.now());
 
-            switch (result.getResult()) {
-                case DELIVERED -> smppResponseService.sendDeliverySm(result.getCorrelationId());
-                case NO_RCS -> smppResponseService.sendNoRcsFailure(result.getCorrelationId());
-                default -> smppResponseService.sendDeliveryFailure(result.getCorrelationId(), result.getErrorDetail());
-            }
-
             boolean isFailed = (result.getResult() != SmsDeliveryResultEvent.Result.DELIVERED);
             boolean isNoRcs = (result.getResult() == SmsDeliveryResultEvent.Result.NO_RCS);
+
+            // Send SMPP DLR — DELIVERED immediately, NO_RCS immediately, ERROR with 10s delay
+            switch (result.getResult()) {
+                case DELIVERED -> {
+                    cancelPendingFailure(result.getCorrelationId());
+                    smppResponseService.sendDeliverySm(result.getCorrelationId());
+                }
+                case NO_RCS -> smppResponseService.sendNoRcsFailure(result.getCorrelationId());
+                default -> scheduleFailureDlr(result.getCorrelationId(), result.getErrorDetail());
+            }
 
             logEntry.setStatus(switch (result.getResult()) {
                 case DELIVERED -> MessageLog.Status.DELIVERED;
@@ -335,5 +319,36 @@ public class RcsDispatchService {
         }
 
         return new RoutingSelection(chosenDest.getDeviceGroup(), fallback, rcsExpirationSeconds, resendTrigger);
+    }
+
+    /**
+     * Schedule a failure DELIVER_SM to be sent after FAILURE_DLR_HOLD_SECONDS.
+     * If DELIVERED arrives before the timer fires, the failure is cancelled.
+     */
+    private void scheduleFailureDlr(String correlationId, String errorDetail) {
+        // Cancel any existing pending failure for this correlationId (shouldn't happen, but be safe)
+        cancelPendingFailure(correlationId);
+
+        log.info("Scheduling failure DELIVER_SM for correlationId={} in {}s (errorDetail={})",
+                correlationId, FAILURE_DLR_HOLD_SECONDS, errorDetail);
+
+        ScheduledFuture<?> future = failureDlrScheduler.schedule(() -> {
+            pendingFailures.remove(correlationId);
+            log.info("Failure DLR hold expired for correlationId={} — sending failure DELIVER_SM now", correlationId);
+            smppResponseService.sendDeliveryFailure(correlationId, errorDetail);
+        }, FAILURE_DLR_HOLD_SECONDS, TimeUnit.SECONDS);
+
+        pendingFailures.put(correlationId, future);
+    }
+
+    /**
+     * Cancel a pending failure DELIVER_SM if DELIVERED arrives first.
+     */
+    private void cancelPendingFailure(String correlationId) {
+        ScheduledFuture<?> pending = pendingFailures.remove(correlationId);
+        if (pending != null && !pending.isDone()) {
+            pending.cancel(false);
+            log.info("Cancelled pending failure DELIVER_SM for correlationId={} — DELIVERED arrived first", correlationId);
+        }
     }
 }

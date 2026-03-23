@@ -147,13 +147,17 @@ public class DeviceWebSocketService {
     public void handleDeliveryResult(SmsDeliveryResultEvent result, String deviceToken) {
         deliveryResultKafka.send("sms.delivery.result", result.getCorrelationId(), result);
 
-        // Unlock the device and trigger queue drain
-        if (deviceToken != null) {
+        // Only unlock the device on FINAL results (DELIVERED, FAILED, NO_RCS, ERROR).
+        // SENT = message entered bugle_db but DLR is still pending — keep device BUSY
+        // to prevent dispatching the next message before this one's DLR is resolved.
+        boolean isFinalResult = result.getResult() != SmsDeliveryResultEvent.Result.SENT;
+
+        if (deviceToken != null && isFinalResult) {
             deviceRepository.findByRegistrationToken(deviceToken).ifPresent(device -> {
                 if (device.getStatus() == Device.Status.BUSY) {
                     device.setStatus(Device.Status.ONLINE);
                     deviceRepository.save(device);
-                    log.debug("Device {} unlocked to ONLINE after delivery result", device.getName());
+                    log.info("Device {} unlocked BUSY→ONLINE after final DLR: {}", device.getName(), result.getResult());
                     
                     messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", device.getId(), "status", "ONLINE"));
                     
@@ -171,6 +175,8 @@ public class DeviceWebSocketService {
                     }
                 }
             });
+        } else if (deviceToken != null && !isFinalResult) {
+            log.debug("SENT signal for device — keeping BUSY while awaiting final DLR");
         }
     }
 
@@ -179,7 +185,7 @@ public class DeviceWebSocketService {
      * Dispatches queued messages to ALL available ONLINE devices for maximum TPS.
      * Uses the load balancer for fair device selection.
      */
-    private synchronized void drainQueueForGroup(DeviceGroup group) {
+    public synchronized void drainQueueForGroup(DeviceGroup group) {
         List<Device> onlineDevices = deviceRepository.findByGroupAndStatus(group, Device.Status.ONLINE);
         if (onlineDevices.isEmpty()) {
             return;

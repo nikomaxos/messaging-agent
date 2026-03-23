@@ -78,8 +78,8 @@ export const updateSmppRouting = (id: number, d: any) => api.put(`/smpp/routings
 export const deleteSmppRouting = (id: number) => api.delete(`/smpp/routings/${id}`)
 
 // ── Message Logs ──────────────────────────────────────────────────────────
-export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC') => 
-  api.get('/logs', { params: { page, size: 50, sortBy, sortDir, ...filters } }).then((r: any) => r.data)
+export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC', size = 50) => 
+  api.get('/logs', { params: { page, size, sortBy, sortDir, ...filters } }).then((r: any) => r.data)
 
 export const getDeviceLogs = (page = 0, filters?: Record<string, any>) =>
   api.get('/logs/device', { params: { page, size: 50, ...filters } }).then((r: any) => r.data)
@@ -90,3 +90,25 @@ export const createUser     = (d: any) => api.post('/users', d).then((r: any) =>
 export const updateUser     = (id: number, d: any) => api.put(`/users/${id}`, d).then((r: any) => r.data)
 export const resetPassword  = (id: number, password: string) => api.put(`/users/${id}/password`, { password }).then((r: any) => r.data)
 export const deleteUser     = (id: number) => api.delete(`/users/${id}`)
+
+// ── Remote Desktop ────────────────────────────────────────────────────────
+export const getDeviceScreenshot = (id: number) =>
+  api.get(`/devices/${id}/screenshot`, { responseType: 'blob' }).then((r: any) => r.data)
+
+export const getScreenInfo = (id: number) =>
+  api.get(`/devices/${id}/screen-info`).then((r: any) => r.data)
+
+export const sendTap = (id: number, x: number, y: number, screenWidth: number, screenHeight: number) =>
+  api.post(`/devices/${id}/input/tap`, { x, y, screenWidth, screenHeight }).then((r: any) => r.data)
+
+export const sendSwipe = (id: number, x1: number, y1: number, x2: number, y2: number, screenWidth: number, screenHeight: number, duration = 300) =>
+  api.post(`/devices/${id}/input/swipe`, { x1, y1, x2, y2, duration, screenWidth, screenHeight }).then((r: any) => r.data)
+
+export const sendKeyEvent = (id: number, keycode: number) =>
+  api.post(`/devices/${id}/input/keyevent`, { keycode }).then((r: any) => r.data)
+
+export const connectDeviceAdb = (id: number) =>
+  api.post(`/devices/${id}/adb/connect`).then((r: any) => r.data)
+
+export const wakeDevice = (id: number) =>
+  api.post(`/devices/${id}/wake`).then((r: any) => r.data)
