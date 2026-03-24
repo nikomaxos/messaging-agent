@@ -85,7 +85,7 @@ class WebSocketRelayClient @Inject constructor(
 
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    private fun addLog(level: String, message: String) {
+    internal fun addLog(level: String, message: String) {
         val entry = LogEntry(timeFmt.format(Date()), level, message)
         val current = _log.value.takeLast(49)   // keep last 50 entries
         _log.value = current + entry
