@@ -131,6 +131,42 @@ public class RemoteDesktopController {
         return ResponseEntity.ok(Map.of("status", "sent"));
     }
 
+    /**
+     * POST /api/devices/{id}/remote/reboot
+     * Reboot the device via root shell.
+     */
+    @PostMapping("/reboot")
+    public ResponseEntity<Map<String, String>> rebootDevice(@PathVariable Long deviceId) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        log.info("REBOOT → device {}", deviceId);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "REBOOT");
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    /**
+     * POST /api/devices/{id}/remote/command
+     * Send an arbitrary STOMP command to the device.
+     * Body: { "command": "UPDATE_APK" }
+     */
+    @PostMapping("/command")
+    public ResponseEntity<Map<String, String>> sendCommand(
+            @PathVariable Long deviceId,
+            @RequestBody Map<String, String> body) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        String command = body.get("command");
+        if (command == null || command.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "command is required"));
+        }
+
+        log.info("COMMAND → device {}: {}", deviceId, command);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, command);
+        return ResponseEntity.ok(Map.of("status", "sent"));
+    }
+
     private double toDouble(Object val) {
         return val instanceof Number ? ((Number) val).doubleValue() : 0;
     }
