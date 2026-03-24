@@ -47,7 +47,7 @@ class WebSocketRelayClient @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val rcsSender: RcsSender,
     private val prefs: com.messagingagent.android.data.PreferencesRepository
-) {
+) : DeviceLogger {
     private val client = OkHttpClient.Builder()
         .pingInterval(25, java.util.concurrent.TimeUnit.SECONDS)
         .build()
@@ -85,7 +85,7 @@ class WebSocketRelayClient @Inject constructor(
 
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    internal fun addLog(level: String, message: String) {
+    override fun addLog(level: String, message: String) {
         val entry = LogEntry(timeFmt.format(Date()), level, message)
         val current = _log.value.takeLast(199)   // keep last 200 entries
         _log.value = current + entry

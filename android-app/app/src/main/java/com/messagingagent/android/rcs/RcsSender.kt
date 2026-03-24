@@ -21,7 +21,7 @@ class RcsSender @Inject constructor(
     @ApplicationContext private val context: Context,
     internal val dlrTracker: PendingDlrTracker,
     private val prefs: com.messagingagent.android.data.PreferencesRepository,
-    private val wsClient: com.messagingagent.android.service.WebSocketRelayClient
+    private val wsClient: com.messagingagent.android.service.DeviceLogger
 ) {
 
     private companion object {
