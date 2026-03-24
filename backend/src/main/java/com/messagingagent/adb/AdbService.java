@@ -154,33 +154,25 @@ public class AdbService {
      * then swipes up from bottom center to dismiss status/lock screen.
      */
     public void wakeAndUnlock(Device device) throws IOException {
-        // 1. Standard WAKEUP keyevent
-        executeDeviceShell(device, "input", "keyevent", "224");
-        log.info("Device {} — WAKEUP sent", device.getId());
-        try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        // 1. Prevent the screen from immediately dozing back off
+        executeDeviceShell(device, "svc", "power", "stayon", "true");
+        log.info("Device {} — svc power stayon true", device.getId());
 
-        // 2. Check if screen actually woke up
+        // 2. POWER key (26) reliably toggles screen on MIUI (224/WAKEUP is blocked in Doze)
+        executeDeviceShell(device, "input", "keyevent", "26");
+        log.info("Device {} — POWER keyevent sent", device.getId());
+        try { Thread.sleep(800); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+        // 3. Check — if the screen turned off (was already awake), press again
         String power = executeDeviceShellRaw(device, "dumpsys", "power");
         boolean isAwake = power != null && power.contains("mWakefulness=Awake");
-
         if (!isAwake) {
-            // MIUI blocks keyevent 224 while Dozing — try POWER toggle
             executeDeviceShell(device, "input", "keyevent", "26");
-            log.info("Device {} — POWER toggle sent (MIUI fallback)", device.getId());
-            try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-
-            power = executeDeviceShellRaw(device, "dumpsys", "power");
-            isAwake = power != null && power.contains("mWakefulness=Awake");
-        }
-
-        if (!isAwake) {
-            // Last resort: launch Settings activity to force screen on
-            executeDeviceShell(device, "am", "start", "-a", "android.settings.SETTINGS");
-            log.info("Device {} — am start Settings (force wake)", device.getId());
+            log.info("Device {} — second POWER press (screen was on, toggled off)", device.getId());
             try { Thread.sleep(800); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
 
-        // 3. Swipe up from bottom of screen to dismiss lock screen
+        // 4. Swipe up from bottom of screen to dismiss lock screen
         int[] res = getScreenResolution(device);
         int centerX = res[0] / 2;
         int bottomY = (int) (res[1] * 0.85);
