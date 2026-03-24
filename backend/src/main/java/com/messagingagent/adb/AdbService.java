@@ -154,11 +154,32 @@ public class AdbService {
      * then swipes up from bottom center to dismiss status/lock screen.
      */
     public void wakeAndUnlock(Device device) throws IOException {
-        // 1. Send KEYCODE_WAKEUP to turn on the display
+        // 1. Standard WAKEUP keyevent
         executeDeviceShell(device, "input", "keyevent", "224");
         log.info("Device {} — WAKEUP sent", device.getId());
-        // 2. Wait for the screen to actually power on
-        try { Thread.sleep(600); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+        // 2. Check if screen actually woke up
+        String power = executeDeviceShellRaw(device, "dumpsys", "power");
+        boolean isAwake = power != null && power.contains("mWakefulness=Awake");
+
+        if (!isAwake) {
+            // MIUI blocks keyevent 224 while Dozing — try POWER toggle
+            executeDeviceShell(device, "input", "keyevent", "26");
+            log.info("Device {} — POWER toggle sent (MIUI fallback)", device.getId());
+            try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+            power = executeDeviceShellRaw(device, "dumpsys", "power");
+            isAwake = power != null && power.contains("mWakefulness=Awake");
+        }
+
+        if (!isAwake) {
+            // Last resort: launch Settings activity to force screen on
+            executeDeviceShell(device, "am", "start", "-a", "android.settings.SETTINGS");
+            log.info("Device {} — am start Settings (force wake)", device.getId());
+            try { Thread.sleep(800); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+
         // 3. Swipe up from bottom of screen to dismiss lock screen
         int[] res = getScreenResolution(device);
         int centerX = res[0] / 2;
