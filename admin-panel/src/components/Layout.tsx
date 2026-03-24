@@ -74,7 +74,7 @@ export default function Layout() {
       <aside className={`sidebar flex flex-col shrink-0 bg-[#12121f] border-r border-white/[0.07] transition-all duration-300 ease-in-out ${sidebarWidth}`}>
 
         {/* Logo + Toggle */}
-        <div className="px-3 py-4 border-b border-white/[0.07] flex items-center gap-2.5 min-h-[64px]">
+        <div className={`border-b border-white/[0.07] ${collapsed ? 'px-2 py-3 flex flex-col items-center gap-2' : 'px-3 py-4 flex items-center gap-2.5'} min-h-[64px]`}>
           <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
             MA
           </div>
@@ -86,10 +86,10 @@ export default function Layout() {
           )}
           <button
             onClick={toggle}
-            className="text-slate-500 hover:text-slate-300 transition shrink-0 p-1 rounded hover:bg-white/[0.05]"
+            className="text-slate-500 hover:text-slate-300 transition shrink-0 p-1.5 rounded hover:bg-white/[0.05]"
             title={collapsed ? 'Expand menu' : 'Collapse menu'}
           >
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
 
