@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance } from '../api/client'
+import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance, bulkDeviceCommand } from '../api/client'
 import { Device, DeviceGroup } from '../types'
 import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse, Layers, MapPin, FileText, Smartphone, Monitor } from 'lucide-react'
 import { FormatDistanceToNowOptions, formatDistanceToNow, format } from 'date-fns'
@@ -61,6 +61,8 @@ export default function DevicesPage() {
   useEffect(() => { fetchApkInfo() }, [])
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [autostartToast, setAutostartToast] = useState<string | null>(null)
+  const [otaPushing, setOtaPushing] = useState(false)
+  const [otaToast, setOtaToast] = useState<string | null>(null)
   
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
   const stompRef = useRef<Client | null>(null)
@@ -277,6 +279,30 @@ export default function DevicesPage() {
               </button>
               {serverApkName && <span className="text-[10px] text-slate-500 mt-0.5">{serverApkName}</span>}
             </div>
+            <button
+              className={`btn-secondary whitespace-nowrap ${otaToast ? '!bg-green-600/20 !border-green-500/50 !text-green-400' : ''}`}
+              disabled={otaPushing}
+              title="Push OTA update to all online filtered devices"
+              onClick={() => {
+                const onlineDeviceIds = filteredDevices.filter((d: Device) => d.status === 'ONLINE' || d.status === 'BUSY').map((d: Device) => d.id)
+                if (onlineDeviceIds.length === 0) { alert('No online devices to update.'); return }
+                setConfirmAction({
+                  title: 'Push OTA Update',
+                  message: `Send UPDATE_APK command to ${onlineDeviceIds.length} online device(s)?\nDevices will download and install the latest APK from the server.`,
+                  onConfirm: async () => {
+                    setOtaPushing(true)
+                    try {
+                      const result = await bulkDeviceCommand(onlineDeviceIds, 'UPDATE_APK')
+                      setOtaToast(`✓ OTA pushed to ${result.sent} device(s)`)
+                      setTimeout(() => setOtaToast(null), 5000)
+                    } catch { alert('Failed to push OTA update') }
+                    finally { setOtaPushing(false) }
+                  }
+                })
+              }}
+            >
+              {otaPushing ? <RefreshCw size={14} className="animate-spin" /> : otaToast ? <Check size={14} /> : <DownloadCloud size={14} />} {otaToast || 'Push OTA Update'}
+            </button>
             <button
               className="btn-secondary"
               onClick={handleRefresh}

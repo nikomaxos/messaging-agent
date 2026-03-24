@@ -28,11 +28,6 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 import javax.inject.Inject
 import android.media.AudioManager
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
-import java.io.File
-import java.util.concurrent.TimeUnit
 
 @Serializable
 data class HeartbeatPayload(
@@ -227,10 +222,8 @@ class MessagingAgentService : Service() {
 
             // Full heartbeat loop -- sensor data (every 20s)
             // Auto-reboot watchdog is now handled by RebootWatchdogReceiver via AlarmManager
-            var heartbeatCount = 0
             while (isActive) {
                 delay(20_000)
-                heartbeatCount++
                 try {
                     val isConnected = wsClient.connectionStartTime.value != null
 
@@ -274,14 +267,7 @@ class MessagingAgentService : Service() {
                         }
                     }
 
-                    // OTA update check every 5th heartbeat (~100s)
-                    if (heartbeatCount % 5 == 0 && regState.backendUrl != null) {
-                        try {
-                            checkAndApplyOtaUpdate(regState.backendUrl!!)
-                        } catch (e: Exception) {
-                            Timber.w(e, "OTA check failed")
-                        }
-                    }
+
                 } catch (e: Exception) {
                     Timber.e(e, "Heartbeat/Watchdog loop failed")
                 }
@@ -745,99 +731,5 @@ class MessagingAgentService : Service() {
         }
     }
 
-    // ── OTA Auto-Update ──────────────────────────────────────────────────────
 
-    private suspend fun checkAndApplyOtaUpdate(backendUrl: String) {
-        val currentVersion = com.messagingagent.android.BuildConfig.VERSION_NAME
-        val baseUrl = backendUrl.trimEnd('/')
-
-        try {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .build()
-
-            // 1. Check server version
-            val versionReq = Request.Builder()
-                .url("$baseUrl/api/public/apk/version")
-                .build()
-            val versionResp = client.newCall(versionReq).execute()
-            if (!versionResp.isSuccessful) {
-                Timber.d("OTA: version check failed HTTP ${versionResp.code}")
-                return
-            }
-            val body = versionResp.body?.string() ?: return
-            val json = JSONObject(body)
-            if (!json.optBoolean("available", false)) {
-                Timber.d("OTA: no update available on server")
-                return
-            }
-            val serverVersion = json.optString("versionName", "")
-            if (serverVersion.isEmpty() || serverVersion == currentVersion) {
-                Timber.d("OTA: already on latest version $currentVersion")
-                return
-            }
-
-            wsClient.addLog("INFO", "OTA: update available $currentVersion -> $serverVersion, downloading...")
-            Timber.i("OTA: update available $currentVersion -> $serverVersion")
-
-            // 2. Download APK
-            val downloadReq = Request.Builder()
-                .url("$baseUrl/api/public/apk/download")
-                .build()
-            val downloadResp = client.newCall(downloadReq).execute()
-            if (!downloadResp.isSuccessful) {
-                wsClient.addLog("ERROR", "OTA: download failed HTTP ${downloadResp.code}")
-                return
-            }
-
-            val apkFile = File("/data/local/tmp/ota_update.apk")
-            downloadResp.body?.byteStream()?.use { input ->
-                apkFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            if (!apkFile.exists() || apkFile.length() < 100_000) {
-                wsClient.addLog("ERROR", "OTA: downloaded file is invalid (${apkFile.length()} bytes)")
-                apkFile.delete()
-                return
-            }
-
-            wsClient.addLog("INFO", "OTA: downloaded ${apkFile.length() / 1024}KB, installing...")
-            Timber.i("OTA: downloaded ${apkFile.length()} bytes, installing via pm install")
-
-            // 3. Silent install via root
-            val installResult = com.topjohnwu.superuser.Shell.cmd(
-                "pm install -r -d /data/local/tmp/ota_update.apk"
-            ).exec()
-
-            if (installResult.isSuccess) {
-                wsClient.addLog("INFO", "OTA: install SUCCESS ($serverVersion). Restarting app...")
-                Timber.i("OTA: install successful, restarting app")
-
-                // Clean up
-                com.topjohnwu.superuser.Shell.cmd("rm /data/local/tmp/ota_update.apk").exec()
-
-                // 4. Restart the app
-                delay(1000)
-                val intent = packageManager.getLaunchIntentForPackage(packageName)
-                if (intent != null) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                }
-                // Force-stop to ensure clean restart with new code
-                com.topjohnwu.superuser.Shell.cmd(
-                    "am force-stop $packageName"
-                ).exec()
-            } else {
-                wsClient.addLog("ERROR", "OTA: install FAILED: ${installResult.err.joinToString("; ")}")
-                Timber.e("OTA: pm install failed: ${installResult.err}")
-                apkFile.delete()
-            }
-        } catch (e: Exception) {
-            wsClient.addLog("ERROR", "OTA: error: ${e.message}")
-            Timber.e(e, "OTA update failed")
-        }
-    }
 }
