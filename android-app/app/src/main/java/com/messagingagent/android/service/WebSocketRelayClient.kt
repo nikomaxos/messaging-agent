@@ -47,7 +47,7 @@ class WebSocketRelayClient @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val rcsSender: RcsSender,
     private val prefs: com.messagingagent.android.data.PreferencesRepository
-) : DeviceLogger {
+) {
     private val client = OkHttpClient.Builder()
         .pingInterval(25, java.util.concurrent.TimeUnit.SECONDS)
         .build()
@@ -85,7 +85,7 @@ class WebSocketRelayClient @Inject constructor(
 
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    override fun addLog(level: String, message: String) {
+    internal fun addLog(level: String, message: String) {
         val entry = LogEntry(timeFmt.format(Date()), level, message)
         val current = _log.value.takeLast(199)   // keep last 200 entries
         _log.value = current + entry
@@ -640,7 +640,10 @@ class WebSocketRelayClient @Inject constructor(
         }
         lastSentLogIndex = currentLogs.size
         // Filter out DLR-related logs (they go via delivery.result channel)
-        return newEntries.filter { !it.message.contains("Delivery result sent") }
+        val filtered = newEntries.filter { !it.message.contains("Delivery result sent") }
+        // Also drain logs from DeviceLogBus (written by RcsSender etc.)
+        val busLogs = DeviceLogBus.drain().map { LogEntry(it.time, it.level, it.message) }
+        return filtered + busLogs
     }
 
     /** Send batched device logs to backend via STOMP. */
