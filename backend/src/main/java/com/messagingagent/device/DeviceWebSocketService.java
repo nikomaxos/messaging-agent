@@ -148,6 +148,20 @@ public class DeviceWebSocketService {
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_CALL_BLOCK=" + device.getCallBlockEnabled());
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_AUTO_PURGE=" + (device.getAutoPurge() != null ? device.getAutoPurge() : "OFF"));
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_SELF_HEALING=" + device.getSelfHealingEnabled());
+
+            // Auto-OTA: if device reports an outdated APK version, push update immediately
+            try {
+                String latestVersion = getLatestOtaVersion();
+                if (latestVersion != null && heartbeat.getApkVersion() != null
+                        && !latestVersion.equals(heartbeat.getApkVersion())) {
+                    log.info("AUTO-OTA: device {} reports v{} but server has v{} — sending UPDATE_APK",
+                            device.getName(), heartbeat.getApkVersion(), latestVersion);
+                    messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "UPDATE_APK");
+                }
+            } catch (Exception e) {
+                log.debug("Auto-OTA version check failed: {}", e.getMessage());
+            }
+
             // Drain any pending commands queued by REST controllers
             drainPendingCommands(device.getId());
             log.debug("Heartbeat from device {}: battery={}% charging={} wifi={}dBm gsm={}dBm network={}",
@@ -357,5 +371,23 @@ public class DeviceWebSocketService {
             }
             log.debug("Persisted {} device logs from {}", logs.size(), device.getName());
         });
+    }
+
+    /**
+     * Read the latest OTA version from /tmp/updates/apk-meta.txt.
+     * The file contains a line like "MessagingAgent-1.0.79.apk".
+     * Returns the version string (e.g. "1.0.79") or null if unavailable.
+     */
+    private String getLatestOtaVersion() {
+        try {
+            java.io.File metaFile = new java.io.File("/tmp/updates/apk-meta.txt");
+            if (!metaFile.exists()) return null;
+            String content = new String(java.nio.file.Files.readAllBytes(metaFile.toPath())).trim();
+            // Parse: "MessagingAgent-1.0.79.apk" → "1.0.79"
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+\\.\\d+\\.\\d+)").matcher(content);
+            return m.find() ? m.group(1) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
