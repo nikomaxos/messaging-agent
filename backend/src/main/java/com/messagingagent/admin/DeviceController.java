@@ -25,6 +25,7 @@ public class DeviceController {
     private final com.messagingagent.repository.MessageLogRepository messageLogRepository;
     private final com.messagingagent.repository.DeviceLogRepository deviceLogRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.messagingagent.device.DeviceWebSocketService webSocketService;
 
     @GetMapping
     public List<Device> listAll() {
@@ -156,7 +157,7 @@ public class DeviceController {
         for (Number idNum : deviceIds) {
             Long id = idNum.longValue();
             if (deviceRepository.existsById(id)) {
-                messagingTemplate.convertAndSend("/queue/commands." + id, command);
+                webSocketService.queueCommand(id, command);
                 sent++;
             }
         }

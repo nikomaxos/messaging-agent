@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +42,31 @@ public class DeviceWebSocketService {
     private final DeviceLogRepository deviceLogRepository;
     private final RoundRobinLoadBalancer loadBalancer;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+
+    /**
+     * In-memory pending command queue per device ID.
+     * REST controllers enqueue commands here; heartbeat/ping handlers drain them.
+     * This works around Spring's simple STOMP broker not delivering convertAndSend()
+     * from servlet threads to WebSocket subscriptions.
+     */
+    private final ConcurrentHashMap<Long, ConcurrentLinkedQueue<String>> pendingCommandQueue = new ConcurrentHashMap<>();
+
+    /** Queue a command for delivery on the next heartbeat/ping. */
+    public void queueCommand(Long deviceId, String command) {
+        pendingCommandQueue.computeIfAbsent(deviceId, k -> new ConcurrentLinkedQueue<>()).offer(command);
+        log.info("Queued command '{}' for device {} (will deliver on next heartbeat)", command, deviceId);
+    }
+
+    /** Drain all pending commands for a device — called from WebSocket thread context. */
+    private void drainPendingCommands(Long deviceId) {
+        ConcurrentLinkedQueue<String> queue = pendingCommandQueue.get(deviceId);
+        if (queue == null) return;
+        String cmd;
+        while ((cmd = queue.poll()) != null) {
+            log.info("Delivering queued command '{}' to device {} via heartbeat context", cmd, deviceId);
+            messagingTemplate.convertAndSend("/queue/commands." + deviceId, cmd);
+        }
+    }
 
     /** Send an SMS dispatch command to a specific device via its STOMP user-queue. */
     public void sendSmsToDevice(Device device, SmsInboundEvent event) {
@@ -69,6 +96,8 @@ public class DeviceWebSocketService {
                         .detail("Reconnected via ping").build());
             }
             deviceRepository.save(device);
+            // Drain any pending commands queued by REST controllers
+            drainPendingCommands(device.getId());
             // Only drain queue if device is actually available (ONLINE, not BUSY)
             if (device.getGroup() != null && device.getStatus() == Device.Status.ONLINE) {
                 drainQueueForGroup(device.getGroup());
@@ -119,6 +148,8 @@ public class DeviceWebSocketService {
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_CALL_BLOCK=" + device.getCallBlockEnabled());
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_AUTO_PURGE=" + (device.getAutoPurge() != null ? device.getAutoPurge() : "OFF"));
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_SELF_HEALING=" + device.getSelfHealingEnabled());
+            // Drain any pending commands queued by REST controllers
+            drainPendingCommands(device.getId());
             log.debug("Heartbeat from device {}: battery={}% charging={} wifi={}dBm gsm={}dBm network={}",
                     device.getName(), heartbeat.getBatteryPercent(), heartbeat.getIsCharging(),
                     heartbeat.getWifiSignalDbm(), heartbeat.getGsmSignalDbm(),

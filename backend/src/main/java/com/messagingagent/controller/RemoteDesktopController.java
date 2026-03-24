@@ -27,6 +27,7 @@ public class RemoteDesktopController {
 
     private final DeviceRepository deviceRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.messagingagent.device.DeviceWebSocketService webSocketService;
 
     /**
      * POST /api/devices/{id}/remote/start
@@ -38,7 +39,7 @@ public class RemoteDesktopController {
         if (device == null) return ResponseEntity.notFound().build();
 
         log.info("START_SCREEN_STREAM → device {}", deviceId);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "START_SCREEN_STREAM");
+        webSocketService.queueCommand(deviceId, "START_SCREEN_STREAM");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -52,7 +53,7 @@ public class RemoteDesktopController {
         if (device == null) return ResponseEntity.notFound().build();
 
         log.info("STOP_SCREEN_STREAM → device {}", deviceId);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "STOP_SCREEN_STREAM");
+        webSocketService.queueCommand(deviceId, "STOP_SCREEN_STREAM");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -91,7 +92,7 @@ public class RemoteDesktopController {
         }
 
         log.info("REMOTE INPUT → device {}: {}", deviceId, command);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, command);
+        webSocketService.queueCommand(deviceId, command);
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -105,7 +106,7 @@ public class RemoteDesktopController {
         if (device == null) return ResponseEntity.notFound().build();
 
         log.info("WAKE_SCREEN → device {}", deviceId);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "WAKE_SCREEN");
+        webSocketService.queueCommand(deviceId, "WAKE_SCREEN");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -127,7 +128,7 @@ public class RemoteDesktopController {
         }
 
         log.info("SHELL_EXEC → device {}: {}", deviceId, cmd);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "SHELL_EXEC=" + cmd);
+        webSocketService.queueCommand(deviceId, "SHELL_EXEC=" + cmd);
         return ResponseEntity.ok(Map.of("status", "sent"));
     }
 
@@ -141,7 +142,7 @@ public class RemoteDesktopController {
         if (device == null) return ResponseEntity.notFound().build();
 
         log.info("REBOOT → device {}", deviceId);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "REBOOT");
+        webSocketService.queueCommand(deviceId, "REBOOT");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -163,7 +164,7 @@ public class RemoteDesktopController {
         }
 
         log.info("COMMAND → device {}: {}", deviceId, command);
-        messagingTemplate.convertAndSend("/queue/commands." + deviceId, command);
+        webSocketService.queueCommand(deviceId, command);
         return ResponseEntity.ok(Map.of("status", "sent"));
     }
 
