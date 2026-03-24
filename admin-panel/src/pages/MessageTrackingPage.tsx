@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLogs, getGroups, getDevices, resubmitMessages, getSmscSuppliers } from '../api/client'
+import { getLogs, getLogIds, getGroups, getDevices, resubmitMessages, getSmscSuppliers } from '../api/client'
 import { MessageLog, DeviceGroup, Device, SmscSupplier } from '../types'
-import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare } from 'lucide-react'
+import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare, Layers } from 'lucide-react'
 import { format } from 'date-fns'
 
 const statusClass = (s: MessageLog['status']) => ({
@@ -29,6 +29,8 @@ export default function MessageTrackingPage() {
 
   // Mass selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [allPagesSelected, setAllPagesSelected] = useState(false)
+  const [loadingAllIds, setLoadingAllIds] = useState(false)
   const [showResubmitModal, setShowResubmitModal] = useState(false)
   const [resubmitSmscId, setResubmitSmscId] = useState<number | null>(null)
   const [resubmitResults, setResubmitResults] = useState<any[] | null>(null)
@@ -88,11 +90,37 @@ export default function MessageTrackingPage() {
     })
   }
   const toggleSelectAll = () => {
-    if (selectedIds.size === logs.length) {
+    if (selectedIds.size === logs.length && !allPagesSelected) {
+      // All on page selected -> deselect all
       setSelectedIds(new Set())
+      setAllPagesSelected(false)
+    } else if (allPagesSelected) {
+      // Global selected -> deselect all
+      setSelectedIds(new Set())
+      setAllPagesSelected(false)
     } else {
+      // Select current page
       setSelectedIds(new Set(logs.map((l: MessageLog) => l.id)))
+      setAllPagesSelected(false)
     }
+  }
+
+  const selectAllPages = async () => {
+    setLoadingAllIds(true)
+    try {
+      const allIds = await getLogIds(appliedFilters)
+      setSelectedIds(new Set(allIds))
+      setAllPagesSelected(true)
+    } catch (e) {
+      console.error('Failed to fetch all IDs', e)
+    } finally {
+      setLoadingAllIds(false)
+    }
+  }
+
+  const clearSelection = () => {
+    setSelectedIds(new Set())
+    setAllPagesSelected(false)
   }
 
   const resubmitMutation = useMutation({
@@ -138,20 +166,42 @@ export default function MessageTrackingPage() {
         </div>
       </div>
 
-      {/* Mass Resubmit Toolbar */}
+      {/* Mass Selection Toolbar */}
       {selectedIds.size > 0 && (
-        <div className="glass p-3 flex items-center justify-between border border-brand-500/20">
-          <div className="flex items-center gap-3">
-            <CheckSquare size={16} className="text-brand-400" />
-            <span className="text-sm text-white font-medium">{selectedIds.size} message{selectedIds.size > 1 ? 's' : ''} selected</span>
-            <button className="text-xs text-slate-400 hover:text-white" onClick={() => setSelectedIds(new Set())}>Clear</button>
+        <div className="glass p-3 space-y-2 border border-brand-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CheckSquare size={16} className="text-brand-400" />
+              <span className="text-sm text-white font-medium">
+                {allPagesSelected
+                  ? `All ${selectedIds.size.toLocaleString()} matching results selected`
+                  : `${selectedIds.size} message${selectedIds.size > 1 ? 's' : ''} selected (this page)`}
+              </span>
+              <button className="text-xs text-slate-400 hover:text-white" onClick={clearSelection}>Clear</button>
+            </div>
+            <button
+              className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition flex items-center gap-2"
+              onClick={() => { setShowResubmitModal(true); setResubmitResults(null) }}
+            >
+              <Send size={14} /> Resubmit via Fallback SMSC
+            </button>
           </div>
-          <button
-            className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition flex items-center gap-2"
-            onClick={() => { setShowResubmitModal(true); setResubmitResults(null) }}
-          >
-            <Send size={14} /> Resubmit via Fallback SMSC
-          </button>
+          {/* Gmail-style "Select all results" banner */}
+          {!allPagesSelected && selectedIds.size === logs.length && totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 py-1.5 bg-brand-500/5 rounded border border-brand-500/10">
+              <span className="text-xs text-slate-400">
+                All {logs.length} messages on this page are selected.
+              </span>
+              <button
+                className="text-xs font-semibold text-brand-400 hover:text-brand-300 underline underline-offset-2 flex items-center gap-1"
+                onClick={selectAllPages}
+                disabled={loadingAllIds}
+              >
+                <Layers size={12} />
+                {loadingAllIds ? 'Loading...' : `Select all ${totalElements.toLocaleString()} matching results`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -498,7 +548,7 @@ export default function MessageTrackingPage() {
                     ))}
                   </div>
                   <div className="flex justify-end pt-2">
-                    <button className="btn-secondary" onClick={() => { setShowResubmitModal(false); setSelectedIds(new Set()); setResubmitResults(null) }}>Done</button>
+                    <button className="btn-secondary" onClick={() => { setShowResubmitModal(false); clearSelection(); setResubmitResults(null) }}>Done</button>
                   </div>
                 </>
               )}

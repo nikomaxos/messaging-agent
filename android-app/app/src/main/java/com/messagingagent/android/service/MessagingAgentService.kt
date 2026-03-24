@@ -67,7 +67,7 @@ class MessagingAgentService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        val notification = buildNotification("Connecting to backend…")
+        val notification = buildNotification("Connecting to backend")
         startForeground(NOTIFICATION_ID, notification)
         scheduleAutoPurgeAlarm()
         ConnectionWatchdogReceiver.schedule(this)
@@ -79,7 +79,7 @@ class MessagingAgentService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Timber.w("MessagingAgentService task removed — scheduling last-ditch restart")
+        Timber.w("MessagingAgentService task removed -- scheduling last-ditch restart")
         // Last-ditch: fire a delayed restart via root (runs even if our process dies)
         try {
             com.topjohnwu.superuser.Shell.cmd(
@@ -117,9 +117,16 @@ class MessagingAgentService : Service() {
                 "cmd appops set com.messagingagent.android MIUI_BACKGROUND_START allow 2>/dev/null",
                 // Increase logcat buffer to 16MB so crash logs survive longer
                 "logcat -G 16M 2>/dev/null",
-                "setprop persist.logd.size 16777216 2>/dev/null"
+                "setprop persist.logd.size 16777216 2>/dev/null",
+                // MIUI: Also whitelist Google Messages for background activity launch
+                // This prevents "am start failed" when dispatching messages
+                "appops set com.google.android.apps.messaging AUTO_START allow 2>/dev/null",
+                "appops set com.google.android.apps.messaging MIUI_BACKGROUND_START allow 2>/dev/null",
+                "cmd appops set com.google.android.apps.messaging RUN_IN_BACKGROUND allow 2>/dev/null",
+                "cmd appops set com.google.android.apps.messaging RUN_ANY_IN_BACKGROUND allow 2>/dev/null",
+                "dumpsys deviceidle whitelist +com.google.android.apps.messaging 2>/dev/null"
             ).exec()
-            Timber.i("🛡️ Device hardening: MIUI autostart + battery saver + whitelist applied")
+            Timber.i(" Device hardening: MIUI autostart + battery saver + whitelist applied (incl. Google Messages)")
         } catch (e: Exception) {
             Timber.w(e, "Device hardening partially failed (may not be MIUI)")
         }
@@ -138,7 +145,7 @@ class MessagingAgentService : Service() {
             val currentPort = com.topjohnwu.superuser.Shell.cmd("getprop persist.adb.tcp.port").exec()
                 .out.firstOrNull()?.trim() ?: ""
             if (currentPort == "5555") {
-                Timber.d("ADB TCP already enabled on port 5555 — skipping")
+                Timber.d("ADB TCP already enabled on port 5555 -- skipping")
                 return
             }
             Timber.i("Enabling ADB over TCP on port 5555 (was: '$currentPort')")
@@ -176,7 +183,7 @@ class MessagingAgentService : Service() {
                 "setsid sh '$scriptDest' </dev/null >/dev/null 2>&1 &"
             ).exec()
             tmpFile.delete()
-            Timber.i("🛡️ External keepalive watchdog deployed and launched")
+            Timber.i(" External keepalive watchdog deployed and launched")
         } catch (e: Exception) {
             Timber.e(e, "Failed to deploy external keepalive script")
         }
@@ -186,17 +193,17 @@ class MessagingAgentService : Service() {
         scope.launch {
             val regState = prefs.registrationFlow().first()
             val backendUrl = regState.backendUrl ?: run {
-                Timber.w("No backend URL configured — service idle")
+                Timber.w("No backend URL configured -- service idle")
                 return@launch
             }
             if (!regState.isRegistered) {
-                Timber.w("No registered SIMs — service idle")
+                Timber.w("No registered SIMs -- service idle")
                 return@launch
             }
             wsClient.connect(backendUrl, regState.sims) { status ->
                 updateNotification(status)
             }
-            // Fast ping loop — lightweight, just triggers queue drain on backend (every 5s)
+            // Fast ping loop -- lightweight, just triggers queue drain on backend (every 5s)
             scope.launch {
                 while (isActive) {
                     delay(5_000)
@@ -213,7 +220,7 @@ class MessagingAgentService : Service() {
                 }
             }
 
-            // Full heartbeat loop — sensor data (every 20s)
+            // Full heartbeat loop -- sensor data (every 20s)
             // Auto-reboot watchdog is now handled by RebootWatchdogReceiver via AlarmManager
             while (isActive) {
                 delay(20_000)
@@ -264,7 +271,7 @@ class MessagingAgentService : Service() {
                 }
             }
         }
-        // DLR Watchdog runs as a SEPARATE parallel coroutine — cannot be after the infinite while loop!
+        // DLR Watchdog runs as a SEPARATE parallel coroutine -- cannot be after the infinite while loop!
         scope.launch {
             Timber.i("DLR Watchdog coroutine started")
             dlrWatchdog()
@@ -275,7 +282,7 @@ class MessagingAgentService : Service() {
         var lastGcTime = System.currentTimeMillis()
         // Track which correlationIds have already had SENT notification sent (avoids duplicates)
         val sentNotified = mutableSetOf<String>()
-        // Track when DELIVERED was sent — keep monitoring for SEEN/READ (status=11)
+        // Track when DELIVERED was sent -- keep monitoring for SEEN/READ (status=11)
         val deliveredAt = mutableMapOf<String, Long>()
 
         val bugleDbDir = "/data/data/com.google.android.apps.messaging/databases"
@@ -316,7 +323,7 @@ class MessagingAgentService : Service() {
 
                 val now = System.currentTimeMillis()
 
-                // Garbage collect stale entries (> 2 hours old) — only check every 60s
+                // Garbage collect stale entries (> 2 hours old) -- only check every 60s
                 if (now - lastGcTime > 60_000) {
                     lastGcTime = now
                     val pending = dlrTracker.getPendingDlrs()
@@ -359,10 +366,10 @@ class MessagingAgentService : Service() {
 
                                         when (status) {
                                             11 -> {
-                                                // SEEN/READ — recipient opened the message
+                                                // SEEN/READ -- recipient opened the message
                                                 if (alreadyDelivered) {
-                                                    // DELIVERED was already sent — just update errorDetail with SEEN/READ
-                                                    Timber.i("👁️ DLR SEEN: ${p.correlationId} — status=11, updating with SEEN/READ (age=${ageMs/1000}s)")
+                                                    // DELIVERED was already sent -- just update errorDetail with SEEN/READ
+                                                    Timber.i(" DLR SEEN: ${p.correlationId} -- status=11, updating with SEEN/READ (age=${ageMs/1000}s)")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "DELIVERED", "SEEN/READ"),
@@ -370,8 +377,8 @@ class MessagingAgentService : Service() {
                                                         )
                                                     } catch (e: Exception) { Timber.e(e, "Failed to send SEEN/READ via WebSocket") }
                                                 } else {
-                                                    // DELIVERED wasn't sent yet — send it with SEEN/READ in one shot
-                                                    Timber.i("✅ DLR DELIVERED+SEEN: ${p.correlationId} — status=11, first detection (age=${ageMs/1000}s)")
+                                                    // DELIVERED wasn't sent yet -- send it with SEEN/READ in one shot
+                                                    Timber.i(" DLR DELIVERED+SEEN: ${p.correlationId} -- status=11, first detection (age=${ageMs/1000}s)")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "DELIVERED", "SEEN/READ"),
@@ -383,11 +390,11 @@ class MessagingAgentService : Service() {
                                                 deliveredAt.remove(p.correlationId)
                                             }
                                             2 -> {
-                                                // DELIVERED — message confirmed delivered to recipient's device
+                                                // DELIVERED -- message confirmed delivered to recipient's device
                                                 if (!alreadyDelivered) {
                                                     // First time seeing status=2: send DELIVERED but keep tracking for SEEN/READ
                                                     deliveredAt[p.correlationId] = now
-                                                    Timber.i("✅ DLR DELIVERED: ${p.correlationId} — status=2, monitoring for SEEN/READ (age=${ageMs/1000}s)")
+                                                    Timber.i(" DLR DELIVERED: ${p.correlationId} -- status=2, monitoring for SEEN/READ (age=${ageMs/1000}s)")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "DELIVERED"),
@@ -395,22 +402,22 @@ class MessagingAgentService : Service() {
                                                         )
                                                     } catch (e: Exception) { Timber.e(e, "Failed to send DELIVERED via WebSocket") }
                                                 } else {
-                                                    // Already sent DELIVERED — waiting for SEEN/READ
+                                                    // Already sent DELIVERED -- waiting for SEEN/READ
                                                     // Give up after 2 minutes
                                                     val waitedMs = now - deliveredAt[p.correlationId]!!
                                                     if (waitedMs > 120_000) {
-                                                        Timber.i("⏱ DLR SEEN timeout: ${p.correlationId} — 2min without SEEN/READ, resolving")
+                                                        Timber.i(" DLR SEEN timeout: ${p.correlationId} -- 2min without SEEN/READ, resolving")
                                                         resolved.add(p)
                                                         deliveredAt.remove(p.correlationId)
                                                     }
                                                 }
                                             }
                                             8, 5, 9, 3 -> {
-                                                // ERROR-like statuses — but don't report immediately!
+                                                // ERROR-like statuses -- but don't report immediately!
                                                 // Google Messages can set transient error statuses before
                                                 // the message is actually processed. Wait at least 8 seconds.
                                                 if (ageMs > 8_000) {
-                                                    Timber.w("❌ DLR FAILED: ${p.correlationId} — bugle status=$status (age=${ageMs/1000}s)")
+                                                    Timber.w(" DLR FAILED: ${p.correlationId} -- bugle status=$status (age=${ageMs/1000}s)")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "ERROR", "bugle_status=$status"),
@@ -420,16 +427,17 @@ class MessagingAgentService : Service() {
                                                     resolved.add(p)
                                                     deliveredAt.remove(p.correlationId)
                                                 } else {
-                                                    // Transient — keep waiting for status to settle
-                                                    Timber.d("⏳ DLR WAIT: ${p.correlationId} — bugle status=$status transient (age=${ageMs/1000}s < 8s)")
+                                                    // Transient -- keep waiting for status to settle
+                                                    Timber.d(" DLR WAIT: ${p.correlationId} -- bugle status=$status transient (age=${ageMs/1000}s < 8s)")
                                                 }
                                             }
-                                            1 -> {
-                                                // SENDING — message still being submitted to RCS network.
+                                            1, 100 -> {
+                                                // SENDING / SENT -- message being submitted or queued in RCS network.
+                                                // status=100 is Google Messages' internal "QUEUED/SENT" code
                                                 // Send SENT to unlock device (once), but if stuck >15s treat as error.
                                                 if (!sentNotified.contains(p.correlationId)) {
                                                     sentNotified.add(p.correlationId)
-                                                    Timber.i("📤 DLR SENT: ${p.correlationId} — message being sent (status=1, age=${ageMs/1000}s)")
+                                                    Timber.i(" DLR SENT: ${p.correlationId} -- message being sent (status=1, age=${ageMs/1000}s)")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "SENT"),
@@ -438,7 +446,7 @@ class MessagingAgentService : Service() {
                                                     } catch (e: Exception) { Timber.e(e, "Failed to send SENT via WebSocket") }
                                                 }
                                                 if (ageMs > 15_000) {
-                                                    Timber.w("❌ DLR STUCK SENDING: ${p.correlationId} — bugle status=1 for ${ageMs/1000}s, treating as ERROR")
+                                                    Timber.w(" DLR STUCK SENDING: ${p.correlationId} -- bugle status=1 for ${ageMs/1000}s, treating as ERROR")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "ERROR", "bugle_status=1 (stuck sending ${ageMs/1000}s)"),
@@ -449,9 +457,9 @@ class MessagingAgentService : Service() {
                                                 }
                                             }
                                             else -> {
-                                                // Unknown status — log it and keep waiting up to 8s, then report as ERROR
+                                                // Unknown status -- log it and keep waiting up to 8s, then report as ERROR
                                                 if (ageMs > 8_000) {
-                                                    Timber.w("❌ DLR UNKNOWN: ${p.correlationId} — bugle status=$status (age=${ageMs/1000}s)")
+                                                    Timber.w(" DLR UNKNOWN: ${p.correlationId} -- bugle status=$status (age=${ageMs/1000}s)")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(
                                                             DeliveryResult(p.correlationId, "ERROR", "bugle_status=$status (unknown)"),
@@ -576,7 +584,7 @@ class MessagingAgentService : Service() {
         } catch (e: Exception) { null }
     }
 
-    /** Shell: `dumpsys telephony.registry` → parse via Regex */
+    /** Shell: `dumpsys telephony.registry`  parse via Regex */
     private fun readGsmSignal(): Pair<Int?, Int?> {
         val output = com.topjohnwu.superuser.Shell.cmd("dumpsys telephony.registry").exec().out
         val fullText = output.joinToString(" ")
@@ -700,7 +708,7 @@ class MessagingAgentService : Service() {
                 (ipInt shr 16) and 0xff, (ipInt shr 24) and 0xff
             )
 
-            // 2. Enable ADB over TCP via root (idempotent — safe to run every heartbeat)
+            // 2. Enable ADB over TCP via root (idempotent -- safe to run every heartbeat)
             val enableResult = com.topjohnwu.superuser.Shell.cmd(
                 "setprop service.adb.tcp.port 5555",
                 "stop adbd",

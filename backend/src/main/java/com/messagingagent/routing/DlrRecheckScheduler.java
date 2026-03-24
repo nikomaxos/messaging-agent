@@ -16,9 +16,11 @@ import java.util.List;
  * Periodic re-check for messages stuck in "Dispatched to RCS" state.
  * 
  * Runs every 2 minutes:
- *   - Messages stuck 3–15 min: sends RECHECK_DLR command to the device
+ *   - Messages stuck 3–15 min (with rcsSentAt): sends RECHECK_DLR command to the device
  *     so it re-queries bugle_db and reports back any missed delivery reports.
- *   - Messages stuck > 15 min: marks FAILED with "DLR timeout".
+ *   - Messages stuck > 15 min (with rcsSentAt): marks FAILED with "DLR timeout".
+ *   - Messages stuck > 5 min (with rcsSentAt=NULL): orphaned dispatches where the device
+ *     never acknowledged — marks FAILED. This handles app restarts mid-batch.
  * 
  * This is completely independent from the self-healing mechanism.
  */
@@ -32,6 +34,7 @@ public class DlrRecheckScheduler {
 
     private static final long RECHECK_AFTER_MINUTES = 3;
     private static final long TIMEOUT_AFTER_MINUTES = 15;
+    private static final long ORPHAN_TIMEOUT_MINUTES = 5;
 
     @Scheduled(fixedRate = 120_000) // every 2 min
     public void recheckStuckDlrs() {
@@ -42,8 +45,6 @@ public class DlrRecheckScheduler {
         // Find messages stuck in DISPATCHED with rcsSentAt set (= "Dispatched to RCS")
         List<MessageLog> stuck = messageLogRepository.findByStatusAndRcsSentAtIsNotNull(
                 MessageLog.Status.DISPATCHED);
-
-        if (stuck.isEmpty()) return;
 
         int rechecked = 0;
         int timedOut = 0;
@@ -70,6 +71,29 @@ public class DlrRecheckScheduler {
 
         if (rechecked > 0 || timedOut > 0) {
             log.info("DLR re-check: sent {} RECHECK_DLR commands, timed out {} messages", rechecked, timedOut);
+        }
+
+        // Sweep for ORPHANED dispatches: rcsSentAt IS NULL and dispatchedAt > 5 min ago
+        // These are messages that were dispatched to the device but the device never
+        // acknowledged them (e.g., app restart mid-batch, crash, lost WebSocket).
+        Instant orphanThreshold = now.minus(ORPHAN_TIMEOUT_MINUTES, ChronoUnit.MINUTES);
+        List<MessageLog> orphaned = messageLogRepository.findByStatusAndRcsSentAtIsNullAndDispatchedAtBefore(
+                MessageLog.Status.DISPATCHED, orphanThreshold);
+
+        int orphanCleaned = 0;
+        for (MessageLog msg : orphaned) {
+            if (msg.getDispatchedAt() == null) continue;
+            msg.setStatus(MessageLog.Status.FAILED);
+            msg.setErrorDetail("Orphaned dispatch — device never acknowledged (app restart/crash)");
+            messageLogRepository.save(msg);
+            orphanCleaned++;
+            log.warn("Orphan cleanup: marking msg id={} (correlationId={}) as FAILED — dispatched {}s ago with no SENT acknowledgement",
+                    msg.getId(), msg.getSmppMessageId(),
+                    java.time.Duration.between(msg.getDispatchedAt(), now).getSeconds());
+        }
+
+        if (orphanCleaned > 0) {
+            log.info("Orphan cleanup: marked {} orphaned DISPATCHED messages as FAILED", orphanCleaned);
         }
     }
 }

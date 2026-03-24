@@ -44,9 +44,56 @@ public class MessageLogController {
         PageRequest pageable = PageRequest.of(page, Math.min(size, 200),
                 Sort.by(direction, sortBy));
 
-        org.springframework.data.jpa.domain.Specification<MessageLog> spec = (root, query, cb) -> {
+        org.springframework.data.jpa.domain.Specification<MessageLog> spec = buildSpec(
+            status, senderId, destinationNumber, clientMessageId,
+            supplierMessageId, deviceId, deviceGroupId, startDate, endDate);
+
+        return logRepository.findAll(spec, pageable);
+    }
+
+    /** GET /api/logs/{id} */
+    @GetMapping("/{id}")
+    public ResponseEntity<MessageLog> getById(@PathVariable Long id) {
+        return logRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * GET /api/logs/ids?status=...&senderId=...
+     * Returns ALL message IDs matching the given filters (no pagination).
+     * Used by the admin panel's "Select All Results" feature.
+     */
+    @GetMapping("/ids")
+    public java.util.List<Long> listIds(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String senderId,
+            @RequestParam(required = false) String destinationNumber,
+            @RequestParam(required = false) String clientMessageId,
+            @RequestParam(required = false) String supplierMessageId,
+            @RequestParam(required = false) Long deviceId,
+            @RequestParam(required = false) Long deviceGroupId,
+            @RequestParam(required = false) java.time.Instant startDate,
+            @RequestParam(required = false) java.time.Instant endDate) {
+
+        org.springframework.data.jpa.domain.Specification<MessageLog> spec = buildSpec(
+            status, senderId, destinationNumber, clientMessageId,
+            supplierMessageId, deviceId, deviceGroupId, startDate, endDate);
+
+        return logRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "id"))
+                .stream().map(MessageLog::getId).toList();
+    }
+
+    /** Shared filter specification builder */
+    private org.springframework.data.jpa.domain.Specification<MessageLog> buildSpec(
+            String status, String senderId, String destinationNumber,
+            String clientMessageId, String supplierMessageId,
+            Long deviceId, Long deviceGroupId,
+            java.time.Instant startDate, java.time.Instant endDate) {
+
+        return (root, query, cb) -> {
             java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
-            
+
             if (status != null && !status.isBlank()) {
                 if ("DISPATCHED_TO_RCS".equals(status)) {
                     predicates.add(cb.equal(root.get("status"), MessageLog.Status.DISPATCHED));
@@ -55,7 +102,6 @@ public class MessageLogController {
                     try {
                         MessageLog.Status statusEnum = MessageLog.Status.valueOf(status);
                         predicates.add(cb.equal(root.get("status"), statusEnum));
-                        // When filtering plain DISPATCHED, exclude those already sent to RCS
                         if (statusEnum == MessageLog.Status.DISPATCHED) {
                             predicates.add(cb.isNull(root.get("rcsSentAt")));
                         }
@@ -86,18 +132,8 @@ public class MessageLogController {
             if (endDate != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDate));
             }
-            
+
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
-
-        return logRepository.findAll(spec, pageable);
-    }
-
-    /** GET /api/logs/{id} */
-    @GetMapping("/{id}")
-    public ResponseEntity<MessageLog> getById(@PathVariable Long id) {
-        return logRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
     }
 }

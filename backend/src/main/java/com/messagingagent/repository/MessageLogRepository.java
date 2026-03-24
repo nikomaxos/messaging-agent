@@ -43,6 +43,8 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
 
     java.util.List<MessageLog> findByStatusAndRcsSentAtIsNotNull(MessageLog.Status status);
 
+    java.util.List<MessageLog> findByStatusAndRcsSentAtIsNullAndDispatchedAtBefore(MessageLog.Status status, java.time.Instant threshold);
+
     @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = 'DISPATCHED' AND m.dispatchedAt < :cutoff AND m.fallbackStartedAt IS NULL")
     java.util.List<MessageLog> findStaleDispatched(@org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
 

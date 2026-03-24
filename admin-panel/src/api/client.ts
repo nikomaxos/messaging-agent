@@ -81,6 +81,9 @@ export const deleteSmppRouting = (id: number) => api.delete(`/smpp/routings/${id
 export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC', size = 50) => 
   api.get('/logs', { params: { page, size, sortBy, sortDir, ...filters } }).then((r: any) => r.data)
 
+export const getLogIds = (filters?: Record<string, any>) =>
+  api.get('/logs/ids', { params: { ...filters } }).then((r: any) => r.data as number[])
+
 export const resubmitMessages = (messageIds: number[], fallbackSmscId: number) =>
   api.post('/logs/resubmit', { messageIds, fallbackSmscId }).then((r: any) => r.data)
 

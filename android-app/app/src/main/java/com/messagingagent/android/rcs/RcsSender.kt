@@ -37,7 +37,7 @@ class RcsSender @Inject constructor(
 
     suspend fun sendRcs(correlationId: String, deviceToken: String, to: String, text: String, subscriptionId: Int, dlrDelayMinSec: Int = 2, dlrDelayMaxSec: Int = 5): RcsSendResult {
         if (!isMessagesInstalled()) {
-            Timber.w("Google Messages not installed — cannot send RCS to $to")
+            Timber.w("Google Messages not installed -- cannot send RCS to $to")
             return RcsSendResult(success = false, noRcs = true, error = "Google Messages not installed")
         }
 
@@ -68,6 +68,15 @@ class RcsSender @Inject constructor(
             com.topjohnwu.superuser.Shell.cmd("rm -f $tmpDb", "rm -f $tmpDb-wal", "rm -f $tmpDb-shm").exec()
             Timber.i("Captured initial bugle_db MAX(_id): $initialMaxId")
 
+            // MIUI workaround: Ensure Google Messages has background activity launch permission
+            Shell.cmd(
+                "appops set $MESSAGES_PKG AUTO_START allow 2>/dev/null",
+                "appops set $MESSAGES_PKG MIUI_BACKGROUND_START allow 2>/dev/null",
+                "cmd appops set $MESSAGES_PKG RUN_IN_BACKGROUND allow 2>/dev/null",
+                "cmd appops set $MESSAGES_PKG RUN_ANY_IN_BACKGROUND allow 2>/dev/null",
+                "settings put global hidden_api_policy 1 2>/dev/null"
+            ).exec()
+
             val intentCmd = java.lang.StringBuilder("am start -a android.intent.action.SENDTO " +
                     "-d smsto:$cleanTo " +
                     "--es sms_body '$safeText' " +
@@ -82,11 +91,21 @@ class RcsSender @Inject constructor(
             intentCmd.append("-p $MESSAGES_PKG")
 
             Timber.i("Executing root RCS intent: $intentCmd")
-            val shellResult = Shell.cmd(intentCmd.toString()).exec()
+            var shellResult = Shell.cmd(intentCmd.toString()).exec()
 
+            // MIUI retry: if am start failed, force-stop and retry with clear-top flags
             if (!shellResult.isSuccess) {
-                Timber.e("Root intent dispatch failed: ${shellResult.err}")
-                return RcsSendResult(success = false, error = "am start failed: ${shellResult.err}")
+                Timber.w("First am start attempt failed (MIUI restriction?): " + shellResult.err + ". Retrying...")
+                Shell.cmd("am force-stop $MESSAGES_PKG").exec()
+                kotlinx.coroutines.delay(500)
+                val retryCmd = intentCmd.toString()
+                    .replace("-f 0x14000000", "-f 0x24000000")
+                shellResult = Shell.cmd(retryCmd).exec()
+                if (!shellResult.isSuccess) {
+                    Timber.e("Root intent dispatch failed after MIUI retry: " + shellResult.err)
+                    return RcsSendResult(success = false, error = "am start failed: " + shellResult.err)
+                }
+                Timber.i("MIUI retry succeeded -- am start launched after force-stop")
             }
 
             // Wait for Google Messages UI to render and sms_body to populate the compose field
@@ -99,7 +118,7 @@ class RcsSender @Inject constructor(
                 // Guard: wait for compose field to be populated BEFORE tapping send
                 // This prevents the voice message balloon bug when text hasn't loaded yet
                 if (!waitForComposeText()) {
-                    Timber.w("Fast-path: compose field still empty after waiting — falling back to slow path")
+                    Timber.w("Fast-path: compose field still empty after waiting -- falling back to slow path")
                     cachedSendX = -1
                     cachedSendY = -1
                 } else {
@@ -113,7 +132,7 @@ class RcsSender @Inject constructor(
                     Shell.cmd("input tap $cachedDialogX $cachedDialogY").exec()
                 }
 
-                // Quick single-attempt DB verify — confirm the tap actually sent the message.
+                // Quick single-attempt DB verify -- confirm the tap actually sent the message.
                 // Without this, a missed tap causes the DLR watchdog to pick up the NEXT
                 // message's DB entry and falsely attribute delivery to the missed one.
                 kotlinx.coroutines.delay(500)
@@ -135,10 +154,10 @@ class RcsSender @Inject constructor(
                     // Guard: if another pending DLR already claimed this _id, don't duplicate
                     val isDuplicate = dlrTracker.hasPendingWithBugleId(fastPathBugleId)
                     if (isDuplicate) {
-                        Timber.w("Fast-path _id=$fastPathBugleId already claimed by another pending DLR — falling back to slow path")
+                        Timber.w("Fast-path _id=$fastPathBugleId already claimed by another pending DLR -- falling back to slow path")
                         clicked = false
                     } else {
-                        Timber.i("Fast-path verified: message entered bugle_db as _id=$fastPathBugleId — sending SENT immediately")
+                        Timber.i("Fast-path verified: message entered bugle_db as _id=$fastPathBugleId -- sending SENT immediately")
                         exitMessagesCleanly()
                         dlrTracker.addPending(PendingDlr(
                             correlationId = correlationId,
@@ -152,16 +171,17 @@ class RcsSender @Inject constructor(
                         return RcsSendResult(success = true, sentEarly = true)
                     }
                 } else {
-                    Timber.w("Fast-path tap did NOT register in bugle_db — falling back to slow path")
-                    clicked = false // Reset — slow path will re-discover and re-tap
+                    Timber.w("Fast-path tap did NOT register in bugle_db -- falling back to slow path")
+                    clicked = false // Reset -- slow path will re-discover and re-tap
+            } // Close else of fastPathBugleId > 0
+            } // Close else of waitForComposeText()
             } // Close fast path (cachedSendX > 0 && cachedSendY > 0)
-            }
 
             // SLOW PATH: First time parsing the layout, or fast-path missed
             if (!clicked) {
                 // First verify compose field has text before attempting to find/tap send button
                 if (!waitForComposeText()) {
-                    Timber.e("Compose field empty even after waiting — cannot send without text for $to")
+                    Timber.e("Compose field empty even after waiting -- cannot send without text for $to")
                     exitMessagesCleanly()
                     return RcsSendResult(success = false, error = "Message text did not populate in Google Messages compose field")
                 }
@@ -236,10 +256,10 @@ class RcsSender @Inject constructor(
                 if (consecutiveSendButtonFailures >= RESTART_THRESHOLD) {
                     val selfHealingOn = kotlinx.coroutines.runBlocking { prefs.isSelfHealingEnabled() }
                     if (selfHealingOn) {
-                        Timber.w("🔄 RESTART THRESHOLD REACHED ($RESTART_THRESHOLD consecutive send-button failures). Self-healing enabled — restarting Google Messages...")
+                        Timber.w(" RESTART THRESHOLD REACHED ($RESTART_THRESHOLD consecutive send-button failures). Self-healing enabled -- restarting Google Messages...")
                         restartGoogleMessages()
                     } else {
-                        Timber.w("🔄 RESTART THRESHOLD REACHED ($RESTART_THRESHOLD consecutive send-button failures). Self-healing DISABLED — skipping restart.")
+                        Timber.w(" RESTART THRESHOLD REACHED ($RESTART_THRESHOLD consecutive send-button failures). Self-healing DISABLED -- skipping restart.")
                         consecutiveSendButtonFailures = 0  // Reset counter anyway to avoid spam logging
                     }
                 }
@@ -247,7 +267,7 @@ class RcsSender @Inject constructor(
                 return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator (fail #$consecutiveSendButtonFailures)")
             }
             
-            // Send button was successfully clicked — reset failure counter
+            // Send button was successfully clicked -- reset failure counter
             consecutiveSendButtonFailures = 0
 
             // The "Send" button has been tapped. Capture the exact bugle_db _id of the new message.
@@ -285,7 +305,7 @@ class RcsSender @Inject constructor(
 
     /**
      * Exit Google Messages cleanly by pressing BACK 3x then HOME.
-     * BACK navigates out of conversation → main screen → exits app.
+     * BACK navigates out of conversation -> main screen -> exits app.
      * HOME as final safety returns to launcher.
      * This prevents stale compose state from causing voice message balloon on next dispatch.
      */
@@ -321,7 +341,7 @@ class RcsSender @Inject constructor(
             val hasVoiceOnly = xml.contains("voice", ignoreCase = true) && 
                                !xml.contains("send_message_button", ignoreCase = true)
             if (sendBtnWithText && !hasVoiceOnly) {
-                Timber.i("Send button detected (not voice-only) on attempt ${attempt + 1} — text likely present")
+                Timber.i("Send button detected (not voice-only) on attempt ${attempt + 1} -- text likely present")
                 return true
             }
             Timber.w("Compose field appears empty, waiting... (attempt ${attempt + 1}/$maxAttempts)")
@@ -346,22 +366,22 @@ class RcsSender @Inject constructor(
     private suspend fun restartGoogleMessages() {
         try {
             // 1. Force-stop Google Messages
-            Timber.i("🛑 Force-stopping Google Messages...")
+            Timber.i(" Force-stopping Google Messages...")
             Shell.cmd("am force-stop $MESSAGES_PKG").exec()
             kotlinx.coroutines.delay(1000)
 
-            // 2. Clear cached button coordinates — they may be stale after restart
+            // 2. Clear cached button coordinates -- they may be stale after restart
             cachedSendX = -1
             cachedSendY = -1
             cachedDialogX = -1
             cachedDialogY = -1
-            Timber.i("🧹 Cleared cached button coordinates")
+            Timber.i(" Cleared cached button coordinates")
 
             // 3. Wait for the app to fully stop
             kotlinx.coroutines.delay(2000)
 
             // 4. Re-launch Google Messages to its main activity so it reinitializes
-            Timber.i("🚀 Re-launching Google Messages...")
+            Timber.i(" Re-launching Google Messages...")
             Shell.cmd("am start -n $MESSAGES_PKG/.ui.ConversationListActivity").exec()
             kotlinx.coroutines.delay(2000)
 
@@ -369,9 +389,9 @@ class RcsSender @Inject constructor(
             Shell.cmd("input keyevent 3").exec()  // HOME
             kotlinx.coroutines.delay(500)
 
-            // 6. Reset counter — give the fresh app a chance
+            // 6. Reset counter -- give the fresh app a chance
             consecutiveSendButtonFailures = 0
-            Timber.i("✅ Google Messages restarted successfully. Counter reset.")
+            Timber.i(" Google Messages restarted successfully. Counter reset.")
         } catch (e: Exception) {
             Timber.e(e, "Failed to restart Google Messages")
         }
