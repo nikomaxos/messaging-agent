@@ -96,10 +96,17 @@ class RcsSender @Inject constructor(
 
             // FAST PATH: If we already know the exact screen coordinates from a previous message, tap them instantly!
             if (cachedSendX > 0 && cachedSendY > 0) {
-                Timber.i("Fast-path: Tapping cached Send button at $cachedSendX, $cachedSendY")
-                Shell.cmd("input tap $cachedSendX $cachedSendY").exec()
-                clicked = true
-                kotlinx.coroutines.delay(100)
+                // Guard: wait for compose field to be populated BEFORE tapping send
+                // This prevents the voice message balloon bug when text hasn't loaded yet
+                if (!waitForComposeText()) {
+                    Timber.w("Fast-path: compose field still empty after waiting — falling back to slow path")
+                    cachedSendX = -1
+                    cachedSendY = -1
+                } else {
+                    Timber.i("Fast-path: Compose text verified. Tapping cached Send button at $cachedSendX, $cachedSendY")
+                    Shell.cmd("input tap $cachedSendX $cachedSendY").exec()
+                    clicked = true
+                    kotlinx.coroutines.delay(100)
 
                 // If a dialog was previously detected and its coords cached, tap it just in case
                 if (cachedDialogX > 0 && cachedDialogY > 0) {
@@ -147,11 +154,17 @@ class RcsSender @Inject constructor(
                 } else {
                     Timber.w("Fast-path tap did NOT register in bugle_db — falling back to slow path")
                     clicked = false // Reset — slow path will re-discover and re-tap
-                }
+            } // Close fast path (cachedSendX > 0 && cachedSendY > 0)
             }
 
-            // SLOW PATH: First time parsing the layout, or fast-path missed due to keyboard size changes
+            // SLOW PATH: First time parsing the layout, or fast-path missed
             if (!clicked) {
+                // First verify compose field has text before attempting to find/tap send button
+                if (!waitForComposeText()) {
+                    Timber.e("Compose field empty even after waiting — cannot send without text for $to")
+                    exitMessagesCleanly()
+                    return RcsSendResult(success = false, error = "Message text did not populate in Google Messages compose field")
+                }
                 for (i in 0 until 6) {
                     val dumpRes = Shell.cmd("uiautomator dump /data/local/tmp/dump.xml && cat /data/local/tmp/dump.xml").exec()
                 val xml = dumpRes.out.joinToString(" ")
@@ -271,13 +284,51 @@ class RcsSender @Inject constructor(
     }
 
     /**
-     * Exit Google Messages by pressing HOME.
-     * HOME is safe — it doesn't affect our own app's activity stack.
-     * The am start intent flags (CLEAR_TOP | NEW_TASK) handle fresh state on next launch.
+     * Exit Google Messages cleanly by pressing BACK 3x then HOME.
+     * BACK navigates out of conversation → main screen → exits app.
+     * HOME as final safety returns to launcher.
+     * This prevents stale compose state from causing voice message balloon on next dispatch.
      */
     private suspend fun exitMessagesCleanly() {
-        Shell.cmd("input keyevent 3").exec()   // HOME
-        kotlinx.coroutines.delay(300)          // Let launcher fully appear before next am start
+        repeat(3) {
+            Shell.cmd("input keyevent 4").exec()   // BACK
+            kotlinx.coroutines.delay(200)
+        }
+        Shell.cmd("input keyevent 3").exec()       // HOME
+        kotlinx.coroutines.delay(300)              // Let launcher fully appear before next am start
+    }
+
+    /**
+     * Wait for the compose field in Google Messages to have text content.
+     * Returns true if text is detected, false after max attempts.
+     * Prevents tapping send when compose is empty (which triggers voice message balloon).
+     */
+    private suspend fun waitForComposeText(maxAttempts: Int = 5): Boolean {
+        repeat(maxAttempts) { attempt ->
+            val dumpRes = Shell.cmd("uiautomator dump /data/local/tmp/dump.xml && cat /data/local/tmp/dump.xml").exec()
+            val xml = dumpRes.out.joinToString(" ")
+            // Look for compose/text input fields that have non-empty text content
+            // Google Messages compose field: resource-id contains "compose" or "message_input"
+            val composeFieldRegex = """<node[^>]*(?:resource-id="[^"]*(?:compose|message_input|edit)[^"]*"|class="[^"]*EditText[^"]*")[^>]*text="([^"]+)"[^>]*>""".toRegex(RegexOption.IGNORE_CASE)
+            val match = composeFieldRegex.find(xml)
+            if (match != null && match.groupValues[1].isNotBlank()) {
+                Timber.i("Compose text verified on attempt ${attempt + 1}: '${match.groupValues[1].take(30)}...'")
+                return true
+            }
+            // Also check: if a send button exists (not mic/voice), text is implicitly present
+            val sendBtnWithText = xml.contains("send_message_button", ignoreCase = true) || 
+                                  xml.contains("Compose:Draft:Send", ignoreCase = true)
+            val hasVoiceOnly = xml.contains("voice", ignoreCase = true) && 
+                               !xml.contains("send_message_button", ignoreCase = true)
+            if (sendBtnWithText && !hasVoiceOnly) {
+                Timber.i("Send button detected (not voice-only) on attempt ${attempt + 1} — text likely present")
+                return true
+            }
+            Timber.w("Compose field appears empty, waiting... (attempt ${attempt + 1}/$maxAttempts)")
+            kotlinx.coroutines.delay(400)
+        }
+        Timber.e("Compose text not detected after $maxAttempts attempts")
+        return false
     }
 
     private fun isMessagesInstalled(): Boolean {

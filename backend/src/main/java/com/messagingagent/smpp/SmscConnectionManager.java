@@ -42,6 +42,10 @@ public class SmscConnectionManager {
     private final Map<Long, UpstreamSessionInfo> activeSessions = new ConcurrentHashMap<>();
     
     public record UpstreamSessionInfo(SmppSession session, Instant boundAt) {}
+
+    public UpstreamSessionInfo getSessionInfo(Long supplierId) {
+        return activeSessions.get(supplierId);
+    }
     
     // Scheduled executor to handle EnquireLinks and reconnects
     private ScheduledExecutorService monitorExecutor;
@@ -295,9 +299,6 @@ public class SmscConnectionManager {
         }
     }
 
-    public UpstreamSessionInfo getSessionInfo(Long supplierId) {
-        return activeSessions.get(supplierId);
-    }
     
     public void bindSupplier(SmscSupplier supplier) {
         log.info("Manual bind execution for SMSC [{}]", supplier.getName());

@@ -15,6 +15,15 @@ import DeviceLogsPage from './pages/DeviceLogsPage'
 import MessageTrackingPage from './pages/MessageTrackingPage'
 import UsersPage from './pages/UsersPage'
 import RemoteDesktopPage from './pages/RemoteDesktopPage'
+import InfraMonitoringPage from './pages/InfraMonitoringPage'
+import NotificationsPage from './pages/NotificationsPage'
+import AiAgentPage from './pages/AiAgentPage'
+import DeadLetterPage from './pages/DeadLetterPage'
+import AuditLogPage from './pages/AuditLogPage'
+import ReportsPage from './pages/ReportsPage'
+import ThroughputPage from './pages/ThroughputPage'
+import DeviceMapPage from './pages/DeviceMapPage'
+import TrafficAnalyticsPage from './pages/TrafficAnalyticsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -41,6 +50,15 @@ export default function App() {
             <Route path="logs/device" element={<DeviceLogsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="remote" element={<RemoteDesktopPage />} />
+            <Route path="infrastructure" element={<InfraMonitoringPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="ai-agent" element={<AiAgentPage />} />
+            <Route path="dead-letters" element={<DeadLetterPage />} />
+            <Route path="audit" element={<AuditLogPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="throughput" element={<ThroughputPage />} />
+            <Route path="device-map" element={<DeviceMapPage />} />
+            <Route path="analytics" element={<TrafficAnalyticsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

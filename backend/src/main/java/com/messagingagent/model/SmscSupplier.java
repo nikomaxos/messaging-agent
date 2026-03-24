@@ -34,7 +34,8 @@ public class SmscSupplier {
     private String systemId;
 
     @Column(nullable = false, length = 64)
-    private String password;
+    @Convert(converter = com.messagingagent.security.EncryptedStringConverter.class)
+    private String password; // encrypted at rest via AES-256-GCM
 
     @Column(length = 64)
     private String systemType;

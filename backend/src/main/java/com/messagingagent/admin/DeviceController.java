@@ -139,6 +139,26 @@ public class DeviceController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    /** Bulk device command — sends the same command to multiple devices */
+    @PostMapping("/bulk-command")
+    public ResponseEntity<Map<String, Object>> bulkCommand(@RequestBody Map<String, Object> payload) {
+        @SuppressWarnings("unchecked")
+        List<Number> deviceIds = (List<Number>) payload.get("deviceIds");
+        String command = (String) payload.get("command");
+        if (deviceIds == null || deviceIds.isEmpty() || command == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "deviceIds and command required"));
+        }
+        int sent = 0;
+        for (Number idNum : deviceIds) {
+            Long id = idNum.longValue();
+            if (deviceRepository.existsById(id)) {
+                messagingTemplate.convertAndSend("/queue/commands." + id, command);
+                sent++;
+            }
+        }
+        return ResponseEntity.ok(Map.of("sent", sent, "command", command));
+    }
+
     @Data
     public static class DeviceRequest {
         @NotBlank private String name;

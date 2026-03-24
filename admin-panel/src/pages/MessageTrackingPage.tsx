@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { getLogs, getGroups, getDevices } from '../api/client'
-import { MessageLog, DeviceGroup, Device } from '../types'
-import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getLogs, getGroups, getDevices, resubmitMessages, getSmscSuppliers } from '../api/client'
+import { MessageLog, DeviceGroup, Device, SmscSupplier } from '../types'
+import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare } from 'lucide-react'
 import { format } from 'date-fns'
 
 const statusClass = (s: MessageLog['status']) => ({
@@ -27,6 +27,13 @@ export default function MessageTrackingPage() {
   const [intervalSec, setIntervalSec] = useState(5)
   const [perPage, setPerPage] = useState(50)
 
+  // Mass selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showResubmitModal, setShowResubmitModal] = useState(false)
+  const [resubmitSmscId, setResubmitSmscId] = useState<number | null>(null)
+  const [resubmitResults, setResubmitResults] = useState<any[] | null>(null)
+  const queryClient = useQueryClient()
+
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: getDevices })
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -34,6 +41,11 @@ export default function MessageTrackingPage() {
     queryFn: () => getLogs(page, appliedFilters, sortBy, sortDir, perPage),
     refetchInterval: autoRefresh ? Math.max(intervalSec, 1) * 1000 : false,
     placeholderData: (prev: any) => prev,
+  })
+
+  const { data: smscSuppliers = [] } = useQuery({
+    queryKey: ['smsc-suppliers'],
+    queryFn: getSmscSuppliers,
   })
 
   const logs: MessageLog[] = data?.content ?? []
@@ -67,6 +79,36 @@ export default function MessageTrackingPage() {
     setPage(0)
   }
 
+  // Mass selection helpers
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const toggleSelectAll = () => {
+    if (selectedIds.size === logs.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(logs.map((l: MessageLog) => l.id)))
+    }
+  }
+
+  const resubmitMutation = useMutation({
+    mutationFn: ({ messageIds, fallbackSmscId }: { messageIds: number[], fallbackSmscId: number }) =>
+      resubmitMessages(messageIds, fallbackSmscId),
+    onSuccess: (data: any) => {
+      setResubmitResults(data)
+      queryClient.invalidateQueries({ queryKey: ['logs'] })
+    },
+  })
+
+  const handleResubmit = () => {
+    if (!resubmitSmscId || selectedIds.size === 0) return
+    resubmitMutation.mutate({ messageIds: Array.from(selectedIds), fallbackSmscId: resubmitSmscId })
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -95,6 +137,23 @@ export default function MessageTrackingPage() {
           </button>
         </div>
       </div>
+
+      {/* Mass Resubmit Toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="glass p-3 flex items-center justify-between border border-brand-500/20">
+          <div className="flex items-center gap-3">
+            <CheckSquare size={16} className="text-brand-400" />
+            <span className="text-sm text-white font-medium">{selectedIds.size} message{selectedIds.size > 1 ? 's' : ''} selected</span>
+            <button className="text-xs text-slate-400 hover:text-white" onClick={() => setSelectedIds(new Set())}>Clear</button>
+          </div>
+          <button
+            className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition flex items-center gap-2"
+            onClick={() => { setShowResubmitModal(true); setResubmitResults(null) }}
+          >
+            <Send size={14} /> Resubmit via Fallback SMSC
+          </button>
+        </div>
+      )}
 
       {/* Filters Toolbar */}
       <form onSubmit={e => { e.preventDefault(); applyFilters() }} className="glass p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
@@ -189,6 +248,11 @@ export default function MessageTrackingPage() {
         <table className="tbl">
           <thead className="sticky top-0 z-10 bg-[#12121f] shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
           <tr>
+            <th className="px-2 pt-4 pb-3 w-8">
+              <input type="checkbox" className="accent-brand-500 cursor-pointer"
+                checked={logs.length > 0 && selectedIds.size === logs.length}
+                onChange={toggleSelectAll} />
+            </th>
             <th className="px-4 pt-4 pb-3">#</th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('createdAt')}>Timestamp <SortIcon field="createdAt" /></th>
             <th className="px-2">Time</th>
@@ -202,11 +266,16 @@ export default function MessageTrackingPage() {
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
             )}
             {logs.map(l => (
-              <tr key={l.id} className="cursor-pointer hover:bg-white/[0.02]" onClick={() => setSelectedLog(l)}>
-                <td className="px-4 py-3 text-xs font-mono text-slate-500">{l.id}</td>
+              <tr key={l.id} className={`cursor-pointer hover:bg-white/[0.02] ${selectedIds.has(l.id) ? 'bg-brand-500/5' : ''}`}>
+                <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" className="accent-brand-500 cursor-pointer"
+                    checked={selectedIds.has(l.id)}
+                    onChange={() => toggleSelect(l.id)} />
+                </td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-500" onClick={() => setSelectedLog(l)}>{l.id}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">
                   <div><span className="text-[10px] uppercase text-slate-600 font-bold inline-block mr-1 w-5">In</span> {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}</div>
                   {l.fallbackStartedAt && (
@@ -225,8 +294,8 @@ export default function MessageTrackingPage() {
                     return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1.5 py-0.5 border ${color}`}>⏱ {label}</span>;
                   })()}
                 </td>
-                <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.sourceAddress ?? '—'}</td>
-                <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.destinationAddress ?? '—'}</td>
+                <td className="px-4 py-3 text-sm font-mono text-slate-200" onClick={() => setSelectedLog(l)}>{l.sourceAddress ?? '—'}</td>
+                <td className="px-4 py-3 text-sm font-mono text-slate-200" onClick={() => setSelectedLog(l)}>{l.destinationAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
                   {l.messageText ?? '—'}
                 </td>
@@ -257,7 +326,7 @@ export default function MessageTrackingPage() {
               </tr>
             ))}
             {!isLoading && logs.length === 0 && (
-              <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-500">No matching messages found</td></tr>
+              <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-500">No matching messages found</td></tr>
             )}
           </tbody>
         </table>
@@ -372,6 +441,67 @@ export default function MessageTrackingPage() {
             </div>
             <div className="px-6 py-4 border-t border-white/5 bg-black/20 flex justify-end">
               <button onClick={() => setSelectedLog(null)} className="btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resubmit Modal */}
+      {showResubmitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowResubmitModal(false)}>
+          <div className="bg-[#12121f] border border-white/10 rounded-xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Send size={18} className="text-amber-400" /> Resubmit Messages</h2>
+              <button onClick={() => setShowResubmitModal(false)} className="text-slate-500 hover:text-white transition"><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {!resubmitResults ? (
+                <>
+                  <p className="text-sm text-slate-400">
+                    Resubmit <strong className="text-white">{selectedIds.size}</strong> message{selectedIds.size > 1 ? 's' : ''} through a fallback SMSC supplier.
+                    Original customer message IDs will be preserved.
+                  </p>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Fallback SMSC Supplier</label>
+                    <select
+                      className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                      value={resubmitSmscId ?? ''}
+                      onChange={e => setResubmitSmscId(Number(e.target.value))}
+                    >
+                      <option value="">Select SMSC…</option>
+                      {smscSuppliers.map((s: SmscSupplier) => (
+                        <option key={s.supplier.id} value={s.supplier.id}>
+                          {s.supplier.name} ({s.connected ? '🟢 Connected' : '🔴 Disconnected'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button className="btn-secondary" onClick={() => setShowResubmitModal(false)}>Cancel</button>
+                    <button
+                      className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition disabled:opacity-40"
+                      disabled={!resubmitSmscId || resubmitMutation.isPending}
+                      onClick={handleResubmit}
+                    >
+                      {resubmitMutation.isPending ? 'Submitting…' : `Resubmit ${selectedIds.size} Messages`}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-400 mb-3">Resubmission Results:</p>
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {resubmitResults.map((r: any, i: number) => (
+                      <div key={i} className={`text-xs font-mono px-3 py-1.5 rounded ${r.status === 'OK' ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'}`}>
+                        #{r.originalId} → {r.status === 'OK' ? `✅ New ID: ${r.newId}` : `❌ ${r.error}`}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button className="btn-secondary" onClick={() => { setShowResubmitModal(false); setSelectedIds(new Set()); setResubmitResults(null) }}>Done</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

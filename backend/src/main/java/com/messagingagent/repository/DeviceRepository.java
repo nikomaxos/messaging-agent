@@ -15,4 +15,5 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     Optional<Device> findByRegistrationToken(String token);
     Optional<Device> findByImei(String imei);
     List<Device> findByStatus(Device.Status status);
+    long countByStatus(Device.Status status);
 }

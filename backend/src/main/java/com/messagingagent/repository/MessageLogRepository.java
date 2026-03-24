@@ -77,5 +77,13 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     long countDispatchedByDevice(
             @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
             @org.springframework.data.repository.query.Param("since") java.time.Instant since);
-}
 
+    long countByStatusAndCreatedAtAfter(MessageLog.Status status, java.time.Instant after);
+
+    // DLQ: find failed messages older than cutoff
+    java.util.List<MessageLog> findByStatusAndCreatedAtBefore(MessageLog.Status status, java.time.Instant before);
+
+    // Throughput: per-SMSC and per-device counts for rate dashboard
+    long countBySmscSupplierIdAndCreatedAtAfter(Long supplierId, java.time.Instant after);
+    long countByDeviceIdAndCreatedAtAfter(Long deviceId, java.time.Instant after);
+}

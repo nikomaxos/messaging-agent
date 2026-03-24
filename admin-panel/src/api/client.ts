@@ -81,6 +81,61 @@ export const deleteSmppRouting = (id: number) => api.delete(`/smpp/routings/${id
 export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC', size = 50) => 
   api.get('/logs', { params: { page, size, sortBy, sortDir, ...filters } }).then((r: any) => r.data)
 
+export const resubmitMessages = (messageIds: number[], fallbackSmscId: number) =>
+  api.post('/logs/resubmit', { messageIds, fallbackSmscId }).then((r: any) => r.data)
+
+export const getSystemHealth = () => api.get('/system/health').then((r: any) => r.data)
+export const getPlatformHealth = () => api.get('/platform/health').then((r: any) => r.data)
+
+// Notification system
+export const getNotificationConfigs = () => api.get('/notifications/configs').then((r: any) => r.data)
+export const createNotificationConfig = (d: any) => api.post('/notifications/configs', d).then((r: any) => r.data)
+export const updateNotificationConfig = (d: any) => api.put(`/notifications/configs/${d.id}`, d).then((r: any) => r.data)
+export const deleteNotificationConfig = (id: number) => api.delete(`/notifications/configs/${id}`)
+export const getAlertHistory = (page = 0, size = 50) => api.get('/notifications/alerts', { params: { page, size } }).then((r: any) => r.data)
+export const acknowledgeAlert = (id: number) => api.patch(`/notifications/alerts/${id}/acknowledge`).then((r: any) => r.data)
+
+// AI Agent
+export const getAiAgentConfig = () => api.get('/ai-agent/config').then((r: any) => r.data)
+export const updateAiAgentConfig = (d: any) => api.put('/ai-agent/config', d).then((r: any) => r.data)
+export const getAiAgentContext = () => api.get('/ai-agent/context').then((r: any) => r.data)
+export const testAiAgent = () => api.post('/ai-agent/test').then((r: any) => r.data)
+export const chatWithAiAgent = (messages: { role: string; content: string }[]) =>
+  api.post('/ai-agent/chat', { messages }).then((r: any) => r.data)
+export const getAiChatHistory = () => api.get('/ai-agent/history').then((r: any) => r.data)
+export const clearAiChatHistory = () => api.delete('/ai-agent/history')
+
+// Dead-Letter Queue
+export const getDeadLetters = (page = 0, size = 50) => api.get('/dlq', { params: { page, size } }).then((r: any) => r.data)
+export const retryDeadLetter = (id: number) => api.post(`/dlq/${id}/retry`).then((r: any) => r.data)
+export const discardDeadLetter = (id: number) => api.delete(`/dlq/${id}`).then((r: any) => r.data)
+export const getDlqCount = () => api.get('/dlq/count').then((r: any) => r.data)
+
+// Audit Log
+export const getAuditLogs = (page = 0, size = 50, username?: string, action?: string) =>
+  api.get('/audit', { params: { page, size, username, action } }).then((r: any) => r.data)
+
+// Scheduled Reports
+export const getReports = (page = 0, size = 20) => api.get('/reports', { params: { page, size } }).then((r: any) => r.data)
+export const generateReport = () => api.post('/reports/generate').then((r: any) => r.data)
+
+// Throughput
+export const getThroughput = (window = '1h') => api.get('/throughput', { params: { window } }).then((r: any) => r.data)
+
+// Bulk Device Commands
+export const bulkDeviceCommand = (deviceIds: number[], command: string) =>
+  api.post('/devices/bulk-command', { deviceIds, command }).then((r: any) => r.data)
+
+// Traffic Analytics (BI)
+export const getAnalyticsBySender = (window = '24h', limit = 100) =>
+  api.get('/analytics/by-sender', { params: { window, limit } }).then((r: any) => r.data)
+export const getAnalyticsByContent = (window = '24h', limit = 100) =>
+  api.get('/analytics/by-content', { params: { window, limit } }).then((r: any) => r.data)
+export const getSpamSuspects = (window = '24h') =>
+  api.get('/analytics/spam-suspects', { params: { window } }).then((r: any) => r.data)
+export const getAitSuspects = (window = '24h') =>
+  api.get('/analytics/ait-suspects', { params: { window } }).then((r: any) => r.data)
+
 export const getDeviceLogs = (page = 0, filters?: Record<string, any>) =>
   api.get('/logs/device', { params: { page, size: 50, ...filters } }).then((r: any) => r.data)
 

@@ -89,6 +89,17 @@ public class Device {
     @Column(name = "last_dispatched_at")
     private Instant lastDispatchedAt;
 
+    // Self-healing escalation tracking
+    @Column(name = "self_healing_reboot_count")
+    @Builder.Default
+    private Integer selfHealingRebootCount = 0;
+    @Column(name = "last_self_healing_at")
+    private Instant lastSelfHealingAt;
+
+    // GPS location (reported via heartbeat)
+    private Double latitude;
+    private Double longitude;
+
     private Instant lastHeartbeat;
     private String sessionId;        // WebSocket session ID when online
     private Instant connectedAt;     // Timestamp of last connection

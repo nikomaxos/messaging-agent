@@ -141,29 +141,54 @@ fun SetupScreen(vm: SetupViewModel, onStart: () -> Unit) {
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF0D0D1A), Color(0xFF1A1A2E))))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .align(Alignment.Center),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text("Messaging Agent", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("Device Registration", fontSize = 14.sp, color = Color(0xFF8899AA))
-            Spacer(Modifier.height(4.dp))
-
-            vm.error?.let {
-                Surface(color = Color(0xFF4A1010), shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("⚠ $it", color = Color(0xFFFF6B6B), fontSize = 12.sp,
-                        modifier = Modifier.padding(12.dp))
+        // Use LazyColumn for DoneStep so the entire screen scrolls
+        if (vm.step == SetupViewModel.Step.DONE) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text("Messaging Agent", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Device Registration", fontSize = 12.sp, color = Color(0xFF8899AA))
                 }
+                vm.error?.let { err ->
+                    item {
+                        Surface(color = Color(0xFF4A1010), shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("⚠ $err", color = Color(0xFFFF6B6B), fontSize = 12.sp,
+                                modifier = Modifier.padding(12.dp))
+                        }
+                    }
+                }
+                item { DoneStep(regState, onStart, vm) }
             }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .align(Alignment.Center),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Messaging Agent", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Device Registration", fontSize = 14.sp, color = Color(0xFF8899AA))
+                Spacer(Modifier.height(4.dp))
 
-            when (vm.step) {
-                SetupViewModel.Step.URL        -> UrlStep(vm)
-                SetupViewModel.Step.GROUP_PICK -> GroupPickStep(vm)
-                SetupViewModel.Step.DONE       -> DoneStep(regState, onStart, vm)
+                vm.error?.let {
+                    Surface(color = Color(0xFF4A1010), shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("⚠ $it", color = Color(0xFFFF6B6B), fontSize = 12.sp,
+                            modifier = Modifier.padding(12.dp))
+                    }
+                }
+
+                when (vm.step) {
+                    SetupViewModel.Step.URL        -> UrlStep(vm)
+                    SetupViewModel.Step.GROUP_PICK -> GroupPickStep(vm)
+                    else -> {}
+                }
             }
         }
     }
@@ -335,16 +360,15 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
         }
     }
 
-    // ── Status Card ────────────────────────────────────────────────────────
+    // ── Status Card (Compact) ─────────────────────────────────────────────
     Surface(
         color  = if (isOnline) Color(0xFF0D2D1A) else Color(0xFF1A1010),
         shape  = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Pulsing status dot
                 Box(
                     modifier = Modifier
                         .size(10.dp)
@@ -353,77 +377,79 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                             androidx.compose.foundation.shape.CircleShape
                         )
                 )
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         when {
                             isChecking -> "● Checking…"
-                            isOnline   -> "● Connected to backend"
+                            isOnline   -> "● Connected"
                             else       -> "○ $liveDetail"
                         },
-                        color    = when {
+                        color = when {
                             isChecking -> Color(0xFF94A3B8)
                             isOnline   -> Color(0xFF4ADE80)
                             else       -> Color(0xFF94A3B8)
                         },
-                        fontWeight = FontWeight.Bold, fontSize = 15.sp
+                        fontWeight = FontWeight.Bold, fontSize = 14.sp
                     )
-                    if (connectionStartTime != null) {
-                        Text("Uptime: $uptimeString", color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    } else {
-                        Text("Uptime: Offline", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
                 }
+                Text(
+                    if (connectionStartTime != null) "⏱ $uptimeString" else "Offline",
+                    color = if (connectionStartTime != null) Color(0xFF10B981) else Color(0xFF94A3B8),
+                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                )
             }
             HorizontalDivider(color = Color(0xFF1F3A2A))
+            // Row 1: Device + Group
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Column {
-                    Text("Device", color = Color(0xFF6B7280), fontSize = 11.sp)
-                    Text(state.deviceName ?: vm.pendingName, color = Color.White, fontSize = 13.sp)
+                    Text("Device", color = Color(0xFF6B7280), fontSize = 10.sp)
+                    Text(state.deviceName ?: vm.pendingName, color = Color.White, fontSize = 12.sp)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Group", color = Color(0xFF6B7280), fontSize = 11.sp)
-                    Text(state.groupName ?: "—", color = Color.White, fontSize = 13.sp)
+                    Text("Group", color = Color(0xFF6B7280), fontSize = 10.sp)
+                    Text(state.groupName ?: "—", color = Color.White, fontSize = 12.sp)
                 }
             }
+            // Row 2: Phone ID + APK Version (merged onto one row)
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                val androidId = android.provider.Settings.Secure.getString(
+                    androidx.compose.ui.platform.LocalContext.current.contentResolver, 
+                    android.provider.Settings.Secure.ANDROID_ID
+                ) ?: "Unknown"
                 Column {
-                    val androidId = android.provider.Settings.Secure.getString(
-                        androidx.compose.ui.platform.LocalContext.current.contentResolver, 
-                        android.provider.Settings.Secure.ANDROID_ID
-                    ) ?: "Unknown"
-                    Text("Phone ID", color = Color(0xFF6B7280), fontSize = 11.sp)
-                    Text(androidId, color = Color(0xFF4ADE80), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    
-                    Spacer(Modifier.height(8.dp))
-                    Text("APK Version", color = Color(0xFF6B7280), fontSize = 11.sp)
-                    Text(com.messagingagent.android.BuildConfig.VERSION_NAME, color = Color(0xFF4ADE80), fontSize = 12.sp,
-                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    Text("Phone ID", color = Color(0xFF6B7280), fontSize = 10.sp)
+                    Text(androidId, color = Color(0xFF4ADE80), fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Registered SIMs / Devices", color = Color(0xFF6B7280), fontSize = 11.sp)
+                    Text("APK", color = Color(0xFF6B7280), fontSize = 10.sp)
+                    Text(com.messagingagent.android.BuildConfig.VERSION_NAME, color = Color(0xFF4ADE80), fontSize = 11.sp,
+                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+            }
+            // Row 3: SIMs + Backend
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("SIMs", color = Color(0xFF6B7280), fontSize = 10.sp)
                     if (state.sims.isEmpty()) {
-                        Text("—", color = Color(0xFF6B7280), fontSize = 12.sp)
+                        Text("—", color = Color(0xFF6B7280), fontSize = 11.sp)
                     } else {
                         state.sims.forEachIndexed { index, sim ->
-                            val tokenHex = sim.deviceToken.take(16)
-                            val phoneInfo = if (!sim.phoneNumber.isNullOrBlank()) " (${sim.phoneNumber})" else ""
-                            Text("SIM${index + 1}: #${sim.deviceId}$phoneInfo  $tokenHex", color = Color(0xFF6B7280), fontSize = 12.sp,
+                            val phoneInfo = if (!sim.phoneNumber.isNullOrBlank()) sim.phoneNumber else "#${sim.deviceId}"
+                            Text("SIM${index + 1}: $phoneInfo", color = Color(0xFF6B7280), fontSize = 10.sp,
                                  fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
                     }
                 }
-            }
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Backend", color = Color(0xFF6B7280), fontSize = 11.sp)
-                    Text(state.backendUrl ?: vm.pendingUrl, color = Color(0xFF6B7280), fontSize = 11.sp,
+                    Text("Backend", color = Color(0xFF6B7280), fontSize = 10.sp)
+                    Text(state.backendUrl ?: vm.pendingUrl, color = Color(0xFF6B7280), fontSize = 10.sp,
                          fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
             }
         }
     }
 
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(6.dp))
 
     // ── Start/Stop Service ────────────────────────────────────────────────
     Button(
@@ -451,9 +477,9 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
         Text("Change Device Name / Group", color = Color(0xFF9CA3AF), fontSize = 13.sp)
     }
 
-    // ── Connection Log ────────────────────────────────────────────────────
+    // ── Connection Log (expanded by default, larger frame) ────────────────
     val wsLog by vm.wsClient.log.collectAsState()
-    var showLog by remember { mutableStateOf(false) }
+    var showLog by remember { mutableStateOf(true) }
 
     OutlinedButton(
         onClick = { showLog = !showLog },
@@ -472,7 +498,7 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
         Surface(
             color = Color(0xFF0A0A12),
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 400.dp)
         ) {
             androidx.compose.foundation.lazy.LazyColumn(
                 modifier = Modifier.padding(10.dp),
@@ -485,15 +511,15 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                         "MSG"   -> Color(0xFF60A5FA)
                         else    -> Color(0xFF6B7280)
                     }
-                    Row(Modifier.padding(vertical = 1.dp)) {
-                        Text("[${entry.time}]", color = Color(0xFF374151), fontSize = 10.sp,
+                    Row(Modifier.padding(vertical = 2.dp)) {
+                        Text("[${entry.time}]", color = Color(0xFF374151), fontSize = 11.sp,
                              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                              modifier = Modifier.width(72.dp))
-                        Text("${entry.level.take(4).padEnd(4)} ", color = color, fontSize = 10.sp,
+                        Text("${entry.level.take(4).padEnd(4)} ", color = color, fontSize = 11.sp,
                              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                        Text(entry.message, color = Color(0xFF9CA3AF), fontSize = 10.sp,
+                        Text(entry.message, color = Color(0xFF9CA3AF), fontSize = 11.sp,
                              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                             maxLines = 2)
+                             maxLines = 3)
                     }
                 }
             }
