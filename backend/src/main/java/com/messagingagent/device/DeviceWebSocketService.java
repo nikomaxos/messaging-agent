@@ -51,6 +51,9 @@ public class DeviceWebSocketService {
      */
     private final ConcurrentHashMap<Long, ConcurrentLinkedQueue<String>> pendingCommandQueue = new ConcurrentHashMap<>();
 
+    /** Rate-limiter for auto-OTA — last push time per device. */
+    private final ConcurrentHashMap<Long, Instant> lastOtaPushTime = new ConcurrentHashMap<>();
+
     /** Queue a command for delivery on the next heartbeat/ping. */
     public void queueCommand(Long deviceId, String command) {
         pendingCommandQueue.computeIfAbsent(deviceId, k -> new ConcurrentLinkedQueue<>()).offer(command);
@@ -149,14 +152,18 @@ public class DeviceWebSocketService {
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_AUTO_PURGE=" + (device.getAutoPurge() != null ? device.getAutoPurge() : "OFF"));
             messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "SET_SELF_HEALING=" + device.getSelfHealingEnabled());
 
-            // Auto-OTA: if device reports an outdated APK version, push update immediately
+            // Auto-OTA: if device reports an outdated APK version, push update (rate-limited per device)
             try {
                 String latestVersion = getLatestOtaVersion();
                 if (latestVersion != null && heartbeat.getApkVersion() != null
                         && !latestVersion.equals(heartbeat.getApkVersion())) {
-                    log.info("AUTO-OTA: device {} reports v{} but server has v{} — sending UPDATE_APK",
-                            device.getName(), heartbeat.getApkVersion(), latestVersion);
-                    messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "UPDATE_APK");
+                    Instant lastPush = lastOtaPushTime.get(device.getId());
+                    if (lastPush == null || Duration.between(lastPush, Instant.now()).toMinutes() >= 10) {
+                        log.info("AUTO-OTA: device {} reports v{} but server has v{} — sending UPDATE_APK",
+                                device.getName(), heartbeat.getApkVersion(), latestVersion);
+                        messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "UPDATE_APK");
+                        lastOtaPushTime.put(device.getId(), Instant.now());
+                    }
                 }
             } catch (Exception e) {
                 log.debug("Auto-OTA version check failed: {}", e.getMessage());
