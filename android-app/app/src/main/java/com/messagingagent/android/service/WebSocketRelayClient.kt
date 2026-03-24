@@ -138,16 +138,10 @@ class WebSocketRelayClient @Inject constructor(
                 val baseToken = activeSims.first().deviceToken
                 webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$baseToken\n\n\u0000")
                 
+
                 activeSims.forEachIndexed { i, sim ->
                     webSocket.send("SUBSCRIBE\nid:sub-sms-$i\ndestination:/queue/sms.${sim.deviceId}\n\n\u0000")
                     webSocket.send("SUBSCRIBE\nid:sub-cmd-$i\ndestination:/queue/commands.${sim.deviceId}\n\n\u0000")
-                }
-
-                // Flush any buffered logs accumulated while offline
-                val bufferedLogs = drainNewLogs()
-                if (bufferedLogs.isNotEmpty()) {
-                    addLog("INFO", "Flushing ${bufferedLogs.size} buffered logs from offline period")
-                    sendDeviceLogs(bufferedLogs, baseToken)
                 }
                 
                 pingJob = CoroutineScope(Dispatchers.IO).launch {
@@ -655,7 +649,15 @@ class WebSocketRelayClient @Inject constructor(
                 "WARN" -> "WARN"
                 else -> "INFO"
             }
-            """{"level":"$level","event":"${entry.message.replace("\"", "'").take(250)}","detail":"${entry.time}"}"""
+            val safeEvent = entry.message
+                .replace("\\", "\\\\")
+                .replace("\"", "'")
+                .replace("\n", " ")
+                .replace("\r", "")
+                .replace("\t", " ")
+                .replace("\u0000", "")
+                .take(250)
+            """{"level":"$level","event":"$safeEvent","detail":"${entry.time}"}"""
         }.joinToString(",", "[", "]")
         ws?.send("SEND\ndestination:/app/device.logs\ndeviceToken:$token\ncontent-type:application/json\n\n$payload\u0000")
     }
