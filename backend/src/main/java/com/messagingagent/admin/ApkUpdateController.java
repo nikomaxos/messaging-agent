@@ -73,6 +73,32 @@ public class ApkUpdateController {
         ));
     }
 
+    @GetMapping("/api/public/apk/version")
+    public ResponseEntity<?> getApkVersion() {
+        try {
+            Path metaPath = Paths.get(APK_DIR, "apk-meta.txt");
+            if (!metaPath.toFile().exists()) {
+                return ResponseEntity.ok(java.util.Map.of("available", false));
+            }
+            String filename = Files.readString(metaPath).trim();
+            // Parse version from filename like "MessagingAgent-1.0.74.apk"
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d+\\.\\d+\\.\\d+)")
+                .matcher(filename);
+            String version = m.find() ? m.group(1) : null;
+            if (version == null) {
+                return ResponseEntity.ok(java.util.Map.of("available", false));
+            }
+            return ResponseEntity.ok(java.util.Map.of(
+                "available", true,
+                "versionName", version,
+                "filename", filename
+            ));
+        } catch (IOException e) {
+            return ResponseEntity.ok(java.util.Map.of("available", false));
+        }
+    }
+
     @GetMapping("/api/public/apk/download")
     public ResponseEntity<Resource> downloadApk() {
         File file = new File(APK_DIR, APK_FILE_NAME);
