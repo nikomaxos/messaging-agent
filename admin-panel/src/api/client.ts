@@ -150,23 +150,6 @@ export const resetPassword  = (id: number, password: string) => api.put(`/users/
 export const deleteUser     = (id: number) => api.delete(`/users/${id}`)
 
 // ── Remote Desktop ────────────────────────────────────────────────────────
-export const getDeviceScreenshot = (id: number) =>
-  api.get(`/devices/${id}/screenshot`, { responseType: 'blob' }).then((r: any) => r.data)
+// WebSocket-based screen streaming will be added here in a future update.
+// The old ADB-based stubs have been removed as the backend endpoints never existed.
 
-export const getScreenInfo = (id: number) =>
-  api.get(`/devices/${id}/screen-info`).then((r: any) => r.data)
-
-export const sendTap = (id: number, x: number, y: number, screenWidth: number, screenHeight: number) =>
-  api.post(`/devices/${id}/input/tap`, { x, y, screenWidth, screenHeight }).then((r: any) => r.data)
-
-export const sendSwipe = (id: number, x1: number, y1: number, x2: number, y2: number, screenWidth: number, screenHeight: number, duration = 300) =>
-  api.post(`/devices/${id}/input/swipe`, { x1, y1, x2, y2, duration, screenWidth, screenHeight }).then((r: any) => r.data)
-
-export const sendKeyEvent = (id: number, keycode: number) =>
-  api.post(`/devices/${id}/input/keyevent`, { keycode }).then((r: any) => r.data)
-
-export const connectDeviceAdb = (id: number) =>
-  api.post(`/devices/${id}/adb/connect`).then((r: any) => r.data)
-
-export const wakeDevice = (id: number) =>
-  api.post(`/devices/${id}/wake`).then((r: any) => r.data)

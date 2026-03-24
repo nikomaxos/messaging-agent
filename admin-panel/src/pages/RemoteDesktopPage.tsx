@@ -1,384 +1,149 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getDevices, getDeviceScreenshot, sendTap, sendSwipe, sendKeyEvent, connectDeviceAdb, wakeDevice } from '../api/client'
-import { Device } from '../types'
-import { Monitor, Maximize2, Minimize2, Home, ArrowLeft, LayoutGrid, RefreshCw, Wifi, WifiOff, ChevronDown, ChevronUp, Smartphone, Power, Sun } from 'lucide-react'
+import { getDevices, getGroups } from '../api/client'
+import { Device, DeviceGroup } from '../types'
+import { Monitor, Smartphone, Wifi, WifiOff, Battery, BatteryCharging, ArrowLeft, RefreshCw, MousePointer, X } from 'lucide-react'
 
-/**
- * Given an <img> with object-fit: contain, calculate the actual rendered image
- * rectangle within the element (excluding letterbox padding).
- */
-function getRenderedImageRect(img: HTMLImageElement) {
-  const natW = img.naturalWidth
-  const natH = img.naturalHeight
-  if (!natW || !natH) return null
+// ─── Device List View ─────────────────────────────────────────────────────────
 
-  const elemW = img.clientWidth
-  const elemH = img.clientHeight
-
-  const scale = Math.min(elemW / natW, elemH / natH)
-  const renderedW = natW * scale
-  const renderedH = natH * scale
-
-  // object-fit: contain centers the image
-  const offsetX = (elemW - renderedW) / 2
-  const offsetY = (elemH - renderedH) / 2
-
-  return { offsetX, offsetY, width: renderedW, height: renderedH }
-}
-
-/**
- * Convert a mouse event position to image-relative coordinates (0-1 normalized),
- * accounting for object-fit: contain letterboxing.
- * Returns null if the click is outside the actual image area.
- */
-function mouseToImageCoords(e: React.MouseEvent<HTMLImageElement>, img: HTMLImageElement) {
-  const rect = img.getBoundingClientRect()
-  const clickX = e.clientX - rect.left
-  const clickY = e.clientY - rect.top
-
-  const rendered = getRenderedImageRect(img)
-  if (!rendered) return null
-
-  // Translate to image-local coordinates
-  const imgX = clickX - rendered.offsetX
-  const imgY = clickY - rendered.offsetY
-
-  // Check if click is within the actual image area
-  if (imgX < 0 || imgY < 0 || imgX > rendered.width || imgY > rendered.height) {
-    return null // clicked on letterbox padding
-  }
-
-  // Normalize to 0-1 range
-  return {
-    nx: imgX / rendered.width,
-    ny: imgY / rendered.height,
-  }
-}
-
-/**
- * Individual device screen viewer with live screenshot polling and touch interaction.
- */
-function DeviceScreen({ device, expanded, onToggleExpand, refreshInterval }: {
-  device: Device
-  expanded: boolean
-  onToggleExpand: () => void
-  refreshInterval: number
-}) {
-  const [imgSrc, setImgSrc] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [connected, setConnected] = useState(false)
-  const [connecting, setConnecting] = useState(false)
-  const [tapIndicator, setTapIndicator] = useState<{x: number, y: number} | null>(null)
-  const imgRef = useRef<HTMLImageElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number; clientX: number; clientY: number } | null>(null)
-
-  // Track whether component is mounted to avoid state updates after unmount
-  const mountedRef = useRef(true)
-  const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
-
-  // Connect ADB on mount
-  useEffect(() => {
-    mountedRef.current = true
-    const connect = async () => {
-      setConnecting(true)
-      try {
-        const res = await connectDeviceAdb(device.id)
-        if (mountedRef.current) setConnected(res.connected)
-      } catch {
-        if (mountedRef.current) setConnected(false)
-      }
-      if (mountedRef.current) setConnecting(false)
-    }
-    connect()
-    return () => { mountedRef.current = false }
-  }, [device.id])
-
-  // Sequential screenshot fetch — only starts next poll AFTER current one completes
-  const fetchScreenshot = useCallback(async () => {
-    if (!connected || !mountedRef.current) return
-    // Cancel any in-flight request
-    if (abortRef.current) abortRef.current.abort()
-    abortRef.current = new AbortController()
-    try {
-      const blob = await getDeviceScreenshot(device.id)
-      if (!mountedRef.current) return
-      const url = URL.createObjectURL(blob)
-      setImgSrc(prev => {
-        if (prev) URL.revokeObjectURL(prev)
-        return url
-      })
-      setLoading(false)
-      setError(null)
-    } catch (e: any) {
-      if (!mountedRef.current) return
-      setError(e.message || 'Failed')
-      setLoading(false)
-    }
-  }, [device.id, connected])
-
-  // Sequential polling: fetch → wait → fetch → wait (no overlapping requests)
-  useEffect(() => {
-    if (!connected) return
-
-    let stopped = false
-
-    const poll = async () => {
-      if (stopped) return
-      await fetchScreenshot()
-      if (stopped) return
-      // Schedule next poll AFTER this one finishes
-      pollingTimerRef.current = setTimeout(poll, refreshInterval)
-    }
-
-    poll()
-
-    return () => {
-      stopped = true
-      if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current)
-      if (abortRef.current) abortRef.current.abort()
-    }
-  }, [connected, refreshInterval, fetchScreenshot])
-
-  // Cleanup URL on unmount
-  useEffect(() => {
-    return () => {
-      if (imgSrc) URL.revokeObjectURL(imgSrc)
-    }
-  }, [])
-
-  // Handle click/tap on image — uses normalized coordinates (accounts for object-contain)
-  const doTap = async (e: React.MouseEvent<HTMLImageElement>) => {
-    const img = imgRef.current
-    if (!img) return
-    const coords = mouseToImageCoords(e, img)
-    if (!coords) return // clicked on letterbox padding
-
-    // Show visual tap indicator
-    const rect = img.getBoundingClientRect()
-    setTapIndicator({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-    setTimeout(() => setTapIndicator(null), 400)
-
-    // Send normalized coords — backend will multiply by device resolution
-    try {
-      await sendTap(device.id, coords.nx, coords.ny, 1, 1)
-      setTimeout(fetchScreenshot, 300)
-    } catch (err) {
-      console.error('Tap failed:', err)
-    }
-  }
-
-  // Handle swipe via mouse drag
-  const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
-    const img = imgRef.current
-    if (!img) return
-    const rect = img.getBoundingClientRect()
-    setSwipeStart({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      clientX: e.clientX,
-      clientY: e.clientY,
-    })
-  }
-
-  const handleMouseUp = async (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!swipeStart) return
-    const img = imgRef.current
-    if (!img) return
-
-    const dx = Math.abs(e.clientX - swipeStart.clientX)
-    const dy = Math.abs(e.clientY - swipeStart.clientY)
-
-    // Only count as swipe if moved more than 20px
-    if (dx > 20 || dy > 20) {
-      const startCoords = mouseToImageCoords(
-        { clientX: swipeStart.clientX, clientY: swipeStart.clientY } as any,
-        img
-      )
-      const endCoords = mouseToImageCoords(e, img)
-
-      if (startCoords && endCoords) {
-        try {
-          await sendSwipe(
-            device.id,
-            startCoords.nx, startCoords.ny,
-            endCoords.nx, endCoords.ny,
-            1, 1, // normalized
-            300
-          )
-          setTimeout(fetchScreenshot, 300)
-        } catch (err) {
-          console.error('Swipe failed:', err)
-        }
-      }
-    } else {
-      // It's a click, not a swipe
-      doTap(e)
-    }
-    setSwipeStart(null)
-  }
-
-  // Key events
-  const handleKey = async (keycode: number) => {
-    try {
-      await sendKeyEvent(device.id, keycode)
-      setTimeout(fetchScreenshot, 500)
-    } catch (err) {
-      console.error('KeyEvent failed:', err)
-    }
-  }
-
-  // Wake + unlock
-  const handleWake = async () => {
-    try {
-      await wakeDevice(device.id)
-      setTimeout(fetchScreenshot, 1200)
-    } catch (err) {
-      console.error('Wake failed:', err)
-    }
-  }
-
+function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }) {
   const statusColor = device.status === 'ONLINE' ? 'bg-emerald-500' : device.status === 'BUSY' ? 'bg-amber-500' : 'bg-slate-600'
+  const statusGlow = device.status === 'ONLINE' ? 'shadow-emerald-500/30 shadow-lg' : ''
 
   return (
-    <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#1a1a2e] overflow-hidden transition-all ${expanded ? 'col-span-full row-span-2' : ''}`}>
+    <button
+      onClick={onClick}
+      disabled={device.status !== 'ONLINE'}
+      className={`group flex flex-col items-center gap-3 p-5 rounded-xl border transition-all duration-200 ${
+        device.status === 'ONLINE'
+          ? 'border-white/10 bg-[#1a1a2e] hover:border-brand-500/40 hover:bg-[#1e1e38] cursor-pointer'
+          : 'border-white/5 bg-[#14142a] opacity-50 cursor-not-allowed'
+      }`}
+    >
+      {/* Phone Icon */}
+      <div className={`relative w-16 h-24 rounded-xl border-2 ${
+        device.status === 'ONLINE' ? 'border-slate-500 bg-slate-800' : 'border-slate-700 bg-slate-900'
+      } flex items-center justify-center ${statusGlow}`}>
+        <Smartphone size={28} className={device.status === 'ONLINE' ? 'text-slate-400 group-hover:text-brand-400 transition' : 'text-slate-700'} />
+        {/* Status dot */}
+        <div className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full ${statusColor} border-2 border-[#14142a]`} />
+      </div>
+
+      {/* Device Info */}
+      <div className="text-center min-w-0 w-full">
+        <div className="text-sm font-medium text-slate-200 truncate">{device.name}</div>
+        {device.phoneNumber && <div className="text-[10px] text-brand-400 font-medium mt-0.5">{device.phoneNumber}</div>}
+        <div className="text-[10px] text-slate-500 mt-0.5">{device.group?.name || 'No Group'}</div>
+      </div>
+
+      {/* Status Info */}
+      <div className="flex items-center gap-3 text-[10px]">
+        <span className={`pill ${device.status === 'ONLINE' ? 'pill-green' : 'pill-gray'}`}>{device.status}</span>
+        {device.batteryPercent != null && (
+          <span className={`flex items-center gap-0.5 ${device.isCharging ? 'text-green-400' : 'text-slate-400'}`}>
+            {device.isCharging ? <BatteryCharging size={10} /> : <Battery size={10} />}
+            {device.batteryPercent}%
+          </span>
+        )}
+      </div>
+
+      {device.status === 'ONLINE' && (
+        <span className="text-[10px] text-slate-600 group-hover:text-brand-400/60 transition">Click to connect</span>
+      )}
+    </button>
+  )
+}
+
+// ─── Detail View (Placeholder until WebSocket streaming is implemented) ───────
+
+function DeviceDetailView({ device, onBack }: { device: Device; onBack: () => void }) {
+  return (
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-[#14142a]">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`w-2.5 h-2.5 rounded-full ${statusColor} shrink-0`} />
-          <Smartphone size={14} className="text-slate-400 shrink-0" />
-          <span className="text-sm font-medium text-slate-200 truncate">{device.name || `Device ${device.id}`}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {connected ? (
-            <Wifi size={14} className="text-emerald-400" />
-          ) : (
-            <WifiOff size={14} className="text-red-400" />
-          )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <button
-            onClick={onToggleExpand}
-            className="p-1 rounded hover:bg-white/[0.08] text-slate-400 hover:text-white transition"
-            title={expanded ? 'Minimize' : 'Maximize'}
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-sm transition"
           >
-            {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <ArrowLeft size={14} /> Back to devices
           </button>
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Smartphone size={18} className="text-brand-400" />
+              {device.name}
+            </h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              {device.phoneNumber && <span className="text-xs text-brand-400">{device.phoneNumber}</span>}
+              <span className={`pill text-[10px] ${device.status === 'ONLINE' ? 'pill-green' : 'pill-gray'}`}>{device.status}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Screen area */}
-      <div
-        ref={containerRef}
-        className={`flex-1 flex items-center justify-center bg-black/50 overflow-hidden relative ${expanded ? 'min-h-[600px]' : 'min-h-[300px]'}`}
-      >
-        {connecting && (
-          <div className="flex flex-col items-center gap-2 text-slate-400">
-            <RefreshCw size={20} className="animate-spin" />
-            <span className="text-xs">Connecting ADB...</span>
+      {/* Screen Area */}
+      <div className="flex items-center justify-center rounded-xl border border-white/[0.08] bg-[#0a0a14] min-h-[500px]">
+        <div className="text-center space-y-4 py-16">
+          <div className="relative mx-auto w-20 h-32 rounded-xl border-2 border-slate-700 bg-slate-900 flex items-center justify-center">
+            <Monitor size={28} className="text-slate-700" />
+            <div className="absolute inset-0 rounded-xl bg-brand-500/5 animate-pulse" />
           </div>
-        )}
-        {!connecting && !connected && (
-          <div className="flex flex-col items-center gap-2 text-slate-500">
-            <WifiOff size={24} />
-            <span className="text-xs">ADB not connected</span>
-            <button
-              onClick={async () => {
-                setConnecting(true)
-                try {
-                  const res = await connectDeviceAdb(device.id)
-                  setConnected(res.connected)
-                } catch { /* ignore */ }
-                setConnecting(false)
-              }}
-              className="mt-1 px-3 py-1 text-xs bg-brand-600/30 text-brand-400 rounded-lg hover:bg-brand-600/50 transition"
-            >
-              Retry
-            </button>
+          <div>
+            <p className="text-slate-400 text-sm font-medium">Remote Desktop</p>
+            <p className="text-slate-600 text-xs mt-1 max-w-xs">
+              WebSocket-based screen streaming will be available once the Android app is updated with MediaProjection support.
+            </p>
           </div>
-        )}
-        {connected && loading && !imgSrc && (
-          <div className="flex flex-col items-center gap-2 text-slate-400">
-            <Monitor size={20} className="animate-pulse" />
-            <span className="text-xs">Loading screen...</span>
+          <div className="flex items-center justify-center gap-6 text-[10px] text-slate-600">
+            <span className="flex items-center gap-1"><MousePointer size={10} /> Tap</span>
+            <span className="flex items-center gap-1"><RefreshCw size={10} /> Swipe</span>
+            <span>Keyboard</span>
           </div>
-        )}
-        {connected && error && !imgSrc && (
-          <div className="flex flex-col items-center gap-2 text-red-400">
-            <Monitor size={20} />
-            <span className="text-xs">{error}</span>
-          </div>
-        )}
-        {imgSrc && (
-          <>
-            <img
-              ref={imgRef}
-              src={imgSrc}
-              alt={`${device.name} screen`}
-              className={`object-contain cursor-crosshair select-none ${expanded ? 'max-h-[600px]' : 'max-h-[300px]'} w-auto`}
-              draggable={false}
-              onMouseDown={handleMouseDown}
-              onMouseUp={handleMouseUp}
-            />
-            {/* Tap ripple indicator */}
-            {tapIndicator && (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  left: tapIndicator.x - 15,
-                  top: tapIndicator.y - 15,
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  border: '2px solid rgba(139, 92, 246, 0.8)',
-                  background: 'rgba(139, 92, 246, 0.3)',
-                  animation: 'ping 0.4s ease-out forwards',
-                }}
-              />
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-2 px-3 py-2 border-t border-white/[0.06] bg-[#14142a]">
-        <button onClick={handleWake} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 hover:text-white text-xs transition" title="Wake screen & unlock">
-          <Sun size={12} /> Wake
-        </button>
-        <button onClick={() => handleKey(4)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white text-xs transition" title="Back">
-          <ArrowLeft size={12} /> Back
-        </button>
-        <button onClick={() => handleKey(3)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white text-xs transition" title="Home">
-          <Home size={12} /> Home
-        </button>
-        <button onClick={() => handleKey(187)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white text-xs transition" title="Recent Apps">
-          <LayoutGrid size={12} /> Recent
-        </button>
-        <button onClick={fetchScreenshot} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white text-xs transition" title="Refresh">
-          <RefreshCw size={12} />
-        </button>
+        </div>
       </div>
     </div>
   )
 }
 
-/**
- * Remote Desktop page — grid of live device screens.
- */
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function RemoteDesktopPage() {
-  const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [refreshInterval, setRefreshInterval] = useState(1000)
-  const [showSettings, setShowSettings] = useState(false)
+  const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
+  const [filterGroup, setFilterGroup] = useState('')
 
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
     queryFn: getDevices,
-    refetchInterval: 15_000,
+    refetchInterval: 15000,
   })
 
-  // Filter to only devices with an ADB WiFi address
-  const adbDevices = (devices as Device[]).filter((d: Device) => d.adbWifiAddress && d.adbWifiAddress.trim() !== '')
+  const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
+
+  const selectedDevice = (devices as Device[]).find((d: Device) => d.id === selectedDeviceId) || null
+
+  // Filter devices
+  const filteredDevices = (devices as Device[]).filter((d: Device) => {
+    if (filterGroup && String(d.group?.id ?? '') !== filterGroup) return false
+    return true
+  })
+
+  // Sort: ONLINE first, then by name
+  const sortedDevices = [...filteredDevices].sort((a, b) => {
+    if (a.status === 'ONLINE' && b.status !== 'ONLINE') return -1
+    if (a.status !== 'ONLINE' && b.status === 'ONLINE') return 1
+    return a.name.localeCompare(b.name)
+  })
+
+  // If viewing a device detail
+  if (selectedDevice) {
+    return (
+      <div className="space-y-5">
+        <DeviceDetailView device={selectedDevice} onBack={() => setSelectedDeviceId(null)} />
+      </div>
+    )
+  }
+
+  const onlineCount = (devices as Device[]).filter((d: Device) => d.status === 'ONLINE').length
 
   return (
     <div className="space-y-5">
@@ -390,77 +155,48 @@ export default function RemoteDesktopPage() {
             Remote Desktop
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Live screen mirroring and remote control for {adbDevices.length} device{adbDevices.length !== 1 ? 's' : ''}
+            {onlineCount} of {(devices as Device[]).length} device{(devices as Device[]).length !== 1 ? 's' : ''} online
           </p>
         </div>
-
-        {/* Settings toggle */}
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-sm transition"
-        >
-          Settings {showSettings ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
       </div>
 
-      {/* Settings panel */}
-      {showSettings && (
-        <div className="rounded-xl border border-white/[0.08] bg-[#1a1a2e] p-4">
-          <div className="flex items-center gap-4">
-            <label className="text-sm text-slate-300">Refresh rate:</label>
-            <input
-              type="range"
-              min={300}
-              max={3000}
-              step={100}
-              value={refreshInterval}
-              onChange={e => setRefreshInterval(Number(e.target.value))}
-              className="w-48 accent-brand-500"
-            />
-            <span className="text-sm text-slate-400 w-16">{refreshInterval}ms</span>
-          </div>
+      {/* Filter */}
+      <div className="flex items-center gap-3">
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
+          <select
+            className="bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5 min-w-[160px]"
+            value={filterGroup}
+            onChange={e => setFilterGroup(e.target.value)}
+          >
+            <option value="">All Groups</option>
+            {(groups as DeviceGroup[]).map((g: DeviceGroup) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
         </div>
-      )}
+        {filterGroup && (
+          <button className="text-xs text-slate-400 hover:text-white mt-4" onClick={() => setFilterGroup('')}>Clear</button>
+        )}
+        <span className="text-xs text-slate-600 mt-4 ml-auto">{sortedDevices.length} devices</span>
+      </div>
 
-      {/* No devices */}
-      {adbDevices.length === 0 && (
+      {/* Device Grid */}
+      {sortedDevices.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-500">
           <Monitor size={48} className="mb-4 opacity-30" />
-          <p className="text-lg font-medium">No devices with ADB WiFi address</p>
-          <p className="text-sm mt-1">Configure WiFi ADB addresses on the Devices page first.</p>
+          <p className="text-lg font-medium">No devices found</p>
+          <p className="text-sm mt-1">Register devices on the Devices tab first.</p>
         </div>
-      )}
-
-      {/* Device grid */}
-      <div className={`grid gap-4 ${expandedId
-        ? 'grid-cols-1'
-        : adbDevices.length <= 2
-          ? 'grid-cols-1 sm:grid-cols-2'
-          : adbDevices.length <= 4
-            ? 'grid-cols-2 lg:grid-cols-2'
-            : 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-      }`}>
-        {adbDevices.map((device: Device) => {
-          if (expandedId !== null && expandedId !== device.id) return null
-          return (
-            <DeviceScreen
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {sortedDevices.map((device: Device) => (
+            <DeviceCard
               key={device.id}
               device={device}
-              expanded={expandedId === device.id}
-              onToggleExpand={() => setExpandedId(expandedId === device.id ? null : device.id)}
-              refreshInterval={refreshInterval}
+              onClick={() => setSelectedDeviceId(device.id)}
             />
-          )
-        })}
-      </div>
-
-      {/* Tap animation keyframes */}
-      <style>{`
-        @keyframes ping {
-          0% { transform: scale(0.5); opacity: 1; }
-          100% { transform: scale(2); opacity: 0; }
-        }
-      `}</style>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
