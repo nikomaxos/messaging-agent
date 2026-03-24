@@ -89,7 +89,11 @@ public class DeviceController {
             if (req.getSelfHealingEnabled() != null) {
                 device.setSelfHealingEnabled(req.getSelfHealingEnabled());
             }
-            groupRepository.findById(req.getGroupId()).ifPresent(device::setGroup);
+            if (req.getGroupId() == null) {
+                device.setGroup(null);
+            } else {
+                groupRepository.findById(req.getGroupId()).ifPresent(device::setGroup);
+            }
             return ResponseEntity.ok(deviceRepository.save(device));
         }).orElse(ResponseEntity.notFound().build());
     }
