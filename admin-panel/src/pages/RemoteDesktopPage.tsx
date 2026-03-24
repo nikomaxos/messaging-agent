@@ -1,550 +1,361 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getDevices, getGroups, getScreenshot, sendTap, sendSwipe, sendKeyEvent, wakeDevice, connectAdb } from '../api/client'
-import { Device, DeviceGroup } from '../types'
-import { Monitor, Smartphone, Battery, BatteryCharging, ArrowLeft, RefreshCw, MousePointer, Home, ArrowDown, Square, Sun, Loader2, AlertCircle, ZapOff } from 'lucide-react'
+import { getDevices, startScreenStream, stopScreenStream, sendRemoteInput, sendRemoteWake, sendShellCommand } from '../api/client'
+import { Client } from '@stomp/stompjs'
+import SockJS from 'sockjs-client'
 
-// ─── Device List View ─────────────────────────────────────────────────────────
+/* ─── types ─────────────────────────────────────────────────── */
+interface Device { id: number; name: string; status: string }
+interface ShellEntry { type: 'cmd' | 'out'; text: string; ts: number }
 
-function DeviceCard({ device, onClick }: { device: Device; onClick: () => void }) {
-  const statusColor = device.status === 'ONLINE' ? 'bg-emerald-500' : device.status === 'BUSY' ? 'bg-amber-500' : 'bg-slate-600'
-  const statusGlow = device.status === 'ONLINE' ? 'shadow-emerald-500/30 shadow-lg' : ''
+/* ─── main page ─────────────────────────────────────────────── */
+export default function RemoteDesktopPage() {
+  const { data: devices = [] } = useQuery<Device[]>({ queryKey: ['devices'], queryFn: getDevices })
+  const [selected, setSelected] = useState<Device | null>(null)
 
   return (
-    <button
-      onClick={onClick}
-      disabled={device.status !== 'ONLINE'}
-      className={`group flex flex-col items-center gap-3 p-5 rounded-xl border transition-all duration-200 ${
-        device.status === 'ONLINE'
-          ? 'border-white/10 bg-[#1a1a2e] hover:border-brand-500/40 hover:bg-[#1e1e38] cursor-pointer'
-          : 'border-white/5 bg-[#14142a] opacity-50 cursor-not-allowed'
-      }`}
-    >
-      {/* Phone Icon */}
-      <div className={`relative w-16 h-24 rounded-xl border-2 ${
-        device.status === 'ONLINE' ? 'border-slate-500 bg-slate-800' : 'border-slate-700 bg-slate-900'
-      } flex items-center justify-center ${statusGlow}`}>
-        <Smartphone size={28} className={device.status === 'ONLINE' ? 'text-slate-400 group-hover:text-brand-400 transition' : 'text-slate-700'} />
-        {/* Status dot */}
-        <div className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full ${statusColor} border-2 border-[#14142a]`} />
+    <div style={{ display: 'flex', gap: 24, height: 'calc(100vh - 80px)', padding: 24 }}>
+      {/* sidebar */}
+      <div style={{
+        width: 260, background: 'var(--card)', borderRadius: 12, padding: 16,
+        border: '1px solid var(--border)', overflow: 'auto',
+      }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: 15, color: 'var(--text-secondary)' }}>Devices</h3>
+        {devices.map((d: Device) => (
+          <button
+            key={d.id}
+            onClick={() => setSelected(d)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              background: selected?.id === d.id ? 'var(--primary)' : 'transparent',
+              color: selected?.id === d.id ? '#fff' : 'var(--text)',
+              marginBottom: 4, textAlign: 'left', fontSize: 14,
+            }}
+          >
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: d.status === 'ONLINE' ? '#22c55e' : '#ef4444',
+            }} />
+            {d.name}
+          </button>
+        ))}
       </div>
 
-      {/* Device Info */}
-      <div className="text-center min-w-0 w-full">
-        <div className="text-sm font-medium text-slate-200 truncate">{device.name}</div>
-        {device.phoneNumber && <div className="text-[10px] text-brand-400 font-medium mt-0.5">{device.phoneNumber}</div>}
-        <div className="text-[10px] text-slate-500 mt-0.5">{device.group?.name || 'No Group'}</div>
-      </div>
-
-      {/* Status Info */}
-      <div className="flex items-center gap-3 text-[10px]">
-        <span className={`pill ${device.status === 'ONLINE' ? 'pill-green' : 'pill-gray'}`}>{device.status}</span>
-        {device.batteryPercent != null && (
-          <span className={`flex items-center gap-0.5 ${device.isCharging ? 'text-green-400' : 'text-slate-400'}`}>
-            {device.isCharging ? <BatteryCharging size={10} /> : <Battery size={10} />}
-            {device.batteryPercent}%
-          </span>
-        )}
-      </div>
-
-      {device.status === 'ONLINE' && (
-        <span className="text-[10px] text-slate-600 group-hover:text-brand-400/60 transition">Click to connect</span>
+      {/* main area */}
+      {selected ? (
+        <DeviceView device={selected} key={selected.id} />
+      ) : (
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--text-secondary)', fontSize: 16,
+        }}>
+          Select a device to start remote desktop
+        </div>
       )}
-    </button>
+    </div>
   )
 }
 
-// ─── Interactive Remote Desktop View ──────────────────────────────────────────
-
-function DeviceDetailView({ device, onBack }: { device: Device; onBack: () => void }) {
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshInterval, setRefreshInterval] = useState(1000)
-  const [isPaused, setIsPaused] = useState(false)
-  const [actionFeedback, setActionFeedback] = useState<string | null>(null)
-  const [tapIndicator, setTapIndicator] = useState<{ x: number; y: number } | null>(null)
-  const [isConnecting, setIsConnecting] = useState(false)
-
-  // Swipe tracking
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
-  const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-
+/* ─── device view ───────────────────────────────────────────── */
+function DeviceView({ device }: { device: Device }) {
+  const [frame, setFrame] = useState<string | null>(null)
+  const [streaming, setStreaming] = useState(false)
+  const [fps, setFps] = useState(0)
+  const [shellEntries, setShellEntries] = useState<ShellEntry[]>([])
+  const [shellCmd, setShellCmd] = useState('')
+  const [showShell, setShowShell] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isMounted = useRef(true)
+  const shellEndRef = useRef<HTMLDivElement>(null)
+  const stompRef = useRef<Client | null>(null)
+  const frameCount = useRef(0)
+  const fpsInterval = useRef<ReturnType<typeof setInterval>>()
 
-  // ── ADB Connect on mount ────────────────────────────────────────────────
+  // drag state
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
+  const [dragEnd, setDragEnd] = useState<{ x: number; y: number } | null>(null)
+  const [tapIndicator, setTapIndicator] = useState<{ x: number; y: number } | null>(null)
+
+  // ── STOMP connect + subscribe ──
   useEffect(() => {
-    setIsConnecting(true)
-    connectAdb(device.id)
-      .then(() => { if (isMounted.current) setIsConnecting(false) })
-      .catch(() => { if (isMounted.current) setIsConnecting(false) })
+    const client = new Client({
+      webSocketFactory: () => new SockJS('/ws-admin'),
+      reconnectDelay: 3000,
+      debug: () => {},
+    })
+
+    client.onConnect = () => {
+      // subscribe to screen frames
+      client.subscribe(`/topic/screen/${device.id}`, (msg) => {
+        setFrame('data:image/png;base64,' + msg.body)
+        frameCount.current++
+      })
+      // subscribe to shell results
+      client.subscribe(`/topic/shell/${device.id}`, (msg) => {
+        try {
+          const data = JSON.parse(msg.body)
+          const output = (data.output || '').replace(/\\n/g, '\n')
+          setShellEntries(prev => [...prev, { type: 'out', text: output, ts: Date.now() }])
+        } catch {
+          setShellEntries(prev => [...prev, { type: 'out', text: msg.body, ts: Date.now() }])
+        }
+      })
+    }
+
+    client.activate()
+    stompRef.current = client
+
+    // FPS counter
+    fpsInterval.current = setInterval(() => {
+      setFps(frameCount.current)
+      frameCount.current = 0
+    }, 1000)
+
+    return () => {
+      stopScreenStream(device.id).catch(() => {})
+      client.deactivate()
+      clearInterval(fpsInterval.current)
+    }
   }, [device.id])
 
-  // ── Screenshot polling ──────────────────────────────────────────────────
-  const fetchScreenshot = useCallback(async () => {
-    if (!isMounted.current || isPaused) return
-    try {
-      const blob = await getScreenshot(device.id)
-      if (!isMounted.current) return
-      const url = URL.createObjectURL(blob)
-      setScreenshotUrl(prev => {
-        if (prev) URL.revokeObjectURL(prev)
-        return url
-      })
-      setLoading(false)
-      setError(null)
-    } catch (e: any) {
-      if (!isMounted.current) return
-      setError(e?.response?.status === 503 ? 'Device screen unavailable — try Wake' : 'Connection error')
-      setLoading(false)
-    }
-    if (isMounted.current && !isPaused) {
-      timerRef.current = setTimeout(fetchScreenshot, refreshInterval)
-    }
-  }, [device.id, refreshInterval, isPaused])
-
+  // scroll shell to bottom
   useEffect(() => {
-    isMounted.current = true
-    fetchScreenshot()
-    return () => {
-      isMounted.current = false
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [fetchScreenshot])
+    shellEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [shellEntries])
 
-  // Cleanup blob URL on unmount
-  useEffect(() => {
-    return () => {
-      if (screenshotUrl) URL.revokeObjectURL(screenshotUrl)
+  // ── actions ──
+  const toggleStream = async () => {
+    if (streaming) {
+      await stopScreenStream(device.id)
+      setStreaming(false)
+    } else {
+      await startScreenStream(device.id)
+      setStreaming(true)
     }
-  }, [])
-
-  // ── Action feedback ─────────────────────────────────────────────────────
-  const showFeedback = (msg: string) => {
-    setActionFeedback(msg)
-    setTimeout(() => setActionFeedback(null), 1500)
   }
 
-  // ── Tap handler ─────────────────────────────────────────────────────────
-  const handleClick = async (e: React.MouseEvent<HTMLImageElement>) => {
-    if (isDragging) return
+  const handleWake = () => sendRemoteWake(device.id)
+
+  const getImgCoords = (e: React.MouseEvent) => {
     const img = imgRef.current
-    if (!img) return
-
+    if (!img) return null
     const rect = img.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-
-    // Show tap indicator
-    setTapIndicator({ x, y })
-    setTimeout(() => setTapIndicator(null), 400)
-
-    try {
-      await sendTap(device.id, x, y, rect.width, rect.height)
-      // Force immediate refresh after tap
-      if (timerRef.current) clearTimeout(timerRef.current)
-      setTimeout(fetchScreenshot, 300)
-    } catch {
-      showFeedback('Tap failed')
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      w: rect.width,
+      h: rect.height,
     }
   }
 
-  // ── Swipe handlers ──────────────────────────────────────────────────────
-  const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
-    const img = imgRef.current
-    if (!img) return
-    const rect = img.getBoundingClientRect()
-    setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-    setIsDragging(false)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const c = getImgCoords(e)
+    if (c) setDragStart({ x: c.x, y: c.y })
   }
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (!dragStart) return
-    const img = imgRef.current
-    if (!img) return
-    const rect = img.getBoundingClientRect()
-    const current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-    const dist = Math.sqrt(Math.pow(current.x - dragStart.x, 2) + Math.pow(current.y - dragStart.y, 2))
-    if (dist > 15) {
-      setIsDragging(true)
-      setDragCurrent(current)
-    }
+    const c = getImgCoords(e)
+    if (c) setDragEnd({ x: c.x, y: c.y })
   }
 
-  const handleMouseUp = async (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!dragStart || !isDragging) {
-      setDragStart(null)
-      setDragCurrent(null)
-      setIsDragging(false)
-      return
-    }
-    const img = imgRef.current
-    if (!img) return
+  const handleMouseUp = (e: React.MouseEvent) => {
+    const c = getImgCoords(e)
+    if (!c || !dragStart) { setDragStart(null); setDragEnd(null); return }
+    const img = imgRef.current!
     const rect = img.getBoundingClientRect()
-    const endX = e.clientX - rect.left
-    const endY = e.clientY - rect.top
 
-    try {
-      await sendSwipe(device.id, dragStart.x, dragStart.y, endX, endY, rect.width, rect.height)
-      if (timerRef.current) clearTimeout(timerRef.current)
-      setTimeout(fetchScreenshot, 400)
-    } catch {
-      showFeedback('Swipe failed')
+    const dx = c.x - dragStart.x
+    const dy = c.y - dragStart.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    if (dist < 10) {
+      // tap
+      sendRemoteInput(device.id, {
+        type: 'tap', x: dragStart.x, y: dragStart.y,
+        screenWidth: rect.width, screenHeight: rect.height,
+      })
+      setTapIndicator({ x: dragStart.x, y: dragStart.y })
+      setTimeout(() => setTapIndicator(null), 400)
+    } else {
+      // swipe
+      sendRemoteInput(device.id, {
+        type: 'swipe',
+        x1: dragStart.x, y1: dragStart.y,
+        x2: c.x, y2: c.y,
+        screenWidth: rect.width, screenHeight: rect.height,
+      })
     }
-
     setDragStart(null)
-    setDragCurrent(null)
-    setTimeout(() => setIsDragging(false), 50)
+    setDragEnd(null)
   }
 
-  // ── Key event helpers ───────────────────────────────────────────────────
-  const handleKey = async (keycode: number, label: string) => {
-    try {
-      await sendKeyEvent(device.id, keycode)
-      showFeedback(label)
-      if (timerRef.current) clearTimeout(timerRef.current)
-      setTimeout(fetchScreenshot, 400)
-    } catch {
-      showFeedback(`${label} failed`)
-    }
+  const handleKey = (keycode: number) => {
+    sendRemoteInput(device.id, { type: 'key', keycode })
   }
 
-  const handleWake = async () => {
-    try {
-      await wakeDevice(device.id)
-      showFeedback('Wake sent')
-      if (timerRef.current) clearTimeout(timerRef.current)
-      setTimeout(fetchScreenshot, 1000)
-    } catch {
-      showFeedback('Wake failed')
-    }
+  const handleShellSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!shellCmd.trim()) return
+    setShellEntries(prev => [...prev, { type: 'cmd', text: shellCmd, ts: Date.now() }])
+    sendShellCommand(device.id, shellCmd)
+    setShellCmd('')
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-sm transition"
-          >
-            <ArrowLeft size={14} /> Back
-          </button>
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Smartphone size={18} className="text-brand-400" />
-              {device.name}
-            </h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              {device.phoneNumber && <span className="text-xs text-brand-400">{device.phoneNumber}</span>}
-              <span className={`pill text-[10px] ${device.status === 'ONLINE' ? 'pill-green' : 'pill-gray'}`}>{device.status}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center gap-2">
-          {/* Refresh rate */}
-          <select
-            value={refreshInterval}
-            onChange={e => setRefreshInterval(Number(e.target.value))}
-            className="bg-[#12121f] text-xs text-white border border-white/5 rounded px-2 py-1.5"
-          >
-            <option value={500}>0.5s</option>
-            <option value={1000}>1s</option>
-            <option value={2000}>2s</option>
-            <option value={5000}>5s</option>
-          </select>
-
-          {/* Pause/Resume */}
-          <button
-            onClick={() => {
-              setIsPaused(p => !p)
-              if (isPaused) {
-                // Resume
-                if (timerRef.current) clearTimeout(timerRef.current)
-                setTimeout(fetchScreenshot, 100)
-              }
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              isPaused
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                : 'bg-white/[0.06] text-slate-400 hover:text-white border border-white/5'
-            }`}
-          >
-            {isPaused ? 'Resume' : 'Pause'}
-          </button>
-
-          {/* Manual refresh */}
-          <button
-            onClick={() => {
-              if (timerRef.current) clearTimeout(timerRef.current)
-              fetchScreenshot()
-            }}
-            className="p-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-400 hover:text-white transition"
-            title="Force refresh"
-          >
-            <RefreshCw size={14} />
-          </button>
-        </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+      {/* toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        background: 'var(--card)', borderRadius: 12, padding: '10px 16px',
+        border: '1px solid var(--border)',
+      }}>
+        <h3 style={{ margin: 0, fontSize: 15, flex: 1, minWidth: 200 }}>
+          📱 {device.name}
+          <span style={{
+            marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)',
+            background: 'var(--bg)', padding: '2px 8px', borderRadius: 6,
+          }}>
+            {streaming ? `${fps} FPS` : 'Stopped'}
+          </span>
+        </h3>
+        <ToolBtn onClick={toggleStream} active={streaming}>
+          {streaming ? '⏸ Pause' : '▶ Stream'}
+        </ToolBtn>
+        <ToolBtn onClick={handleWake}>☀ Wake</ToolBtn>
+        <ToolBtn onClick={() => handleKey(3)}>🏠 Home</ToolBtn>
+        <ToolBtn onClick={() => handleKey(4)}>◀ Back</ToolBtn>
+        <ToolBtn onClick={() => handleKey(187)}>⧉ Recent</ToolBtn>
+        <ToolBtn onClick={() => setShowShell(!showShell)} active={showShell}>
+          &gt;_ Shell
+        </ToolBtn>
       </div>
 
-      {/* Action Feedback Toast */}
-      {actionFeedback && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-xl bg-brand-500/90 text-white text-sm font-medium shadow-xl animate-fade-in">
-          {actionFeedback}
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <div className="flex gap-4 items-start">
-        {/* Screen Area */}
-        <div
-          ref={containerRef}
-          className="relative flex-1 flex items-center justify-center rounded-xl border border-white/[0.08] bg-[#0a0a14] min-h-[500px] overflow-hidden select-none"
-        >
-          {isConnecting && (
-            <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/60">
-              <div className="flex items-center gap-3 text-slate-400">
-                <Loader2 size={20} className="animate-spin" />
-                <span className="text-sm">Connecting ADB...</span>
-              </div>
-            </div>
-          )}
-
-          {loading && !screenshotUrl && !error && (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <Loader2 size={32} className="animate-spin text-brand-400" />
-              <p className="text-sm text-slate-500">Loading screen...</p>
-            </div>
-          )}
-
-          {error && !screenshotUrl && (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <AlertCircle size={32} className="text-amber-500" />
-              <p className="text-sm text-slate-400">{error}</p>
-              <button
-                onClick={handleWake}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500/20 text-brand-400 hover:bg-brand-500/30 text-sm transition"
-              >
-                <Sun size={14} /> Wake Screen
-              </button>
-            </div>
-          )}
-
-          {screenshotUrl && (
-            <>
+      <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden', minHeight: 0 }}>
+        {/* screen */}
+        <div style={{
+          flex: showShell ? '0 0 50%' : '1',
+          display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
+          overflow: 'auto', position: 'relative',
+          background: '#000', borderRadius: 12,
+        }}>
+          {frame ? (
+            <div style={{ position: 'relative', display: 'inline-block' }}>
               <img
                 ref={imgRef}
-                src={screenshotUrl}
-                alt="Device screen"
-                className="max-h-[70vh] w-auto rounded-lg cursor-crosshair"
-                onClick={handleClick}
+                src={frame}
+                alt="screen"
+                draggable={false}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
-                onMouseLeave={() => {
-                  setDragStart(null)
-                  setDragCurrent(null)
-                  setIsDragging(false)
+                style={{
+                  maxHeight: 'calc(100vh - 200px)', maxWidth: '100%',
+                  objectFit: 'contain', cursor: 'crosshair', userSelect: 'none',
                 }}
-                draggable={false}
-                style={{ imageRendering: 'auto' }}
               />
-
-              {/* Tap indicator */}
-              {tapIndicator && imgRef.current && (
-                <div
-                  className="absolute w-8 h-8 rounded-full border-2 border-brand-400 bg-brand-400/20 animate-ping pointer-events-none"
-                  style={{
-                    left: imgRef.current.offsetLeft + tapIndicator.x - 16,
-                    top: imgRef.current.offsetTop + tapIndicator.y - 16,
-                  }}
-                />
+              {/* tap indicator */}
+              {tapIndicator && (
+                <div style={{
+                  position: 'absolute',
+                  left: tapIndicator.x - 16, top: tapIndicator.y - 16,
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: '3px solid #3b82f6', background: 'rgba(59,130,246,0.3)',
+                  pointerEvents: 'none', animation: 'tapPulse 0.4s ease-out',
+                }} />
               )}
-
-              {/* Swipe trail */}
-              {isDragging && dragStart && dragCurrent && imgRef.current && (
-                <svg
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ left: imgRef.current.offsetLeft, top: imgRef.current.offsetTop, width: imgRef.current.width, height: imgRef.current.height }}
-                >
+              {/* drag trail */}
+              {dragStart && dragEnd && (
+                <svg style={{
+                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                  pointerEvents: 'none',
+                }}>
                   <line
                     x1={dragStart.x} y1={dragStart.y}
-                    x2={dragCurrent.x} y2={dragCurrent.y}
-                    stroke="rgba(139, 92, 246, 0.7)"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeDasharray="8,4"
+                    x2={dragEnd.x} y2={dragEnd.y}
+                    stroke="#3b82f6" strokeWidth={3} strokeLinecap="round" opacity={0.7}
                   />
-                  <circle cx={dragStart.x} cy={dragStart.y} r="5" fill="rgba(139, 92, 246, 0.5)" />
-                  <circle cx={dragCurrent.x} cy={dragCurrent.y} r="5" fill="rgba(139, 92, 246, 0.8)" />
                 </svg>
               )}
-            </>
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              height: '100%', width: '100%', color: '#888', fontSize: 15,
+            }}>
+              {streaming ? 'Waiting for frames…' : 'Click ▶ Stream to start'}
+            </div>
           )}
+        </div>
 
-          {/* Status bar */}
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 bg-black/60 text-[10px] text-slate-500">
-            <span className="flex items-center gap-1">
-              <MousePointer size={9} /> Click=Tap, Drag=Swipe
-            </span>
-            <span>{isPaused ? '⏸ Paused' : `⟳ ${refreshInterval / 1000}s`}</span>
+        {/* shell */}
+        {showShell && (
+          <div style={{
+            flex: '0 0 50%', display: 'flex', flexDirection: 'column',
+            background: '#0d1117', borderRadius: 12, border: '1px solid #30363d',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '8px 14px', borderBottom: '1px solid #30363d',
+              color: '#8b949e', fontSize: 13, fontFamily: 'monospace',
+            }}>
+              🔧 Remote Shell — {device.name}
+            </div>
+            <div style={{
+              flex: 1, overflow: 'auto', padding: '8px 14px',
+              fontFamily: '"Cascadia Code", "Fira Code", monospace', fontSize: 13,
+              lineHeight: 1.6,
+            }}>
+              {shellEntries.map((e, i) => (
+                <div key={i} style={{
+                  color: e.type === 'cmd' ? '#58a6ff' : '#c9d1d9',
+                  marginBottom: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                }}>
+                  {e.type === 'cmd' ? `$ ${e.text}` : e.text}
+                </div>
+              ))}
+              <div ref={shellEndRef} />
+            </div>
+            <form onSubmit={handleShellSubmit} style={{
+              display: 'flex', borderTop: '1px solid #30363d',
+            }}>
+              <span style={{
+                padding: '10px 8px 10px 14px', color: '#58a6ff', fontFamily: 'monospace',
+                fontSize: 13, userSelect: 'none',
+              }}>$</span>
+              <input
+                value={shellCmd}
+                onChange={e => setShellCmd(e.target.value)}
+                placeholder="Type a command…"
+                style={{
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  color: '#c9d1d9', fontFamily: '"Cascadia Code", "Fira Code", monospace',
+                  fontSize: 13, padding: '10px 14px 10px 4px',
+                }}
+              />
+            </form>
           </div>
-        </div>
-
-        {/* Sidebar Controls */}
-        <div className="flex flex-col gap-2 w-14">
-          {/* Navigation buttons */}
-          <button
-            onClick={() => handleKey(3, 'Home')}
-            className="flex flex-col items-center gap-1 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-400 hover:text-white transition"
-            title="Home"
-          >
-            <Home size={16} />
-            <span className="text-[9px]">Home</span>
-          </button>
-
-          <button
-            onClick={() => handleKey(4, 'Back')}
-            className="flex flex-col items-center gap-1 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-400 hover:text-white transition"
-            title="Back"
-          >
-            <ArrowDown size={16} className="rotate-90" />
-            <span className="text-[9px]">Back</span>
-          </button>
-
-          <button
-            onClick={() => handleKey(187, 'Recents')}
-            className="flex flex-col items-center gap-1 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-400 hover:text-white transition"
-            title="Recent Apps"
-          >
-            <Square size={16} />
-            <span className="text-[9px]">Recents</span>
-          </button>
-
-          <div className="border-t border-white/5 my-1" />
-
-          <button
-            onClick={handleWake}
-            className="flex flex-col items-center gap-1 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-400 hover:text-white transition"
-            title="Wake & Unlock"
-          >
-            <Sun size={16} />
-            <span className="text-[9px]">Wake</span>
-          </button>
-
-          <button
-            onClick={() => handleKey(26, 'Power')}
-            className="flex flex-col items-center gap-1 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-400 hover:text-white transition"
-            title="Power button"
-          >
-            <ZapOff size={16} />
-            <span className="text-[9px]">Power</span>
-          </button>
-        </div>
+        )}
       </div>
     </div>
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function RemoteDesktopPage() {
-  const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
-  const [filterGroup, setFilterGroup] = useState('')
-
-  const { data: devices = [] } = useQuery({
-    queryKey: ['devices'],
-    queryFn: getDevices,
-    refetchInterval: 15000,
-  })
-
-  const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
-
-  const selectedDevice = (devices as Device[]).find((d: Device) => d.id === selectedDeviceId) || null
-
-  // Filter devices
-  const filteredDevices = (devices as Device[]).filter((d: Device) => {
-    if (filterGroup && String(d.group?.id ?? '') !== filterGroup) return false
-    return true
-  })
-
-  // Sort: ONLINE first, then by name
-  const sortedDevices = [...filteredDevices].sort((a, b) => {
-    if (a.status === 'ONLINE' && b.status !== 'ONLINE') return -1
-    if (a.status !== 'ONLINE' && b.status === 'ONLINE') return 1
-    return a.name.localeCompare(b.name)
-  })
-
-  // If viewing a device detail
-  if (selectedDevice) {
-    return (
-      <div className="space-y-5">
-        <DeviceDetailView device={selectedDevice} onBack={() => setSelectedDeviceId(null)} />
-      </div>
-    )
-  }
-
-  const onlineCount = (devices as Device[]).filter((d: Device) => d.status === 'ONLINE').length
-
+/* ─── button component ──────────────────────────────────────── */
+function ToolBtn({ children, onClick, active }: {
+  children: React.ReactNode; onClick?: () => void; active?: boolean
+}) {
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
-            <Monitor size={24} className="text-brand-400" />
-            Remote Desktop
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            {onlineCount} of {(devices as Device[]).length} device{(devices as Device[]).length !== 1 ? 's' : ''} online
-          </p>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div className="flex items-center gap-3">
-        <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
-          <select
-            className="bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5 min-w-[160px]"
-            value={filterGroup}
-            onChange={e => setFilterGroup(e.target.value)}
-          >
-            <option value="">All Groups</option>
-            {(groups as DeviceGroup[]).map((g: DeviceGroup) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </div>
-        {filterGroup && (
-          <button className="text-xs text-slate-400 hover:text-white mt-4" onClick={() => setFilterGroup('')}>Clear</button>
-        )}
-        <span className="text-xs text-slate-600 mt-4 ml-auto">{sortedDevices.length} devices</span>
-      </div>
-
-      {/* Device Grid */}
-      {sortedDevices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-          <Monitor size={48} className="mb-4 opacity-30" />
-          <p className="text-lg font-medium">No devices found</p>
-          <p className="text-sm mt-1">Register devices on the Devices tab first.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {sortedDevices.map((device: Device) => (
-            <DeviceCard
-              key={device.id}
-              device={device}
-              onClick={() => setSelectedDeviceId(device.id)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <button
+      onClick={onClick}
+      style={{
+        padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+        border: '1px solid var(--border)',
+        background: active ? 'var(--primary)' : 'var(--bg)',
+        color: active ? '#fff' : 'var(--text)',
+      }}
+    >
+      {children}
+    </button>
   )
 }

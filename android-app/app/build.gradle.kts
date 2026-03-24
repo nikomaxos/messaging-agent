@@ -16,7 +16,7 @@ android {
         minSdk = 26          // Android 10+ required for RCS IMS APIs
         targetSdk = 34
         versionCode = 77
-        versionName = "1.0.77"
+        versionName = "1.0.78"
     }
 
     signingConfigs {

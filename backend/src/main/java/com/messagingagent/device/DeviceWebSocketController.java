@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.util.Map;
@@ -22,6 +23,8 @@ import java.util.Map;
 public class DeviceWebSocketController {
 
     private final DeviceWebSocketService webSocketService;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final com.messagingagent.repository.DeviceRepository deviceRepository;
 
     /**
      * Devices send heartbeats to /app/heartbeat.
@@ -74,4 +77,31 @@ public class DeviceWebSocketController {
                                    @Header("deviceToken") String deviceToken) {
         webSocketService.handleDeviceLogs(deviceToken, logs);
     }
+
+    /**
+     * Devices send base64-encoded screen frames to /app/screen-frame.
+     * Relayed to admin panel subscribers at /topic/screen/{deviceId}.
+     */
+    @MessageMapping("/screen-frame")
+    public void receiveScreenFrame(@Payload String base64Frame,
+                                    @Header("deviceToken") String deviceToken) {
+        deviceRepository.findByRegistrationToken(deviceToken).ifPresent(device -> {
+            messagingTemplate.convertAndSend("/topic/screen/" + device.getId(), base64Frame);
+        });
+    }
+
+    /**
+     * Devices send shell execution results to /app/shell-result.
+     * JSON payload: { output, exitCode, cmd }
+     * Relayed to admin panel subscribers at /topic/shell/{deviceId}.
+     */
+    @MessageMapping("/shell-result")
+    public void receiveShellResult(@Payload String jsonResult,
+                                    @Header("deviceToken") String deviceToken) {
+        deviceRepository.findByRegistrationToken(deviceToken).ifPresent(device -> {
+            log.info("Shell result from device {}", device.getId());
+            messagingTemplate.convertAndSend("/topic/shell/" + device.getId(), jsonResult);
+        });
+    }
 }
+

@@ -149,24 +149,19 @@ export const updateUser     = (id: number, d: any) => api.put(`/users/${id}`, d)
 export const resetPassword  = (id: number, password: string) => api.put(`/users/${id}/password`, { password }).then((r: any) => r.data)
 export const deleteUser     = (id: number) => api.delete(`/users/${id}`)
 
-// ── Remote Desktop ────────────────────────────────────────────────────────
-export const getScreenshot = (deviceId: number) =>
-  api.get(`/devices/${deviceId}/screenshot`, { responseType: 'blob' }).then((r: any) => r.data)
+// ── Remote Desktop (WebSocket-based, no ADB) ──────────────────────────────
+export const startScreenStream = (deviceId: number) =>
+  api.post(`/devices/${deviceId}/remote/start`).then((r: any) => r.data)
 
-export const getScreenInfo = (deviceId: number) =>
-  api.get(`/devices/${deviceId}/screen-info`).then((r: any) => r.data)
+export const stopScreenStream = (deviceId: number) =>
+  api.post(`/devices/${deviceId}/remote/stop`).then((r: any) => r.data)
 
-export const sendTap = (deviceId: number, x: number, y: number, screenWidth: number, screenHeight: number) =>
-  api.post(`/devices/${deviceId}/input/tap`, { x, y, screenWidth, screenHeight }).then((r: any) => r.data)
+export const sendRemoteInput = (deviceId: number, input: Record<string, any>) =>
+  api.post(`/devices/${deviceId}/remote/input`, input).then((r: any) => r.data)
 
-export const sendSwipe = (deviceId: number, x1: number, y1: number, x2: number, y2: number, screenWidth: number, screenHeight: number, duration = 300) =>
-  api.post(`/devices/${deviceId}/input/swipe`, { x1, y1, x2, y2, screenWidth, screenHeight, duration }).then((r: any) => r.data)
+export const sendRemoteWake = (deviceId: number) =>
+  api.post(`/devices/${deviceId}/remote/wake`).then((r: any) => r.data)
 
-export const sendKeyEvent = (deviceId: number, keycode: number) =>
-  api.post(`/devices/${deviceId}/input/keyevent`, { keycode }).then((r: any) => r.data)
+export const sendShellCommand = (deviceId: number, cmd: string) =>
+  api.post(`/devices/${deviceId}/remote/shell`, { cmd }).then((r: any) => r.data)
 
-export const wakeDevice = (deviceId: number) =>
-  api.post(`/devices/${deviceId}/wake`).then((r: any) => r.data)
-
-export const connectAdb = (deviceId: number) =>
-  api.post(`/devices/${deviceId}/adb/connect`).then((r: any) => r.data)

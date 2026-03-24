@@ -70,6 +70,10 @@ class WebSocketRelayClient @Inject constructor(
     @Volatile private var callBlockEnabled = false
     private var callBlockJob: Job? = null
 
+    /** Screen streaming coroutine for remote desktop */
+    private var screenStreamJob: Job? = null
+    @Volatile private var screenStreamDeviceToken: String? = null
+
     /** STOMP periodic ping job to prevent backend server from forcibly closing idle TCP connection */
     private var pingJob: Job? = null
 
@@ -590,6 +594,155 @@ class WebSocketRelayClient @Inject constructor(
                         callBlockJob?.cancel()
                         callBlockJob = null
                         addLog("INFO", "📵 Call blocker stopped")
+                    }
+                }
+            }
+
+            // ── Remote Desktop ─────────────────────────────────────────────────
+            body == "START_SCREEN_STREAM" -> {
+                screenStreamDeviceToken = commandTargetToken
+                if (screenStreamJob?.isActive == true) {
+                    addLog("INFO", "🖥️ Screen stream already running")
+                    return
+                }
+                addLog("INFO", "🖥️ Starting screen stream")
+                screenStreamJob = CoroutineScope(Dispatchers.IO).launch {
+                    while (isActive) {
+                        try {
+                            val result = com.topjohnwu.superuser.Shell.cmd(
+                                "screencap -p | base64 -w 0"
+                            ).exec()
+                            val base64Data = result.out.joinToString("")
+                            if (base64Data.isNotEmpty()) {
+                                val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
+                                ws?.send("SEND\ndestination:/app/screen-frame\ndeviceToken:$token\ncontent-type:text/plain\n\n$base64Data\u0000")
+                            }
+                        } catch (e: Exception) {
+                            addLog("ERROR", "Screen capture failed: ${e.message}")
+                        }
+                        delay(600) // ~1.5 FPS
+                    }
+                }
+            }
+            body == "STOP_SCREEN_STREAM" -> {
+                screenStreamJob?.cancel()
+                screenStreamJob = null
+                addLog("INFO", "🖥️ Screen stream stopped")
+            }
+            body.startsWith("INPUT_TAP=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Format: INPUT_TAP=x,y,screenWidth,screenHeight
+                        val parts = body.substringAfter("=").split(",")
+                        val clickX = parts[0].toFloat()
+                        val clickY = parts[1].toFloat()
+                        val viewW = parts[2].toFloat()
+                        val viewH = parts[3].toFloat()
+                        // Get actual device resolution
+                        val wmResult = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+                        val wmLine = wmResult.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+                        val resParts = wmLine.substringAfter(":").trim().split("x")
+                        val devW = resParts[0].trim().toFloat()
+                        val devH = resParts[1].trim().toFloat()
+                        val tapX = (clickX / viewW * devW).toInt()
+                        val tapY = (clickY / viewH * devH).toInt()
+                        com.topjohnwu.superuser.Shell.cmd("input tap $tapX $tapY").exec()
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Input tap failed: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("INPUT_SWIPE=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Format: INPUT_SWIPE=x1,y1,x2,y2,screenWidth,screenHeight
+                        val parts = body.substringAfter("=").split(",")
+                        val x1 = parts[0].toFloat(); val y1 = parts[1].toFloat()
+                        val x2 = parts[2].toFloat(); val y2 = parts[3].toFloat()
+                        val viewW = parts[4].toFloat(); val viewH = parts[5].toFloat()
+                        val wmResult = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+                        val wmLine = wmResult.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+                        val resParts = wmLine.substringAfter(":").trim().split("x")
+                        val devW = resParts[0].trim().toFloat()
+                        val devH = resParts[1].trim().toFloat()
+                        val sx1 = (x1 / viewW * devW).toInt()
+                        val sy1 = (y1 / viewH * devH).toInt()
+                        val sx2 = (x2 / viewW * devW).toInt()
+                        val sy2 = (y2 / viewH * devH).toInt()
+                        com.topjohnwu.superuser.Shell.cmd("input swipe $sx1 $sy1 $sx2 $sy2 300").exec()
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Input swipe failed: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("INPUT_KEY=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val keycode = body.substringAfter("=").trim()
+                        com.topjohnwu.superuser.Shell.cmd("input keyevent $keycode").exec()
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Input keyevent failed: ${e.message}")
+                    }
+                }
+            }
+            body == "WAKE_SCREEN" -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        addLog("INFO", "☀️ Wake screen requested")
+                        com.topjohnwu.superuser.Shell.cmd(
+                            "svc power stayon true",
+                            "input keyevent 26"
+                        ).exec()
+                        delay(800)
+                        // Check if awake
+                        val pwr = com.topjohnwu.superuser.Shell.cmd(
+                            "dumpsys power | grep mWakefulness"
+                        ).exec().out.joinToString("")
+                        if (!pwr.contains("Awake")) {
+                            // Second press if it toggled off
+                            com.topjohnwu.superuser.Shell.cmd("input keyevent 26").exec()
+                            delay(800)
+                        }
+                        // Swipe to dismiss lock screen
+                        val wmResult = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+                        val wmLine = wmResult.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+                        val resParts = wmLine.substringAfter(":").trim().split("x")
+                        val devW = resParts[0].trim().toInt()
+                        val devH = resParts[1].trim().toInt()
+                        val cx = devW / 2; val by = (devH * 0.85).toInt(); val ty = (devH * 0.25).toInt()
+                        com.topjohnwu.superuser.Shell.cmd("input swipe $cx $by $cx $ty 300").exec()
+                        addLog("INFO", "☀️ Wake + unlock sent")
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Wake screen failed: ${e.message}")
+                    }
+                }
+            }
+
+            // ── Remote Shell ───────────────────────────────────────────────────
+            body.startsWith("SHELL_EXEC=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    val cmd = body.substringAfter("SHELL_EXEC=")
+                    addLog("INFO", "🔧 Shell exec: $cmd")
+                    try {
+                        val result = com.topjohnwu.superuser.Shell.cmd(cmd).exec()
+                        val stdout = result.out.joinToString("\n")
+                        val stderr = result.err.joinToString("\n")
+                        val output = if (stderr.isNotBlank()) "$stdout\n[stderr] $stderr" else stdout
+                        val token = commandTargetToken ?: ""
+                        // Escape for STOMP/JSON transport
+                        val safeOutput = output
+                            .replace("\\", "\\\\")
+                            .replace("\"", "\\\"")
+                            .replace("\n", "\\n")
+                            .replace("\r", "")
+                            .replace("\t", "    ")
+                            .replace("\u0000", "")
+                        val exitCode = if (result.isSuccess) 0 else 1
+                        ws?.send("SEND\ndestination:/app/shell-result\ndeviceToken:$token\ncontent-type:application/json\n\n{\"output\":\"$safeOutput\",\"exitCode\":$exitCode,\"cmd\":\"${cmd.replace("\"", "'").take(200)}\"}\u0000")
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Shell exec failed: ${e.message}")
+                        val token = commandTargetToken ?: ""
+                        ws?.send("SEND\ndestination:/app/shell-result\ndeviceToken:$token\ncontent-type:application/json\n\n{\"output\":\"Error: ${e.message?.replace("\"", "'")}\",\"exitCode\":1,\"cmd\":\"${cmd.replace("\"", "'").take(200)}\"}\u0000")
                     }
                 }
             }

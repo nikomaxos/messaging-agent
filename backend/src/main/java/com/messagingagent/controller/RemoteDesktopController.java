@@ -1,0 +1,137 @@
+package com.messagingagent.controller;
+
+import com.messagingagent.model.Device;
+import com.messagingagent.repository.DeviceRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+/**
+ * REST controller for remote desktop operations on Android devices.
+ * Sends STOMP commands to the device which executes them locally (no ADB).
+ *
+ * Screen streaming: device captures its own screen via `su -c screencap -p`,
+ * base64-encodes it, and sends frames back via STOMP.
+ * Input: device runs `su -c "input tap/swipe/keyevent"` locally.
+ * Shell: device runs arbitrary commands via root shell.
+ */
+@RestController
+@RequestMapping("/api/devices/{deviceId}/remote")
+@RequiredArgsConstructor
+@Slf4j
+public class RemoteDesktopController {
+
+    private final DeviceRepository deviceRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    /**
+     * POST /api/devices/{id}/remote/start
+     * Tell the device to start streaming screen frames via STOMP.
+     */
+    @PostMapping("/start")
+    public ResponseEntity<Map<String, String>> startStream(@PathVariable Long deviceId) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        log.info("START_SCREEN_STREAM → device {}", deviceId);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "START_SCREEN_STREAM");
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    /**
+     * POST /api/devices/{id}/remote/stop
+     * Tell the device to stop streaming.
+     */
+    @PostMapping("/stop")
+    public ResponseEntity<Map<String, String>> stopStream(@PathVariable Long deviceId) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        log.info("STOP_SCREEN_STREAM → device {}", deviceId);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "STOP_SCREEN_STREAM");
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    /**
+     * POST /api/devices/{id}/remote/input
+     * Send tap, swipe, or key event to device.
+     * Body: { "type": "tap"|"swipe"|"key", ... }
+     */
+    @PostMapping("/input")
+    public ResponseEntity<Map<String, String>> sendInput(
+            @PathVariable Long deviceId,
+            @RequestBody Map<String, Object> body) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        String type = (String) body.get("type");
+        String command;
+
+        switch (type) {
+            case "tap":
+                command = String.format("INPUT_TAP=%.1f,%.1f,%.1f,%.1f",
+                        toDouble(body.get("x")), toDouble(body.get("y")),
+                        toDouble(body.get("screenWidth")), toDouble(body.get("screenHeight")));
+                break;
+            case "swipe":
+                command = String.format("INPUT_SWIPE=%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+                        toDouble(body.get("x1")), toDouble(body.get("y1")),
+                        toDouble(body.get("x2")), toDouble(body.get("y2")),
+                        toDouble(body.get("screenWidth")), toDouble(body.get("screenHeight")));
+                break;
+            case "key":
+                command = "INPUT_KEY=" + body.get("keycode");
+                break;
+            default:
+                return ResponseEntity.badRequest().body(Map.of("error", "Unknown type: " + type));
+        }
+
+        log.info("REMOTE INPUT → device {}: {}", deviceId, command);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, command);
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    /**
+     * POST /api/devices/{id}/remote/wake
+     * Wake the screen via device-side root shell.
+     */
+    @PostMapping("/wake")
+    public ResponseEntity<Map<String, String>> wakeDevice(@PathVariable Long deviceId) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        log.info("WAKE_SCREEN → device {}", deviceId);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "WAKE_SCREEN");
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    /**
+     * POST /api/devices/{id}/remote/shell
+     * Execute a shell command on the device. Output is returned via STOMP /topic/shell/{deviceId}.
+     * Body: { "cmd": "ls -la /sdcard" }
+     */
+    @PostMapping("/shell")
+    public ResponseEntity<Map<String, String>> shellExec(
+            @PathVariable Long deviceId,
+            @RequestBody Map<String, String> body) {
+        Device device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null) return ResponseEntity.notFound().build();
+
+        String cmd = body.get("cmd");
+        if (cmd == null || cmd.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "cmd is required"));
+        }
+
+        log.info("SHELL_EXEC → device {}: {}", deviceId, cmd);
+        messagingTemplate.convertAndSend("/queue/commands." + deviceId, "SHELL_EXEC=" + cmd);
+        return ResponseEntity.ok(Map.of("status", "sent"));
+    }
+
+    private double toDouble(Object val) {
+        return val instanceof Number ? ((Number) val).doubleValue() : 0;
+    }
+}
