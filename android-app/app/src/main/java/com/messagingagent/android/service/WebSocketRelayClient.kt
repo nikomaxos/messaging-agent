@@ -292,30 +292,30 @@ class WebSocketRelayClient @Inject constructor(
                             if (commandTargetToken != null) sendApkUpdateStatus("Installing…", commandTargetToken)
                             addLog("INFO", "APK downloaded. Preparing install...")
                             
-                            val hasRoot = com.topjohnwu.superuser.Shell.isAppGrantedRoot() == true
-                            if (hasRoot) {
-                                // "pm install -r" FORCE KILLS the app process! 
-                                // We MUST run it as a detached background script so it finishes and restarts us.
-                                val scriptFile = java.io.File(context.cacheDir, "installer.sh")
-                                scriptFile.writeText("""
-                                    sleep 2
-                                    echo "Starting install" > /data/local/tmp/ota.log
-                                    cp "${apkFile.absolutePath}" /data/local/tmp/update.apk
-                                    echo "Copied APK" >> /data/local/tmp/ota.log
-                                    pm install -r -d -g /data/local/tmp/update.apk >> /data/local/tmp/ota.log 2>&1
-                                    echo "Install exit: ${'$'}?" >> /data/local/tmp/ota.log
-                                    rm /data/local/tmp/update.apk
-                                    am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> /data/local/tmp/ota.log 2>&1
-                                """.trimIndent())
-                                
-                                com.topjohnwu.superuser.Shell.cmd(
-                                    "nohup sh \"${scriptFile.absolutePath}\" >> /data/local/tmp/ota.log 2>&1 &"
-                                ).exec()
-                                
+                            // Always try root install first — on MIUI, isAppGrantedRoot()
+                            // can return false even when `su` actually works (state desync).
+                            val scriptFile = java.io.File(context.cacheDir, "installer.sh")
+                            scriptFile.writeText("""
+                                sleep 2
+                                echo "Starting install" > /data/local/tmp/ota.log
+                                cp "${apkFile.absolutePath}" /data/local/tmp/update.apk
+                                echo "Copied APK" >> /data/local/tmp/ota.log
+                                pm install -r -d -g /data/local/tmp/update.apk >> /data/local/tmp/ota.log 2>&1
+                                echo "Install exit: ${'$'}?" >> /data/local/tmp/ota.log
+                                rm /data/local/tmp/update.apk
+                                am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> /data/local/tmp/ota.log 2>&1
+                            """.trimIndent())
+                            
+                            val installResult = com.topjohnwu.superuser.Shell.cmd(
+                                "nohup sh \"${scriptFile.absolutePath}\" >> /data/local/tmp/ota.log 2>&1 &"
+                            ).exec()
+                            
+                            if (installResult.isSuccess) {
                                 addLog("INFO", "Root update script deployed. App will restart momentarily.")
                                 ws?.close(1000, "Applying OTA Update")
                             } else {
-                                addLog("INFO", "Root not granted. Opening Android Package Installer...")
+                                // Root truly not available — fall back to Package Installer UI
+                                addLog("WARN", "Root install failed (su not available). Opening Package Installer...")
                                 val uri = androidx.core.content.FileProvider.getUriForFile(
                                     context, "${context.packageName}.provider", apkFile
                                 )
