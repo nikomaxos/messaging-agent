@@ -20,7 +20,8 @@ data class RcsSendResult(
 class RcsSender @Inject constructor(
     @ApplicationContext private val context: Context,
     internal val dlrTracker: PendingDlrTracker,
-    private val prefs: com.messagingagent.android.data.PreferencesRepository
+    private val prefs: com.messagingagent.android.data.PreferencesRepository,
+    private val wsClient: com.messagingagent.android.service.WebSocketRelayClient
 ) {
 
     private companion object {
@@ -38,6 +39,7 @@ class RcsSender @Inject constructor(
     suspend fun sendRcs(correlationId: String, deviceToken: String, to: String, text: String, subscriptionId: Int, dlrDelayMinSec: Int = 2, dlrDelayMaxSec: Int = 5): RcsSendResult {
         if (!isMessagesInstalled()) {
             Timber.w("Google Messages not installed -- cannot send RCS to $to")
+            wsClient.addLog("ERROR", "RCS: Google Messages not installed — cannot send to $to")
             return RcsSendResult(success = false, noRcs = true, error = "Google Messages not installed")
         }
 
@@ -91,6 +93,7 @@ class RcsSender @Inject constructor(
             intentCmd.append("-p $MESSAGES_PKG")
 
             Timber.i("Executing root RCS intent: $intentCmd")
+            wsClient.addLog("INFO", "RCS: Dispatching to $cleanTo (corr=$correlationId)")
             var shellResult = Shell.cmd(intentCmd.toString()).exec()
 
             // MIUI retry: if am start failed, force-stop and retry with clear-top flags
@@ -103,6 +106,7 @@ class RcsSender @Inject constructor(
                 shellResult = Shell.cmd(retryCmd).exec()
                 if (!shellResult.isSuccess) {
                     Timber.e("Root intent dispatch failed after MIUI retry: " + shellResult.err)
+                    wsClient.addLog("ERROR", "RCS: am start FAILED for $cleanTo: ${shellResult.err} (corr=$correlationId)")
                     return RcsSendResult(success = false, error = "am start failed: " + shellResult.err)
                 }
                 Timber.i("MIUI retry succeeded -- am start launched after force-stop")
@@ -264,7 +268,9 @@ class RcsSender @Inject constructor(
                     }
                 }
                 
-                return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator (fail #$consecutiveSendButtonFailures)")
+                return RcsSendResult(success = false, error = "Failed to locate send button via UI Automator (fail #$consecutiveSendButtonFailures)").also {
+                    wsClient.addLog("ERROR", "RCS: Send button NOT found for $cleanTo (fail #$consecutiveSendButtonFailures, corr=$correlationId)")
+                }
             }
             
             // Send button was successfully clicked -- reset failure counter
@@ -296,9 +302,11 @@ class RcsSender @Inject constructor(
                 dlrDelayMaxSec = dlrDelayMaxSec
             ))
             
+            wsClient.addLog("INFO", "RCS: ✓ Dispatched to $cleanTo (bugleId=$bugleMessageId, corr=$correlationId)")
             return RcsSendResult(success = true)
         } catch (e: Exception) {
             Timber.e(e, "RCS root dispatch exception for $to")
+            wsClient.addLog("ERROR", "RCS: Exception for $to: ${e.message} (corr=$correlationId)")
             return RcsSendResult(success = false, noRcs = false, error = e.message)
         }
     }

@@ -87,7 +87,7 @@ class WebSocketRelayClient @Inject constructor(
 
     internal fun addLog(level: String, message: String) {
         val entry = LogEntry(timeFmt.format(Date()), level, message)
-        val current = _log.value.takeLast(49)   // keep last 50 entries
+        val current = _log.value.takeLast(199)   // keep last 200 entries
         _log.value = current + entry
         Timber.tag("WSRelay").d("[$level] $message")
     }

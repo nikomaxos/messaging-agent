@@ -15,8 +15,8 @@ android {
         applicationId = "com.messagingagent.android"
         minSdk = 26          // Android 10+ required for RCS IMS APIs
         targetSdk = 34
-        versionCode = 75
-        versionName = "1.0.75"
+        versionCode = 76
+        versionName = "1.0.76"
     }
 
     signingConfigs {
