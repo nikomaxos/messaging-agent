@@ -46,10 +46,27 @@ class RcsSender @Inject constructor(
             val safeText = text.replace("'", "'\\''")
             val cleanTo = to.replace("[^0-9+]".toRegex(), "")
 
-            // Wake up screen and dismiss keyguard via root
-            Timber.i("Waking up screen and dismissing keyguard")
-            com.topjohnwu.superuser.Shell.cmd("input keyevent KEYCODE_WAKEUP").exec()
+            // Wake up screen — MIUI-compatible 3-tier wake (KEYCODE_WAKEUP is ignored by MIUI in Doze)
+            Timber.i("Waking up screen with MIUI-compatible strategy")
+            com.topjohnwu.superuser.Shell.cmd(
+                "svc power stayon true",
+                "input keyevent 26"
+            ).exec()
+            kotlinx.coroutines.delay(800)
+            // Check if actually awake
+            val pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
+            if (!pwrState.contains("Awake")) {
+                // Power key toggled OFF instead of ON — press again
+                com.topjohnwu.superuser.Shell.cmd("input keyevent 26").exec()
+                kotlinx.coroutines.delay(800)
+            }
+            // Dismiss lock screen
             com.topjohnwu.superuser.Shell.cmd("wm dismiss-keyguard").exec()
+            val wmRes = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+            val wmL = wmRes.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+            val rp = wmL.substringAfter(":").trim().split("x")
+            val dW = rp[0].trim().toInt(); val dH = rp[1].trim().toInt()
+            com.topjohnwu.superuser.Shell.cmd("input swipe ${dW/2} ${(dH*0.85).toInt()} ${dW/2} ${(dH*0.25).toInt()} 300").exec()
             kotlinx.coroutines.delay(500)
 
             var initialMaxId = 0L
@@ -94,19 +111,28 @@ class RcsSender @Inject constructor(
             Timber.i("Executing root RCS intent: $intentCmd")
             com.messagingagent.android.service.DeviceLogBus.log("INFO", "RCS: Dispatching to $cleanTo (corr=$correlationId)")
             var shellResult = Shell.cmd(intentCmd.toString()).exec()
+            val stdoutText = shellResult.out.joinToString("\n")
 
-            // MIUI retry: if am start failed, force-stop and retry with clear-top flags
-            if (!shellResult.isSuccess) {
-                Timber.w("First am start attempt failed (MIUI restriction?): " + shellResult.err + ". Retrying...")
+            // MIUI fix: check stdout for "Starting:" instead of exit code
+            // MIUI returns exit code 1 even when the activity launches successfully
+            fun amStartSucceeded(result: com.topjohnwu.superuser.Shell.Result): Boolean {
+                val out = result.out.joinToString("\n")
+                return result.isSuccess || out.contains("Starting:") || out.contains("Warning:")
+            }
+
+            // MIUI retry: if am start actually failed, force-stop and retry with clear-top flags
+            if (!amStartSucceeded(shellResult)) {
+                Timber.w("First am start attempt failed (MIUI restriction?): stdout=$stdoutText err=${shellResult.err}. Retrying...")
                 Shell.cmd("am force-stop $MESSAGES_PKG").exec()
                 kotlinx.coroutines.delay(500)
                 val retryCmd = intentCmd.toString()
                     .replace("-f 0x14000000", "-f 0x24000000")
                 shellResult = Shell.cmd(retryCmd).exec()
-                if (!shellResult.isSuccess) {
-                    Timber.e("Root intent dispatch failed after MIUI retry: " + shellResult.err)
-                    com.messagingagent.android.service.DeviceLogBus.log("ERROR", "RCS: am start FAILED for $cleanTo: ${shellResult.err} (corr=$correlationId)")
-                    return RcsSendResult(success = false, error = "am start failed: " + shellResult.err)
+                if (!amStartSucceeded(shellResult)) {
+                    val retryOut = shellResult.out.joinToString("\n")
+                    Timber.e("Root intent dispatch failed after MIUI retry: stdout=$retryOut err=${shellResult.err}")
+                    com.messagingagent.android.service.DeviceLogBus.log("ERROR", "RCS: am start FAILED for $cleanTo: out=$retryOut err=${shellResult.err} (corr=$correlationId)")
+                    return RcsSendResult(success = false, error = "am start failed: out=$retryOut err=${shellResult.err}")
                 }
                 Timber.i("MIUI retry succeeded -- am start launched after force-stop")
             }
