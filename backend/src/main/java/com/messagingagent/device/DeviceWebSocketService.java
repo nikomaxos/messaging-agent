@@ -62,6 +62,7 @@ public class DeviceWebSocketService {
             // Only set ONLINE if device was OFFLINE (reconnected). NEVER override BUSY!
             if (device.getStatus() == Device.Status.OFFLINE) {
                 device.setStatus(Device.Status.ONLINE);
+                device.setConnectedAt(Instant.now()); // Reset uptime on reconnect
                 // Persist ONLINE event as a device log
                 deviceLogRepository.save(DeviceLog.builder()
                         .device(device).level("INFO").event("Device ONLINE")
@@ -100,6 +101,7 @@ public class DeviceWebSocketService {
             // Only set ONLINE if device was OFFLINE (reconnected). NEVER override BUSY!
             if (device.getStatus() != Device.Status.BUSY) {
                 if (device.getStatus() == Device.Status.OFFLINE) {
+                    device.setConnectedAt(Instant.now()); // Reset uptime on reconnect
                     // Persist ONLINE event as a device log
                     deviceLogRepository.save(DeviceLog.builder()
                             .device(device).level("INFO").event("Device ONLINE")
@@ -139,6 +141,9 @@ public class DeviceWebSocketService {
             statusMap.put("apkVersion", heartbeat.getApkVersion() != null ? heartbeat.getApkVersion() : "");
             statusMap.put("apkUpdateStatus", "");
             statusMap.put("lastHeartbeat", device.getLastHeartbeat().toString());
+            if (device.getConnectedAt() != null) {
+                statusMap.put("connectedAt", device.getConnectedAt().toString());
+            }
             messagingTemplate.convertAndSend("/topic/devices", statusMap);
         });
     }
