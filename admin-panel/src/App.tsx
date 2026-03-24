@@ -4,17 +4,14 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import GroupsPage from './pages/GroupsPage'
 import DevicesPage from './pages/DevicesPage'
 import SmppServerPage from './pages/SmppServerPage'
 import SmppClientsPage from './pages/SmppClientsPage'
 import SmppRoutingPage from './pages/SmppRoutingPage'
 import SmscsPage from './pages/SmscsPage'
 import SystemLogsPage from './pages/SystemLogsPage'
-import DeviceLogsPage from './pages/DeviceLogsPage'
 import MessageTrackingPage from './pages/MessageTrackingPage'
 import UsersPage from './pages/UsersPage'
-import RemoteDesktopPage from './pages/RemoteDesktopPage'
 import InfraMonitoringPage from './pages/InfraMonitoringPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AiAgentPage from './pages/AiAgentPage'
@@ -22,7 +19,6 @@ import DeadLetterPage from './pages/DeadLetterPage'
 import AuditLogPage from './pages/AuditLogPage'
 import ReportsPage from './pages/ReportsPage'
 import ThroughputPage from './pages/ThroughputPage'
-import DeviceMapPage from './pages/DeviceMapPage'
 import TrafficAnalyticsPage from './pages/TrafficAnalyticsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -39,7 +35,6 @@ export default function App() {
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="groups" element={<GroupsPage />} />
             <Route path="devices" element={<DevicesPage />} />
             <Route path="smpp/server" element={<SmppServerPage />} />
             <Route path="smscs" element={<SmscsPage />} />
@@ -47,9 +42,7 @@ export default function App() {
             <Route path="smpp/routing" element={<SmppRoutingPage />} />
             <Route path="logs/messages" element={<MessageTrackingPage />} />
             <Route path="logs/system" element={<SystemLogsPage />} />
-            <Route path="logs/device" element={<DeviceLogsPage />} />
             <Route path="users" element={<UsersPage />} />
-            <Route path="remote" element={<RemoteDesktopPage />} />
             <Route path="infrastructure" element={<InfraMonitoringPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="ai-agent" element={<AiAgentPage />} />
@@ -57,7 +50,6 @@ export default function App() {
             <Route path="audit" element={<AuditLogPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="throughput" element={<ThroughputPage />} />
-            <Route path="device-map" element={<DeviceMapPage />} />
             <Route path="analytics" element={<TrafficAnalyticsPage />} />
           </Route>
         </Routes>

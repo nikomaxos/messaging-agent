@@ -381,7 +381,7 @@ export default function RemoteDesktopPage() {
   const adbDevices = (devices as Device[]).filter((d: Device) => d.adbWifiAddress && d.adbWifiAddress.trim() !== '')
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -1,7 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
-  LayoutDashboard, Layers, Smartphone, FileText, LogOut, Users, Route as RouteIcon, Server, UserCog, Monitor, Activity, Bell, Bot, Skull, Shield, BarChart3, MapPin, PieChart
+  LayoutDashboard, Smartphone, FileText, LogOut, Users, Route as RouteIcon, Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart
 } from 'lucide-react'
 
 const nav = [
@@ -9,9 +9,7 @@ const nav = [
   { to: '/infrastructure', icon: <Activity size={18} className="text-cyan-400" />, label: 'Infrastructure' },
   { to: '/notifications', icon: <Bell size={18} className="text-amber-400" />, label: 'Notifications' },
   { to: '/ai-agent',      icon: <Bot size={18} className="text-emerald-400" />, label: 'AI Agent' },
-  { to: '/groups',        icon: <Layers size={18} />,          label: 'Device Groups' },
   { to: '/devices',       icon: <Smartphone size={18} />,      label: 'Devices' },
-  { to: '/device-map',    icon: <MapPin size={18} className="text-teal-400" />, label: 'Device Map' },
   { to: '/smpp/server',   icon: <Server size={18} />,          label: 'SMPP Server' },
   { to: '/smscs',         icon: <Server size={18} className="text-blue-400" />, label: 'SMSc Suppliers' },
   { to: '/smpp/clients',  icon: <Users size={18} />,           label: 'SMPP Clients' },
@@ -21,10 +19,8 @@ const nav = [
   { to: '/dead-letters',  icon: <Skull size={18} className="text-red-400" />, label: 'Dead-Letter Queue' },
   { to: '/throughput',    icon: <BarChart3 size={18} className="text-orange-400" />, label: 'Throughput' },
   { to: '/reports',       icon: <FileText size={18} className="text-sky-400" />, label: 'Reports' },
-  { to: '/logs/device',   icon: <Smartphone size={18} className="text-teal-400" />, label: 'Device Logs' },
   { to: '/logs/system',   icon: <Server size={18} className="text-indigo-400" />, label: 'System Logs' },
   { to: '/audit',         icon: <Shield size={18} className="text-violet-400" />, label: 'Audit Log' },
-  { to: '/remote',       icon: <Monitor size={18} className="text-violet-400" />, label: 'Remote Desktop' },
   { to: '/users',          icon: <UserCog size={18} className="text-rose-400" />, label: 'Users' },
 ]
 

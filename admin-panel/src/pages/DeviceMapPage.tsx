@@ -105,7 +105,7 @@ export default function DeviceMapPage() {
   const devicesWithoutCoords = (devices ?? []).filter((d: any) => !d.latitude || !d.longitude)
 
   return (
-    <div className="p-6 space-y-4 h-[calc(100vh-48px)] flex flex-col">
+    <div className="space-y-4 h-[calc(100vh-220px)] flex flex-col">
       <div>
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <MapPin size={22} className="text-teal-400" /> Device Map

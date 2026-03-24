@@ -2,11 +2,25 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance } from '../api/client'
 import { Device, DeviceGroup } from '../types'
-import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse, Layers, MapPin, FileText, Smartphone, Monitor } from 'lucide-react'
 import { FormatDistanceToNowOptions, formatDistanceToNow, format } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
 import { ConfirmModal } from '../components/ConfirmModal'
+import GroupsPage from './GroupsPage'
+import DeviceMapPage from './DeviceMapPage'
+import DeviceLogsPage from './DeviceLogsPage'
+import RemoteDesktopPage from './RemoteDesktopPage'
+import { useSearchParams } from 'react-router-dom'
+
+type Tab = 'devices' | 'groups' | 'map' | 'logs' | 'remote'
+const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'devices', label: 'Devices', icon: <Smartphone size={15} /> },
+  { key: 'groups', label: 'Groups', icon: <Layers size={15} /> },
+  { key: 'map', label: 'Map', icon: <MapPin size={15} /> },
+  { key: 'logs', label: 'Device Logs', icon: <FileText size={15} /> },
+  { key: 'remote', label: 'Remote Desktop', icon: <Monitor size={15} /> },
+]
 
 function LiveUptime({ connectedAt }: { connectedAt?: string }) {
   const [val, setVal] = useState('')
@@ -22,9 +36,14 @@ function LiveUptime({ connectedAt }: { connectedAt?: string }) {
 
 export default function DevicesPage() {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = (searchParams.get('tab') as Tab) || 'devices'
+  const setActiveTab = (tab: Tab) => setSearchParams(tab === 'devices' ? {} : { tab })
   const [wsConnected, setWsConnected] = useState(false)
   const [refreshToast, setRefreshToast] = useState<string | null>(null)
   const [autoFetch, setAutoFetch] = useState(false)
+  const [filterGroup, setFilterGroup] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const [uploadingApk, setUploadingApk] = useState(false)
   const [serverApkName, setServerApkName] = useState<string | null>(null)
 
@@ -212,6 +231,13 @@ export default function DevicesPage() {
   const statusClass = (s: Device['status']) =>
     ({ ONLINE: 'pill-green', OFFLINE: 'pill-gray', BUSY: 'pill-yellow', MAINTENANCE: 'pill-yellow' }[s])
 
+  // Filtered devices for the table
+  const filteredDevices = devices.filter((d: Device) => {
+    if (filterGroup && String(d.group?.id ?? '') !== filterGroup) return false
+    if (filterStatus && d.status !== filterStatus) return false
+    return true
+  })
+
   return (
     <div className="p-6 space-y-6">
       <ConfirmModal
@@ -221,6 +247,8 @@ export default function DevicesPage() {
         onConfirm={() => confirmAction?.onConfirm()}
         onCancel={() => setConfirmAction(null)}
       />
+
+      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Devices</h1>
@@ -236,31 +264,53 @@ export default function DevicesPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1 cursor-pointer text-sm text-slate-300 mr-2 border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition">
-            <input type="checkbox" className="accent-brand-500" checked={autoFetch} onChange={e => setAutoFetch(e.target.checked)} />
-            Auto Fetch (10s)
-          </label>
-          <input type="file" accept=".apk" ref={fileRef} className="hidden" onChange={handleFileUpload} />
-          <div className="flex flex-col items-end">
-            <button className={`btn-secondary whitespace-nowrap ${uploadSuccess ? '!bg-green-600/20 !border-green-500/50 !text-green-400' : ''}`} onClick={() => fileRef.current?.click()} disabled={uploadingApk} title="Upload a new APK to the server">
-              {uploadingApk ? <RefreshCw size={14} className="animate-spin" /> : uploadSuccess ? <Check size={14} /> : <Upload size={14} />} {uploadSuccess ? 'APK Uploaded' : 'Upload APK'}
+        {activeTab === 'devices' && (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1 cursor-pointer text-sm text-slate-300 mr-2 border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition">
+              <input type="checkbox" className="accent-brand-500" checked={autoFetch} onChange={e => setAutoFetch(e.target.checked)} />
+              Auto Fetch (10s)
+            </label>
+            <input type="file" accept=".apk" ref={fileRef} className="hidden" onChange={handleFileUpload} />
+            <div className="flex flex-col items-end">
+              <button className={`btn-secondary whitespace-nowrap ${uploadSuccess ? '!bg-green-600/20 !border-green-500/50 !text-green-400' : ''}`} onClick={() => fileRef.current?.click()} disabled={uploadingApk} title="Upload a new APK to the server">
+                {uploadingApk ? <RefreshCw size={14} className="animate-spin" /> : uploadSuccess ? <Check size={14} /> : <Upload size={14} />} {uploadSuccess ? 'APK Uploaded' : 'Upload APK'}
+              </button>
+              {serverApkName && <span className="text-[10px] text-slate-500 mt-0.5">{serverApkName}</span>}
+            </div>
+            <button
+              className="btn-secondary"
+              onClick={handleRefresh}
+              disabled={isFetching}
+              title="Re-fetch all device statuses"
+            >
+              <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
             </button>
-            {serverApkName && <span className="text-[10px] text-slate-500 mt-0.5">{serverApkName}</span>}
+            <button id="add-device-btn" className="btn-primary" onClick={() => setShowForm(true)}>
+              <Plus size={16} /> Add Device
+            </button>
           </div>
-          <button
-            className="btn-secondary"
-            onClick={handleRefresh}
-            disabled={isFetching}
-            title="Re-fetch all device statuses"
-          >
-            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
-          </button>
-          <button id="add-device-btn" className="btn-primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} /> Add Device
-          </button>
-        </div>
+        )}
       </div>
+
+      {/* Tab Bar */}
+      <div className="flex items-center gap-1 border-b border-white/10 -mb-3">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-[1px] ${
+              activeTab === tab.key
+                ? 'text-brand-400 border-brand-500'
+                : 'text-slate-500 border-transparent hover:text-slate-300 hover:border-slate-600'
+            }`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'devices' && (<>
 
       {showForm && (
         <div className="glass p-5 space-y-4">
@@ -297,6 +347,39 @@ export default function DevicesPage() {
         </div>
       )}
 
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
+          <select
+            className="bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5 min-w-[140px]"
+            value={filterGroup}
+            onChange={e => setFilterGroup(e.target.value)}
+          >
+            <option value="">All Groups</option>
+            {groups.map((g: DeviceGroup) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
+          <select
+            className="bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5 min-w-[120px]"
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+          >
+            <option value="">All</option>
+            <option value="ONLINE">ONLINE</option>
+            <option value="OFFLINE">OFFLINE</option>
+            <option value="BUSY">BUSY</option>
+            <option value="MAINTENANCE">MAINTENANCE</option>
+          </select>
+        </div>
+        {(filterGroup || filterStatus) && (
+          <button className="text-xs text-slate-400 hover:text-white mt-4" onClick={() => { setFilterGroup(''); setFilterStatus('') }}>Clear Filters</button>
+        )}
+        <span className="text-xs text-slate-600 mt-4 ml-auto">{filteredDevices.length} of {devices.length} devices</span>
+      </div>
+
       <div className="glass">
         <table className="tbl">
           <thead><tr>
@@ -315,7 +398,7 @@ export default function DevicesPage() {
             <th className="px-4 text-right">Actions</th>
           </tr></thead>
           <tbody>
-            {devices.map((d: Device) => (
+            {filteredDevices.map((d: Device) => (
               <tr key={d.id}>
                 <td className="px-4">
                   <div className="font-medium text-slate-200">{d.name}</div>
@@ -514,12 +597,18 @@ export default function DevicesPage() {
                 </td>
               </tr>
             ))}
-            {devices.length === 0 && (
-              <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">No devices registered</td></tr>
+            {filteredDevices.length === 0 && (
+              <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-500">{devices.length === 0 ? 'No devices registered' : 'No devices match the current filters'}</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      </>)}
+
+      {activeTab === 'groups' && <GroupsPage />}
+      {activeTab === 'map' && <DeviceMapPage />}
+      {activeTab === 'logs' && <DeviceLogsPage />}
+      {activeTab === 'remote' && <RemoteDesktopPage />}
     </div>
   )
 }
