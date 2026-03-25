@@ -605,45 +605,44 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("INFO", "🖥️ Screen stream already running")
                     return
                 }
-                addLog("INFO", "🖥️ Starting screen stream (JPEG compressed)")
+                addLog("INFO", "🖥️ Starting screen stream")
                 screenStreamJob = CoroutineScope(Dispatchers.IO).launch {
+                    val tmpFile = "/data/local/tmp/sc_frame.png"
                     while (isActive) {
                         try {
-                            // Capture screen as raw RGBA bytes, then compress to JPEG
-                            val tmpFile = "/data/local/tmp/sc_frame.png"
+                            // 1. Capture screen to PNG file (~0.5-1s on most devices)
                             com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
-                            val readResult = com.topjohnwu.superuser.Shell.cmd("cat $tmpFile | base64 -w 0").exec()
-                            val pngBase64 = readResult.out.joinToString("")
-                            if (pngBase64.isEmpty()) {
-                                delay(350)
+
+                            // 2. Read PNG bytes directly in Java (no shell base64 round-trip)
+                            val file = java.io.File(tmpFile)
+                            if (!file.exists() || file.length() == 0L) {
+                                delay(200)
                                 continue
                             }
-                            // Decode PNG -> Bitmap -> scale 50% -> JPEG quality 40 -> base64
-                            val pngBytes = android.util.Base64.decode(pngBase64, android.util.Base64.DEFAULT)
-                            val fullBitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size)
-                            if (fullBitmap == null) {
-                                delay(350)
+                            val pngBytes = file.readBytes()
+
+                            // 3. Decode → scale to 1/3 → compress JPEG Q35 → base64
+                            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
+                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts)
+                            if (bitmap == null) {
+                                delay(200)
                                 continue
                             }
-                            val scaledW = fullBitmap.width / 2
-                            val scaledH = fullBitmap.height / 2
-                            val scaled = android.graphics.Bitmap.createScaledBitmap(fullBitmap, scaledW, scaledH, true)
-                            fullBitmap.recycle()
-                            val jpegStream = java.io.ByteArrayOutputStream()
-                            scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 40, jpegStream)
-                            scaled.recycle()
+                            val jpegStream = java.io.ByteArrayOutputStream(32768)
+                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 35, jpegStream)
+                            bitmap.recycle()
                             val jpegBase64 = android.util.Base64.encodeToString(jpegStream.toByteArray(), android.util.Base64.NO_WRAP)
                             jpegStream.close()
-                            // Clean up temp file
-                            com.topjohnwu.superuser.Shell.cmd("rm -f $tmpFile").exec()
 
                             val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
                             ws?.send("SEND\ndestination:/app/screen-frame\ndeviceToken:$token\ncontent-type:text/plain\n\n$jpegBase64\u0000")
                         } catch (e: Exception) {
                             addLog("ERROR", "Screen capture failed: ${e.message}")
                         }
-                        delay(350) // ~3 FPS
+                        delay(250) // target ~3-4 FPS
                     }
+                    // Cleanup temp file when stream stops
+                    try { java.io.File(tmpFile).delete() } catch (_: Exception) {}
                 }
             }
             body == "STOP_SCREEN_STREAM" -> {

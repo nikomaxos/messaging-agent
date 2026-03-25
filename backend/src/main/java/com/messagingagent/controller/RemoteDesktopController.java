@@ -12,11 +12,11 @@ import java.util.Map;
 
 /**
  * REST controller for remote desktop operations on Android devices.
- * Sends STOMP commands to the device which executes them locally (no ADB).
+ * Sends STOMP commands DIRECTLY to the device (instant delivery, no heartbeat wait).
  *
- * Screen streaming: device captures its own screen via `su -c screencap -p`,
- * base64-encodes it, and sends frames back via STOMP.
- * Input: device runs `su -c "input tap/swipe/keyevent"` locally.
+ * Screen streaming: device captures its own screen via root screencap,
+ * compresses to JPEG, base64-encodes it, and sends frames back via STOMP.
+ * Input: device runs `input tap/swipe/keyevent` locally via root shell.
  * Shell: device runs arbitrary commands via root shell.
  */
 @RestController
@@ -30,6 +30,15 @@ public class RemoteDesktopController {
     private final com.messagingagent.device.DeviceWebSocketService webSocketService;
 
     /**
+     * Send a command directly to the device's STOMP command queue.
+     * This delivers INSTANTLY (no heartbeat wait) because the device
+     * subscribes to /queue/commands.{deviceId} on connect.
+     */
+    private void sendDirect(Device device, String command) {
+        webSocketService.sendSysCommand(device, command);
+    }
+
+    /**
      * POST /api/devices/{id}/remote/start
      * Tell the device to start streaming screen frames via STOMP.
      */
@@ -38,8 +47,8 @@ public class RemoteDesktopController {
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return ResponseEntity.notFound().build();
 
-        log.info("START_SCREEN_STREAM → device {}", deviceId);
-        webSocketService.queueCommand(deviceId, "START_SCREEN_STREAM");
+        log.info("START_SCREEN_STREAM → device {} (direct)", deviceId);
+        sendDirect(device, "START_SCREEN_STREAM");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -52,8 +61,8 @@ public class RemoteDesktopController {
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return ResponseEntity.notFound().build();
 
-        log.info("STOP_SCREEN_STREAM → device {}", deviceId);
-        webSocketService.queueCommand(deviceId, "STOP_SCREEN_STREAM");
+        log.info("STOP_SCREEN_STREAM → device {} (direct)", deviceId);
+        sendDirect(device, "STOP_SCREEN_STREAM");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -91,8 +100,8 @@ public class RemoteDesktopController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Unknown type: " + type));
         }
 
-        log.info("REMOTE INPUT → device {}: {}", deviceId, command);
-        webSocketService.queueCommand(deviceId, command);
+        log.info("REMOTE INPUT → device {} (direct): {}", deviceId, command);
+        sendDirect(device, command);
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -105,8 +114,8 @@ public class RemoteDesktopController {
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return ResponseEntity.notFound().build();
 
-        log.info("WAKE_SCREEN → device {}", deviceId);
-        webSocketService.queueCommand(deviceId, "WAKE_SCREEN");
+        log.info("WAKE_SCREEN → device {} (direct)", deviceId);
+        sendDirect(device, "WAKE_SCREEN");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -127,8 +136,8 @@ public class RemoteDesktopController {
             return ResponseEntity.badRequest().body(Map.of("error", "cmd is required"));
         }
 
-        log.info("SHELL_EXEC → device {}: {}", deviceId, cmd);
-        webSocketService.queueCommand(deviceId, "SHELL_EXEC=" + cmd);
+        log.info("SHELL_EXEC → device {} (direct): {}", deviceId, cmd);
+        sendDirect(device, "SHELL_EXEC=" + cmd);
         return ResponseEntity.ok(Map.of("status", "sent"));
     }
 
@@ -141,8 +150,8 @@ public class RemoteDesktopController {
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return ResponseEntity.notFound().build();
 
-        log.info("REBOOT → device {}", deviceId);
-        webSocketService.queueCommand(deviceId, "REBOOT");
+        log.info("REBOOT → device {} (direct)", deviceId);
+        sendDirect(device, "REBOOT");
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -163,8 +172,8 @@ public class RemoteDesktopController {
             return ResponseEntity.badRequest().body(Map.of("error", "command is required"));
         }
 
-        log.info("COMMAND → device {}: {}", deviceId, command);
-        webSocketService.queueCommand(deviceId, command);
+        log.info("COMMAND → device {} (direct): {}", deviceId, command);
+        sendDirect(device, command);
         return ResponseEntity.ok(Map.of("status", "sent"));
     }
 
