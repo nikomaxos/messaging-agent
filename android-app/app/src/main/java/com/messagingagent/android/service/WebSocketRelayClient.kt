@@ -284,42 +284,83 @@ class WebSocketRelayClient @Inject constructor(
                         val request = Request.Builder().url("${url.trimEnd('/')}/api/public/apk/download").build()
                         val response = client.newCall(request).execute()
                         if (response.isSuccessful) {
-                            val apkFile = java.io.File(context.cacheDir, "update.apk")
+                            // 1. Download APK directly to /data/local/tmp (root-writable, persists across installs)
+                            val tmpApk = "/data/local/tmp/update.apk"
+                            val tmpDir = java.io.File(context.cacheDir, "ota_staging")
+                            tmpDir.mkdirs()
+                            val stagingApk = java.io.File(tmpDir, "update.apk")
                             response.body?.byteStream()?.use { input ->
-                                apkFile.outputStream().use { output ->
+                                stagingApk.outputStream().use { output ->
                                     input.copyTo(output)
                                 }
                             }
-                            
+                            val downloadedSize = stagingApk.length()
+                            addLog("INFO", "APK downloaded: ${downloadedSize / 1024}KB")
+
                             if (commandTargetToken != null) sendApkUpdateStatus("Installing…", commandTargetToken)
-                            addLog("INFO", "APK downloaded. Preparing install...")
-                            
-                            // Always try root install first — on MIUI, isAppGrantedRoot()
-                            // can return false even when `su` actually works (state desync).
-                            val scriptFile = java.io.File(context.cacheDir, "installer.sh")
-                            scriptFile.writeText("""
-                                sleep 2
-                                echo "Starting install" > /data/local/tmp/ota.log
-                                cp "${apkFile.absolutePath}" /data/local/tmp/update.apk
-                                echo "Copied APK" >> /data/local/tmp/ota.log
-                                pm install -r -d -g /data/local/tmp/update.apk >> /data/local/tmp/ota.log 2>&1
-                                echo "Install exit: ${'$'}?" >> /data/local/tmp/ota.log
-                                rm /data/local/tmp/update.apk
-                                am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> /data/local/tmp/ota.log 2>&1
-                            """.trimIndent())
-                            
-                            val installResult = com.topjohnwu.superuser.Shell.cmd(
-                                "nohup sh \"${scriptFile.absolutePath}\" >> /data/local/tmp/ota.log 2>&1 &"
+
+                            // 2. Copy APK to /data/local/tmp SYNCHRONOUSLY (before detaching installer)
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "cp '${stagingApk.absolutePath}' $tmpApk && chmod 644 $tmpApk"
                             ).exec()
-                            
+                            addLog("INFO", "APK staged at $tmpApk")
+
+                            // 3. Write installer script to /data/local/tmp (NOT app cache — survives force-stop)
+                            val script = """
+                                #!/system/bin/sh
+                                LOG=/data/local/tmp/ota.log
+                                echo "=== OTA Update $(date) ===" > ${'$'}LOG
+                                echo "APK size: $(stat -c%s $tmpApk 2>/dev/null || ls -l $tmpApk) bytes" >> ${'$'}LOG
+
+                                # Wait for the app to close its WebSocket cleanly
+                                sleep 3
+
+                                # Force-stop the OLD running process (critical: ensures old code is fully unloaded)
+                                am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
+                                echo "Force-stopped old process" >> ${'$'}LOG
+                                sleep 1
+
+                                # Install the new APK
+                                pm install -r -d -g $tmpApk >> ${'$'}LOG 2>&1
+                                INSTALL_EXIT=${'$'}?
+                                echo "pm install exit: ${'$'}INSTALL_EXIT" >> ${'$'}LOG
+
+                                # Cleanup APK
+                                rm -f $tmpApk
+
+                                if [ ${'$'}INSTALL_EXIT -eq 0 ]; then
+                                    echo "Install SUCCESS — restarting app" >> ${'$'}LOG
+                                    sleep 2
+                                    # Force-stop AGAIN to ensure any auto-started old process is killed
+                                    am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
+                                    sleep 1
+                                    # Start fresh with the new code
+                                    am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> ${'$'}LOG 2>&1
+                                    echo "App restarted" >> ${'$'}LOG
+                                else
+                                    echo "Install FAILED" >> ${'$'}LOG
+                                fi
+                                echo "=== OTA Complete ===" >> ${'$'}LOG
+                            """.trimIndent()
+
+                            com.topjohnwu.superuser.Shell.cmd(
+                                "cat > /data/local/tmp/installer.sh << 'ENDSCRIPT'\n$script\nENDSCRIPT",
+                                "chmod 755 /data/local/tmp/installer.sh"
+                            ).exec()
+
+                            // 4. Launch installer as a fully detached root process
+                            val installResult = com.topjohnwu.superuser.Shell.cmd(
+                                "setsid sh /data/local/tmp/installer.sh &"
+                            ).exec()
+
                             if (installResult.isSuccess) {
-                                addLog("INFO", "Root update script deployed. App will restart momentarily.")
+                                addLog("INFO", "OTA installer launched. App will restart in ~7 seconds.")
                                 ws?.close(1000, "Applying OTA Update")
                             } else {
-                                // Root truly not available — fall back to Package Installer UI
-                                addLog("WARN", "Root install failed (su not available). Opening Package Installer...")
+                                // Root not available — fall back to Package Installer UI
+                                addLog("WARN", "Root install failed. Opening Package Installer...")
                                 val uri = androidx.core.content.FileProvider.getUriForFile(
-                                    context, "${context.packageName}.provider", apkFile
+                                    context, "${context.packageName}.provider", stagingApk
                                 )
                                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                     setDataAndType(uri, "application/vnd.android.package-archive")
