@@ -18,4 +18,6 @@ public class DeviceHeartbeat {
     private String apkVersion;
     private String phoneNumber;
     private String adbWifiAddress;
+    private Double latitude;
+    private Double longitude;
 }

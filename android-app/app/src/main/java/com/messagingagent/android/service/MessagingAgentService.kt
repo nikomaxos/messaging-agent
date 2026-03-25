@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.location.LocationManager
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.messagingagent.android.R
@@ -41,7 +42,9 @@ data class HeartbeatPayload(
     val activeNetworkType: String?,
     val apkVersion: String?,
     val phoneNumber: String? = null,
-    val adbWifiAddress: String? = null
+    val adbWifiAddress: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 /**
@@ -212,6 +215,7 @@ class MessagingAgentService : Service() {
 
                         val phoneNum  = readPhoneNumber()
                         val adbAddr   = readAdbWifiAddress()
+                        val location  = readLocation()
 
                         val payload = HeartbeatPayload(
                             batteryPercent    = battery.first,
@@ -224,7 +228,9 @@ class MessagingAgentService : Service() {
                             activeNetworkType = netType,
                             apkVersion        = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" } catch (_: Exception) { "?" },
                             phoneNumber       = phoneNum,
-                            adbWifiAddress    = adbAddr
+                            adbWifiAddress    = adbAddr,
+                            latitude          = location.first,
+                            longitude         = location.second
                         )
                         val payloadJson = Json.encodeToString(HeartbeatPayload.serializer(), payload)
                         
@@ -548,6 +554,20 @@ class MessagingAgentService : Service() {
     private fun updateNotification(status: String) {
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification(status))
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun readLocation(): Pair<Double?, Double?> {
+        return try {
+            val lm = applicationContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            var loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            if (loc == null) loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            if (loc == null) loc = lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+            
+            if (loc != null) Pair(loc.latitude, loc.longitude) else Pair(null, null)
+        } catch (e: Exception) {
+            Pair(null, null)
+        }
     }
 
     /** Use native Android API to read battery percent and charging status non-root */

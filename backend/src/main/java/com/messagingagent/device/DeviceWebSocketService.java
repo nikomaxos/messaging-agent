@@ -130,6 +130,12 @@ public class DeviceWebSocketService {
             if (heartbeat.getAdbWifiAddress() != null && !heartbeat.getAdbWifiAddress().isBlank()) {
                 device.setAdbWifiAddress(heartbeat.getAdbWifiAddress().trim());
             }
+            if (heartbeat.getLatitude() != null) {
+                device.setLatitude(heartbeat.getLatitude());
+            }
+            if (heartbeat.getLongitude() != null) {
+                device.setLongitude(heartbeat.getLongitude());
+            }
             // Only set ONLINE if device was OFFLINE (reconnected). NEVER override BUSY!
             if (device.getStatus() != Device.Status.BUSY) {
                 if (device.getStatus() == Device.Status.OFFLINE) {
@@ -191,6 +197,10 @@ public class DeviceWebSocketService {
             statusMap.put("gsmSignalDbm", heartbeat.getGsmSignalDbm() != null ? heartbeat.getGsmSignalDbm() : "");
             statusMap.put("activeNetworkType", heartbeat.getActiveNetworkType() != null ? heartbeat.getActiveNetworkType() : "");
             statusMap.put("apkVersion", heartbeat.getApkVersion() != null ? heartbeat.getApkVersion() : "");
+            statusMap.put("phoneNumber", device.getPhoneNumber()); // use device entity to retain even if hb null
+            statusMap.put("adbWifiAddress", device.getAdbWifiAddress());
+            statusMap.put("latitude", device.getLatitude());
+            statusMap.put("longitude", device.getLongitude());
             statusMap.put("apkUpdateStatus", "");
             statusMap.put("lastHeartbeat", device.getLastHeartbeat().toString());
             if (device.getConnectedAt() != null) {
