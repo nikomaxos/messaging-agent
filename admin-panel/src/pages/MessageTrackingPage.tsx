@@ -319,13 +319,13 @@ export default function MessageTrackingPage() {
               <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
             )}
             {logs.map(l => (
-              <tr key={l.id} className={`cursor-pointer hover:bg-white/[0.02] ${selectedIds.has(l.id) ? 'bg-brand-500/5' : ''}`}>
+              <tr key={l.id} className={`cursor-pointer hover:bg-white/[0.02] ${selectedIds.has(l.id) ? 'bg-brand-500/5' : ''}`} onClick={() => setSelectedLog(l)}>
                 <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" className="accent-brand-500 cursor-pointer"
                     checked={selectedIds.has(l.id)}
                     onChange={() => toggleSelect(l.id)} />
                 </td>
-                <td className="px-4 py-3 text-xs font-mono text-slate-500" onClick={() => setSelectedLog(l)}>{l.id}</td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-500">{l.id}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">
                   <div><span className="text-[10px] uppercase text-slate-600 font-bold inline-block mr-1 w-5">In</span> {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}</div>
                   {l.fallbackStartedAt && (
@@ -344,8 +344,8 @@ export default function MessageTrackingPage() {
                     return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1.5 py-0.5 border ${color}`}>⏱ {label}</span>;
                   })()}
                 </td>
-                <td className="px-4 py-3 text-sm font-mono text-slate-200" onClick={() => setSelectedLog(l)}>{l.sourceAddress ?? '—'}</td>
-                <td className="px-4 py-3 text-sm font-mono text-slate-200" onClick={() => setSelectedLog(l)}>{l.destinationAddress ?? '—'}</td>
+                <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.sourceAddress ?? '—'}</td>
+                <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.destinationAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
                   {l.messageText ?? '—'}
                 </td>
