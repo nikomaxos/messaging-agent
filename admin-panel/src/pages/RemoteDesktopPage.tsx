@@ -68,6 +68,7 @@ function DeviceView({ device }: { device: Device }) {
   const imgRef = useRef<HTMLImageElement>(null)
   const shellEndRef = useRef<HTMLDivElement>(null)
   const stompRef = useRef<Client | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval>>()
   const frameCount = useRef(0)
   const fpsInterval = useRef<ReturnType<typeof setInterval>>()
 
@@ -76,7 +77,62 @@ function DeviceView({ device }: { device: Device }) {
   const [dragEnd, setDragEnd] = useState<{ x: number; y: number } | null>(null)
   const [tapIndicator, setTapIndicator] = useState<{ x: number; y: number } | null>(null)
 
-  // ── STOMP connect + subscribe ──
+  // ── Frame polling via HTTP (guaranteed delivery, no STOMP issues) ──
+  useEffect(() => {
+    // FPS counter
+    fpsInterval.current = setInterval(() => {
+      setFps(frameCount.current)
+      frameCount.current = 0
+    }, 1000)
+
+    return () => {
+      stopScreenStream(device.id).catch(() => {})
+      if (pollRef.current) clearInterval(pollRef.current)
+      clearInterval(fpsInterval.current)
+    }
+  }, [device.id])
+
+  // Start/stop HTTP polling when streaming state changes
+  useEffect(() => {
+    if (streaming) {
+      const token = localStorage.getItem('token')
+      let running = true
+      const poll = async () => {
+        if (!running) return
+        try {
+          const res = await fetch(`/api/devices/${device.id}/screen-frame`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (res.ok) {
+            const blob = await res.blob()
+            if (blob.size > 0) {
+              const url = URL.createObjectURL(blob)
+              setFrame(prev => {
+                if (prev) URL.revokeObjectURL(prev)
+                return url
+              })
+              frameCount.current++
+            }
+          }
+        } catch { /* ignore fetch errors */ }
+      }
+      pollRef.current = setInterval(poll, 300)
+      poll() // immediate first fetch
+    } else {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = undefined
+      }
+    }
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = undefined
+      }
+    }
+  }, [streaming, device.id])
+
+  // ── STOMP for shell output only (small text payloads — works fine) ──
   useEffect(() => {
     const client = new Client({
       webSocketFactory: () => new SockJS('/ws-admin'),
@@ -85,12 +141,6 @@ function DeviceView({ device }: { device: Device }) {
     })
 
     client.onConnect = () => {
-      // subscribe to screen frames
-      client.subscribe(`/topic/screen/${device.id}`, (msg) => {
-        setFrame('data:image/jpeg;base64,' + msg.body)
-        frameCount.current++
-      })
-      // subscribe to shell results
       client.subscribe(`/topic/shell/${device.id}`, (msg) => {
         try {
           const data = JSON.parse(msg.body)
@@ -105,17 +155,7 @@ function DeviceView({ device }: { device: Device }) {
     client.activate()
     stompRef.current = client
 
-    // FPS counter
-    fpsInterval.current = setInterval(() => {
-      setFps(frameCount.current)
-      frameCount.current = 0
-    }, 1000)
-
-    return () => {
-      stopScreenStream(device.id).catch(() => {})
-      client.deactivate()
-      clearInterval(fpsInterval.current)
-    }
+    return () => { client.deactivate() }
   }, [device.id])
 
   // scroll shell to bottom

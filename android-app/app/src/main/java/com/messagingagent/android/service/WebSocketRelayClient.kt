@@ -605,44 +605,63 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("INFO", "🖥️ Screen stream already running")
                     return
                 }
-                addLog("INFO", "🖥️ Starting screen stream")
+                addLog("INFO", "🖥️ Starting screen stream (HTTP)")
                 screenStreamJob = CoroutineScope(Dispatchers.IO).launch {
                     val tmpFile = "/data/local/tmp/sc_frame.png"
+                    // Build the upload URL from the backend URL stored in prefs
+                    val baseUrl = kotlinx.coroutines.runBlocking { prefs.getBackendUrl() } ?: ""
+                    val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
+                    val uploadUrl = baseUrl.trimEnd('/') + "/api/screen-frame?token=" + java.net.URLEncoder.encode(token, "UTF-8")
+                    addLog("INFO", "🖥️ Frame upload URL: $uploadUrl")
+                    val httpClient = okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+                    var framesSent = 0
                     while (isActive) {
                         try {
-                            // 1. Capture screen to PNG file (~0.5-1s on most devices)
+                            // 1. Capture screen to PNG file
                             com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
 
-                            // 2. Read PNG bytes directly in Java (no shell base64 round-trip)
+                            // 2. Read PNG, decode at half resolution, compress to JPEG
                             val file = java.io.File(tmpFile)
                             if (!file.exists() || file.length() == 0L) {
                                 delay(200)
                                 continue
                             }
                             val pngBytes = file.readBytes()
-
-                            // 3. Decode → scale to 1/3 → compress JPEG Q35 → base64
                             val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
-                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts)
-                            if (bitmap == null) {
-                                delay(200)
-                                continue
-                            }
+                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts) ?: continue
                             val jpegStream = java.io.ByteArrayOutputStream(32768)
                             bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 35, jpegStream)
                             bitmap.recycle()
-                            val jpegBase64 = android.util.Base64.encodeToString(jpegStream.toByteArray(), android.util.Base64.NO_WRAP)
+                            val jpegBytes = jpegStream.toByteArray()
                             jpegStream.close()
 
-                            val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
-                            ws?.send("SEND\ndestination:/app/screen-frame\ndeviceToken:$token\ncontent-type:text/plain\n\n$jpegBase64\u0000")
+                            // 3. HTTP POST raw JPEG bytes to backend
+                            val requestBody = okhttp3.RequestBody.create(
+                                okhttp3.MediaType.parse("application/octet-stream"), jpegBytes
+                            )
+                            val request = okhttp3.Request.Builder()
+                                .url(uploadUrl)
+                                .post(requestBody)
+                                .build()
+                            val response = httpClient.newCall(request).execute()
+                            response.close()
+                            framesSent++
+                            if (framesSent % 30 == 1) {
+                                addLog("INFO", "🖥️ Sent frame #$framesSent (${jpegBytes.size / 1024}KB)")
+                            }
                         } catch (e: Exception) {
-                            addLog("ERROR", "Screen capture failed: ${e.message}")
+                            addLog("ERROR", "Screen frame upload failed: ${e.message}")
+                            delay(1000) // back off on error
                         }
-                        delay(250) // target ~3-4 FPS
+                        delay(300) // ~3 FPS
                     }
-                    // Cleanup temp file when stream stops
+                    // Cleanup
                     try { java.io.File(tmpFile).delete() } catch (_: Exception) {}
+                    addLog("INFO", "🖥️ Stream stopped after $framesSent frames")
                 }
             }
             body == "STOP_SCREEN_STREAM" -> {

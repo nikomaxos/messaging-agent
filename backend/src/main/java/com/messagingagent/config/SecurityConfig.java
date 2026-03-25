@@ -44,6 +44,7 @@ public class SecurityConfig {
                     "/api/auth/**",
                     "/api/devices/register",
                     "/api/devices/register/**",
+                    "/api/screen-frame",   // Device screen frame upload (token-auth, no JWT)
                     "/api/public/**",
                     "/actuator/**",
                     "/ws/**",        // Android raw WebSocket
