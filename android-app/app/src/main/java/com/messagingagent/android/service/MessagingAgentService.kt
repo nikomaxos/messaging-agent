@@ -325,20 +325,31 @@ class MessagingAgentService : Service() {
                     android.database.sqlite.SQLiteDatabase.openDatabase(
                         tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
                     ).use { db ->
+                        // Collect all bugle _ids already claimed by pending DLRs (to prevent duplicates)
+                        val claimedBugleIds = mutableSetOf<Long>()
+                        currentPending.filter { it.bugleMessageId > 0 }.forEach { claimedBugleIds.add(it.bugleMessageId) }
+
                         for (p in currentPending) {
                             try {
                                 val ageMs = now - p.addedAt
 
-                                // Query by exact bugle_db _id when known, fallback to first row after initialMaxId
+                                // Query by exact bugle_db _id when known, fallback to first UNCLAIMED row after initialMaxId
                                 val query = if (p.bugleMessageId > 0) {
                                     Pair("SELECT _id, message_status FROM messages WHERE _id = ?", arrayOf(p.bugleMessageId.toString()))
                                 } else {
-                                    Pair("SELECT _id, message_status FROM messages WHERE _id > ? ORDER BY _id ASC LIMIT 1", arrayOf(p.initialMaxId.toString()))
+                                    // Build exclusion list of already-claimed bugle _ids
+                                    val excludeClause = if (claimedBugleIds.isNotEmpty()) {
+                                        " AND _id NOT IN (${claimedBugleIds.joinToString(",")})"
+                                    } else ""
+                                    Pair("SELECT _id, message_status FROM messages WHERE _id > ?$excludeClause ORDER BY _id ASC LIMIT 1", arrayOf(p.initialMaxId.toString()))
                                 }
                                 db.rawQuery(query.first, query.second
                                 ).use { cursor ->
                                     if (cursor.moveToNext()) {
+                                        val matchedBugleId = cursor.getLong(0)
                                         val status = cursor.getInt(1)
+                                        // Claim this bugle _id so other pending DLRs in this loop can't match it
+                                        claimedBugleIds.add(matchedBugleId)
                                         val alreadyDelivered = deliveredAt.containsKey(p.correlationId)
 
                                         when (status) {

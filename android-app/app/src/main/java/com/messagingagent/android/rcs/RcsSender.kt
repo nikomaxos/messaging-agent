@@ -326,6 +326,12 @@ class RcsSender @Inject constructor(
             com.topjohnwu.superuser.Shell.cmd("rm -f '$capDb' '$capDb-wal' '$capDb-shm' '$capDb-journal'").exec()
 
             Timber.i("RCS dispatch tapped for $to. bugleMessageId=$bugleMessageId, correlationId=$correlationId")
+            // Guard: if another pending DLR already claimed this bugle _id, reset to 0
+            // so the DLR watchdog uses its exclusion-aware fallback query
+            if (bugleMessageId > 0 && dlrTracker.hasPendingWithBugleId(bugleMessageId)) {
+                Timber.w("Slow-path _id=$bugleMessageId already claimed by another pending DLR -- resetting to 0 for fallback resolution")
+                bugleMessageId = 0
+            }
             dlrTracker.addPending(PendingDlr(
                 correlationId = correlationId,
                 destinationAddress = cleanTo,
