@@ -95,7 +95,7 @@ function DeviceView({ device }: { device: Device }) {
   // Start/stop HTTP polling when streaming state changes
   useEffect(() => {
     if (streaming) {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('jwt')
       let running = true
       const poll = async () => {
         if (!running) return
