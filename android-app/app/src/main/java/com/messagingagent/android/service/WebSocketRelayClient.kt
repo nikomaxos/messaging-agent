@@ -127,18 +127,64 @@ class WebSocketRelayClient @Inject constructor(
         addLog("INFO", "Connecting to $wsUrl (gen=$myGen)")
         onStatus("Connecting…")
 
-        val request = Request.Builder()
-            .url(wsUrl)
-            .addHeader("deviceToken", sims.first().deviceToken)
-            .build()
-        
-        ws = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                if (generation != myGen) return   // stale — a newer connect() replaced this socket
-                retryJob?.cancel()
-                connectionStartTime.value = System.currentTimeMillis()
-                addLog("INFO", "WebSocket open to $wsUrl — sending STOMP CONNECT")
-                onStatus("Connected to backend")
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Pre-flight check to prevent "Zombie" state where the backend has forgotten the device token
+                val statusUrl = "${backendUrl.trimEnd('/')}/api/devices/register/status/${sims.first().deviceToken}"
+                val statusReq = Request.Builder().url(statusUrl).build()
+                val response = client.newCall(statusReq).execute()
+                
+                if (response.code == 404) {
+                    addLog("ERROR", "Token orphaned (HTTP 404)! Attempting headless auto-recovery...")
+                    val regState = prefs.registrationFlow().first()
+                    
+                    if (regState.groupId != null) {
+                        val regUrl = "${backendUrl.trimEnd('/')}/api/devices/register"
+                        val reqBodyStr = """{"deviceName":"${regState.deviceName}","groupId":${regState.groupId},"simIccid":"${sims.first().simIccid}","phoneNumber":"${sims.first().phoneNumber ?: ""}"}"""
+                        val regReq = Request.Builder().url(regUrl)
+                            .post(reqBodyStr.toRequestBody("application/json".toMediaType()))
+                            .build()
+                            
+                        val regResp = client.newCall(regReq).execute()
+                        if (regResp.isSuccessful) {
+                            val bodyStr = regResp.body?.string() ?: ""
+                            val jsonObj = org.json.JSONObject(bodyStr)
+                            val newToken = jsonObj.getString("token")
+                            val newDeviceId = jsonObj.getLong("deviceId")
+                            
+                            val newSims = sims.map { it.copy(deviceToken = newToken, deviceId = newDeviceId, simIccid = sims.first().simIccid) }
+                            prefs.setRegistrationResult(newSims, regState.groupName ?: "", regState.groupId)
+                            
+                            addLog("INFO", "Auto-recovered! Reconnecting with fresh token...")
+                            withContext(Dispatchers.Main) {
+                                connect(backendUrl, newSims, onStatus)
+                            }
+                            return@launch
+                        } else {
+                            addLog("ERROR", "Headless auto-recovery failed: HTTP ${regResp.code}")
+                        }
+                    } else {
+                        addLog("ERROR", "Cannot auto-recover: Group ID is null in preferences")
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore transient network errors during pre-flight; let the main WS loop handle retries
+            }
+
+            if (generation != myGen) return@launch // stale
+
+            val request = Request.Builder()
+                .url(wsUrl)
+                .addHeader("deviceToken", sims.first().deviceToken)
+                .build()
+            
+            ws = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (generation != myGen) return   // stale — a newer connect() replaced this socket
+                    retryJob?.cancel()
+                    connectionStartTime.value = System.currentTimeMillis()
+                    addLog("INFO", "WebSocket open to $wsUrl — sending STOMP CONNECT")
+                    onStatus("Connected to backend")
                 // Allow OkHttp's underlying `pingInterval(25, SECONDS)` to keep the network layer alive
                 // Tell server: STOMP heartbeats are disabled (0,0) so it doesn't drop us due to missing STOMP frames
                 val baseToken = activeSims.first().deviceToken
