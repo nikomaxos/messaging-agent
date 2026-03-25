@@ -87,7 +87,7 @@ function DeviceView({ device }: { device: Device }) {
     client.onConnect = () => {
       // subscribe to screen frames
       client.subscribe(`/topic/screen/${device.id}`, (msg) => {
-        setFrame('data:image/png;base64,' + msg.body)
+        setFrame('data:image/jpeg;base64,' + msg.body)
         frameCount.current++
       })
       // subscribe to shell results

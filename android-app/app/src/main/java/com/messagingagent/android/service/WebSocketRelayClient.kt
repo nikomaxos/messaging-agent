@@ -605,22 +605,44 @@ class WebSocketRelayClient @Inject constructor(
                     addLog("INFO", "🖥️ Screen stream already running")
                     return
                 }
-                addLog("INFO", "🖥️ Starting screen stream")
+                addLog("INFO", "🖥️ Starting screen stream (JPEG compressed)")
                 screenStreamJob = CoroutineScope(Dispatchers.IO).launch {
                     while (isActive) {
                         try {
-                            val result = com.topjohnwu.superuser.Shell.cmd(
-                                "screencap -p | base64 -w 0"
-                            ).exec()
-                            val base64Data = result.out.joinToString("")
-                            if (base64Data.isNotEmpty()) {
-                                val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
-                                ws?.send("SEND\ndestination:/app/screen-frame\ndeviceToken:$token\ncontent-type:text/plain\n\n$base64Data\u0000")
+                            // Capture screen as raw RGBA bytes, then compress to JPEG
+                            val tmpFile = "/data/local/tmp/sc_frame.png"
+                            com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
+                            val readResult = com.topjohnwu.superuser.Shell.cmd("cat $tmpFile | base64 -w 0").exec()
+                            val pngBase64 = readResult.out.joinToString("")
+                            if (pngBase64.isEmpty()) {
+                                delay(350)
+                                continue
                             }
+                            // Decode PNG -> Bitmap -> scale 50% -> JPEG quality 40 -> base64
+                            val pngBytes = android.util.Base64.decode(pngBase64, android.util.Base64.DEFAULT)
+                            val fullBitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size)
+                            if (fullBitmap == null) {
+                                delay(350)
+                                continue
+                            }
+                            val scaledW = fullBitmap.width / 2
+                            val scaledH = fullBitmap.height / 2
+                            val scaled = android.graphics.Bitmap.createScaledBitmap(fullBitmap, scaledW, scaledH, true)
+                            fullBitmap.recycle()
+                            val jpegStream = java.io.ByteArrayOutputStream()
+                            scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 40, jpegStream)
+                            scaled.recycle()
+                            val jpegBase64 = android.util.Base64.encodeToString(jpegStream.toByteArray(), android.util.Base64.NO_WRAP)
+                            jpegStream.close()
+                            // Clean up temp file
+                            com.topjohnwu.superuser.Shell.cmd("rm -f $tmpFile").exec()
+
+                            val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
+                            ws?.send("SEND\ndestination:/app/screen-frame\ndeviceToken:$token\ncontent-type:text/plain\n\n$jpegBase64\u0000")
                         } catch (e: Exception) {
                             addLog("ERROR", "Screen capture failed: ${e.message}")
                         }
-                        delay(600) // ~1.5 FPS
+                        delay(350) // ~3 FPS
                     }
                 }
             }
