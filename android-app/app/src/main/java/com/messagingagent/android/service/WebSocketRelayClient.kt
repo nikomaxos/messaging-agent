@@ -315,7 +315,7 @@ class WebSocketRelayClient @Inject constructor(
                                 # Wait for the app to close its WebSocket cleanly
                                 sleep 3
 
-                                # Force-stop the OLD running process (critical: ensures old code is fully unloaded)
+                                # Force-stop the OLD running process
                                 am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
                                 echo "Force-stopped old process" >> ${'$'}LOG
                                 sleep 1
@@ -329,14 +329,28 @@ class WebSocketRelayClient @Inject constructor(
                                 rm -f $tmpApk
 
                                 if [ ${'$'}INSTALL_EXIT -eq 0 ]; then
-                                    echo "Install SUCCESS — restarting app" >> ${'$'}LOG
-                                    sleep 2
-                                    # Force-stop AGAIN to ensure any auto-started old process is killed
-                                    am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
-                                    sleep 1
-                                    # Start fresh with the new code
+                                    echo "Install SUCCESS" >> ${'$'}LOG
+
+                                    # CRITICAL: Force dex recompilation from the NEW APK
+                                    # MIUI caches old dex in zygote — this rebuilds it
+                                    cmd package compile -m speed -f com.messagingagent.android >> ${'$'}LOG 2>&1
+                                    echo "Dex recompiled" >> ${'$'}LOG
+
+                                    # Kill loop: repeatedly kill the process to break MIUI autostart cycle
+                                    # MIUI immediately respawns killed processes via AccessibilityService/AutoStart
+                                    for i in 1 2 3 4 5; do
+                                        am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
+                                        PID=$(pidof com.messagingagent.android 2>/dev/null)
+                                        if [ -n "${'$'}PID" ]; then
+                                            kill -9 ${'$'}PID 2>/dev/null
+                                        fi
+                                        sleep 1
+                                    done
+                                    echo "Kill loop complete" >> ${'$'}LOG
+
+                                    # Now start fresh — the new dex will be loaded
                                     am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> ${'$'}LOG 2>&1
-                                    echo "App restarted" >> ${'$'}LOG
+                                    echo "App restarted with new code" >> ${'$'}LOG
                                 else
                                     echo "Install FAILED" >> ${'$'}LOG
                                 fi
