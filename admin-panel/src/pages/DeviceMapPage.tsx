@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { getDevices } from '../api/client'
-import { MapPin } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { getDevices, getGroups } from '../api/client'
+import { MapPin, Filter } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 const STATUS_COLORS: Record<string, string> = {
   ONLINE: '#34d399', OFFLINE: '#f87171', BUSY: '#fbbf24', MAINTENANCE: '#94a3b8',
@@ -10,12 +10,24 @@ const STATUS_COLORS: Record<string, string> = {
 export default function DeviceMapPage() {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
+  const [selectedGroupId, setSelectedGroupId] = useState<number | 'ALL'>('ALL')
 
-  const { data: devices } = useQuery({
+  const { data: allDevices } = useQuery({
     queryKey: ['devices'],
     queryFn: getDevices,
     refetchInterval: 30000,
   })
+
+  const { data: groups } = useQuery({
+    queryKey: ['groups'],
+    queryFn: getGroups,
+  })
+
+  // Filter devices by group
+  const devices = selectedGroupId === 'ALL' 
+    ? allDevices 
+    : allDevices?.filter((d: any) => d.group?.id === selectedGroupId)
+
 
   // Load Leaflet CSS + JS dynamically
   useEffect(() => {
@@ -123,13 +135,30 @@ export default function DeviceMapPage() {
 
   return (
     <div className="space-y-4 h-[calc(100vh-220px)] flex flex-col">
-      <div>
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <MapPin size={22} className="text-teal-400" /> Device Map
-        </h1>
-        <p className="text-slate-500 text-xs mt-0.5">
-          {devicesWithCoords.length} devices with GPS • {devicesWithoutCoords.length} without GPS
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <MapPin size={22} className="text-teal-400" /> Device Map
+          </h1>
+          <p className="text-slate-500 text-xs mt-0.5">
+            {devicesWithCoords.length} devices with GPS • {devicesWithoutCoords.length} without GPS
+          </p>
+        </div>
+        
+        {/* Group Filter */}
+        <div className="flex items-center gap-2">
+          <Filter size={16} className="text-slate-400" />
+          <select
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+            className="bg-slate-800 border-slate-700 text-sm rounded-md px-3 py-1.5 min-w-[150px] outline-none focus:ring-1 focus:ring-teal-500"
+          >
+            <option value="ALL">All Groups</option>
+            {groups?.map((g: any) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Legend */}
