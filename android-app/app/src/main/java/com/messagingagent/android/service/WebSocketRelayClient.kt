@@ -267,6 +267,10 @@ class WebSocketRelayClient @Inject constructor(
     private fun handleSysCommand(body: String, commandTargetToken: String?) {
         addLog("INFO", "Received system command: $body")
         when {
+            body == "REFRESH_LOCATION" -> {
+                MessagingAgentService.forceLocationRefresh = true
+                addLog("INFO", "Location refresh requested by admin, next heartbeat will include GPS")
+            }
             body == "REBOOT" -> {
                 com.topjohnwu.superuser.Shell.cmd("su -c reboot").exec()
             }

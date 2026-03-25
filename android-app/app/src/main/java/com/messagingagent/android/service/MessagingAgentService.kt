@@ -167,6 +167,13 @@ class MessagingAgentService : Service() {
         }
     }
 
+    companion object {
+        const val NOTIFICATION_ID = 1001
+
+        var lastLocationSendTime = 0L
+        var forceLocationRefresh = false
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         scope.launch {
             val regState = prefs.registrationFlow().first()
@@ -215,7 +222,16 @@ class MessagingAgentService : Service() {
 
                         val phoneNum  = readPhoneNumber()
                         val adbAddr   = readAdbWifiAddress()
-                        val location  = readLocation()
+                        
+                        // Rate limit location to 1 hour (3600000 ms) unless force refreshed
+                        val now = System.currentTimeMillis()
+                        val location = if (forceLocationRefresh || (now - lastLocationSendTime >= 3600000)) {
+                            lastLocationSendTime = now
+                            forceLocationRefresh = false
+                            readLocation()
+                        } else {
+                            Pair(null, null)
+                        }
 
                         val payload = HeartbeatPayload(
                             batteryPercent    = battery.first,

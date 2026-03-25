@@ -46,6 +46,22 @@ export default function DeviceMapPage() {
     updateMarkers()
   }, [devices])
 
+  // Global function for Leaflet popup buttons
+  useEffect(() => {
+    (window as any).refreshDeviceLocation = (id: number) => {
+      fetch(`/api/devices/${id}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'REFRESH_LOCATION' })
+      }).then(() => {
+        alert('Location refresh requested. Map will update within 20 seconds.')
+      }).catch(err => console.error(err))
+    }
+    return () => {
+      delete (window as any).refreshDeviceLocation
+    }
+  }, [])
+
   const initMap = () => {
     if (!mapRef.current || mapInstanceRef.current) return
     const L = (window as any).L
@@ -90,6 +106,7 @@ export default function DeviceMapPage() {
           ${d.batteryPercent != null ? `<div style="color:#888">Battery: ${d.batteryPercent}%</div>` : ''}
           ${d.phoneNumber ? `<div style="color:#888">Phone: ${d.phoneNumber}</div>` : ''}
           ${d.apkVersion ? `<div style="color:#888">APK: v${d.apkVersion}</div>` : ''}
+          <button onclick="window.refreshDeviceLocation(${d.id})" style="margin-top:8px;padding:6px 10px;background:#0d9488;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;width:100%;text-align:center;font-weight:600 transition:background 0.2s" onmouseover="this.style.background='#0f766e'" onmouseout="this.style.background='#0d9488'">Refresh Location</button>
         </div>
       `)
     })
