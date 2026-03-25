@@ -447,7 +447,7 @@ class MessagingAgentService : Service() {
                                                         )
                                                     } catch (e: Exception) { Timber.e(e, "Failed to send SENT via WebSocket") }
                                                 }
-                                                if (ageMs > 15_000) {
+                                                if (ageMs > 45_000) {
                                                     Timber.w(" DLR STUCK SENDING: ${p.correlationId} -- bugle status=1 for ${ageMs/1000}s, treating as ERROR")
                                                     try {
                                                         wsClient.sendDeliveryResultAsync(

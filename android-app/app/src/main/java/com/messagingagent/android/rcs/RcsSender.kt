@@ -138,7 +138,7 @@ class RcsSender @Inject constructor(
             }
 
             // Wait for Google Messages UI to render and sms_body to populate the compose field
-            kotlinx.coroutines.delay(800)
+            kotlinx.coroutines.delay(1200)
 
             var clicked = false
 
@@ -210,9 +210,18 @@ class RcsSender @Inject constructor(
             if (!clicked) {
                 // First verify compose field has text before attempting to find/tap send button
                 if (!waitForComposeText()) {
-                    Timber.e("Compose field empty even after waiting -- cannot send without text for $to")
+                    // Retry: re-send the intent — sometimes the first sms_body extra doesn't stick
+                    Timber.w("Compose field empty after first attempt -- retrying intent for $to")
                     exitMessagesCleanly()
-                    return RcsSendResult(success = false, error = "Message text did not populate in Google Messages compose field")
+                    kotlinx.coroutines.delay(500)
+                    shellResult = Shell.cmd(intentCmd.toString()).exec()
+                    kotlinx.coroutines.delay(1500)
+                    if (!waitForComposeText()) {
+                        Timber.e("Compose field STILL empty after intent retry -- cannot send for $to")
+                        exitMessagesCleanly()
+                        return RcsSendResult(success = false, error = "Message text did not populate in Google Messages compose field")
+                    }
+                    Timber.i("Intent retry succeeded -- compose field now has text for $to")
                 }
                 for (i in 0 until 6) {
                     val dumpRes = Shell.cmd("uiautomator dump /data/local/tmp/dump.xml && cat /data/local/tmp/dump.xml").exec()
@@ -356,13 +365,13 @@ class RcsSender @Inject constructor(
      * Returns true if text is detected, false after max attempts.
      * Prevents tapping send when compose is empty (which triggers voice message balloon).
      */
-    private suspend fun waitForComposeText(maxAttempts: Int = 5): Boolean {
+    private suspend fun waitForComposeText(maxAttempts: Int = 8): Boolean {
         repeat(maxAttempts) { attempt ->
             val dumpRes = Shell.cmd("uiautomator dump /data/local/tmp/dump.xml && cat /data/local/tmp/dump.xml").exec()
             val xml = dumpRes.out.joinToString(" ")
             // Look for compose/text input fields that have non-empty text content
             // Google Messages compose field: resource-id contains "compose" or "message_input"
-            val composeFieldRegex = """<node[^>]*(?:resource-id="[^"]*(?:compose|message_input|edit)[^"]*"|class="[^"]*EditText[^"]*")[^>]*text="([^"]+)"[^>]*>""".toRegex(RegexOption.IGNORE_CASE)
+            val composeFieldRegex = """<node[^>]*(?:resource-id="[^"]*(?:compose|message_input|edit|draft)[^"]*"|class="[^"]*EditText[^"]*")[^>]*text="([^"]+)"[^>]*>""".toRegex(RegexOption.IGNORE_CASE)
             val match = composeFieldRegex.find(xml)
             if (match != null && match.groupValues[1].isNotBlank()) {
                 Timber.i("Compose text verified on attempt ${attempt + 1}: '${match.groupValues[1].take(30)}...'")
@@ -378,7 +387,7 @@ class RcsSender @Inject constructor(
                 return true
             }
             Timber.w("Compose field appears empty, waiting... (attempt ${attempt + 1}/$maxAttempts)")
-            kotlinx.coroutines.delay(400)
+            kotlinx.coroutines.delay(500)
         }
         Timber.e("Compose text not detected after $maxAttempts attempts")
         return false
