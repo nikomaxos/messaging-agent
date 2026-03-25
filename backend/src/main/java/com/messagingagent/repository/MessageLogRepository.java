@@ -88,4 +88,15 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     // Throughput: per-SMSC and per-device counts for rate dashboard
     long countBySmscSupplierIdAndCreatedAtAfter(Long supplierId, java.time.Instant after);
     long countByDeviceIdAndCreatedAtAfter(Long deviceId, java.time.Instant after);
+
+    // Live TPS: count messages in time buckets
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT date_trunc('second', created_at) AS ts, COUNT(*) AS cnt " +
+                "FROM message_log WHERE created_at >= :since " +
+                "GROUP BY ts ORDER BY ts",
+        nativeQuery = true)
+    java.util.List<Object[]> countPerSecondSince(
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since);
+
+    long countByCreatedAtAfter(java.time.Instant after);
 }

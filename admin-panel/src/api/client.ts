@@ -124,6 +124,7 @@ export const generateReport = () => api.post('/reports/generate').then((r: any) 
 
 // Throughput
 export const getThroughput = (window = '1h') => api.get('/throughput', { params: { window } }).then((r: any) => r.data)
+export const getLiveTps = (minutes = 5) => api.get('/throughput/live', { params: { minutes } }).then((r: any) => r.data)
 
 // Bulk Device Commands
 export const bulkDeviceCommand = (deviceIds: number[], command: string) =>
