@@ -10,6 +10,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function DeviceMapPage() {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
+  const hasFitBoundsRef = useRef(false)
   const [selectedGroupId, setSelectedGroupId] = useState<number | 'ALL'>('ALL')
 
   const { data: allDevices } = useQuery({
@@ -123,10 +124,11 @@ export default function DeviceMapPage() {
       `)
     })
 
-    // Fit bounds if we have markers
-    if (withCoords.length > 0) {
+    // Auto-fit bounds ONLY on the first load to prevent stealing user's pan/zoom
+    if (withCoords.length > 0 && !hasFitBoundsRef.current) {
       const bounds = L.latLngBounds(withCoords.map((d: any) => [d.latitude, d.longitude]))
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 })
+      hasFitBoundsRef.current = true
     }
   }
 
