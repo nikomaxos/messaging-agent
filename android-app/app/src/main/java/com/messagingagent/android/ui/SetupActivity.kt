@@ -422,7 +422,12 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("APK", color = Color(0xFF6B7280), fontSize = 10.sp)
-                    Text(com.messagingagent.android.BuildConfig.VERSION_NAME, color = Color(0xFF4ADE80), fontSize = 11.sp,
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val runtimeVersion = remember {
+                        try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "?" }
+                        catch (_: Exception) { "?" }
+                    }
+                    Text(runtimeVersion, color = Color(0xFF4ADE80), fontSize = 11.sp,
                          fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
             }

@@ -309,19 +309,33 @@ class WebSocketRelayClient @Inject constructor(
                             val script = """
                                 #!/system/bin/sh
                                 LOG=/data/local/tmp/ota.log
+                                PKG=com.messagingagent.android
                                 echo "=== OTA Update $(date) ===" > ${'$'}LOG
-                                echo "APK size: $(stat -c%s $tmpApk 2>/dev/null || ls -l $tmpApk) bytes" >> ${'$'}LOG
+                                echo "APK size: $(ls -l $tmpApk | awk '{print ${'$'}5}') bytes" >> ${'$'}LOG
 
                                 # Wait for the app to close its WebSocket cleanly
                                 sleep 3
 
-                                # Force-stop the OLD running process
-                                am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
-                                echo "Force-stopped old process" >> ${'$'}LOG
+                                # Kill any running process
+                                am force-stop ${'$'}PKG >> ${'$'}LOG 2>&1
+                                PID=$(pidof ${'$'}PKG 2>/dev/null)
+                                [ -n "${'$'}PID" ] && kill -9 ${'$'}PID 2>/dev/null
+                                echo "Stopped old process" >> ${'$'}LOG
                                 sleep 1
 
-                                # Install the new APK
-                                pm install -r -d -g $tmpApk >> ${'$'}LOG 2>&1
+                                # Uninstall but KEEP app data (-k flag)
+                                # This removes old code/dex cache but preserves registration & settings
+                                pm uninstall -k ${'$'}PKG >> ${'$'}LOG 2>&1
+                                echo "Uninstalled (data kept)" >> ${'$'}LOG
+                                sleep 2
+
+                                # Kill any zombie process MIUI may have respawned
+                                PID=$(pidof ${'$'}PKG 2>/dev/null)
+                                [ -n "${'$'}PID" ] && kill -9 ${'$'}PID 2>/dev/null
+                                sleep 1
+
+                                # Fresh install (no -r needed since app was uninstalled)
+                                pm install -g $tmpApk >> ${'$'}LOG 2>&1
                                 INSTALL_EXIT=${'$'}?
                                 echo "pm install exit: ${'$'}INSTALL_EXIT" >> ${'$'}LOG
 
@@ -329,28 +343,10 @@ class WebSocketRelayClient @Inject constructor(
                                 rm -f $tmpApk
 
                                 if [ ${'$'}INSTALL_EXIT -eq 0 ]; then
-                                    echo "Install SUCCESS" >> ${'$'}LOG
-
-                                    # CRITICAL: Force dex recompilation from the NEW APK
-                                    # MIUI caches old dex in zygote — this rebuilds it
-                                    cmd package compile -m speed -f com.messagingagent.android >> ${'$'}LOG 2>&1
-                                    echo "Dex recompiled" >> ${'$'}LOG
-
-                                    # Kill loop: repeatedly kill the process to break MIUI autostart cycle
-                                    # MIUI immediately respawns killed processes via AccessibilityService/AutoStart
-                                    for i in 1 2 3 4 5; do
-                                        am force-stop com.messagingagent.android >> ${'$'}LOG 2>&1
-                                        PID=$(pidof com.messagingagent.android 2>/dev/null)
-                                        if [ -n "${'$'}PID" ]; then
-                                            kill -9 ${'$'}PID 2>/dev/null
-                                        fi
-                                        sleep 1
-                                    done
-                                    echo "Kill loop complete" >> ${'$'}LOG
-
-                                    # Now start fresh — the new dex will be loaded
-                                    am start -n com.messagingagent.android/com.messagingagent.android.ui.SetupActivity >> ${'$'}LOG 2>&1
-                                    echo "App restarted with new code" >> ${'$'}LOG
+                                    echo "Install SUCCESS — starting app" >> ${'$'}LOG
+                                    sleep 1
+                                    am start -n ${'$'}PKG/com.messagingagent.android.ui.SetupActivity >> ${'$'}LOG 2>&1
+                                    echo "App started with new code" >> ${'$'}LOG
                                 else
                                     echo "Install FAILED" >> ${'$'}LOG
                                 fi

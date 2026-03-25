@@ -222,7 +222,7 @@ class MessagingAgentService : Service() {
                             networkOperator   = netOp,
                             rcsCapable        = rcs,
                             activeNetworkType = netType,
-                            apkVersion        = com.messagingagent.android.BuildConfig.VERSION_NAME,
+                            apkVersion        = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" } catch (_: Exception) { "?" },
                             phoneNumber       = phoneNum,
                             adbWifiAddress    = adbAddr
                         )
