@@ -131,34 +131,9 @@ class MessagingAgentService : Service() {
             Timber.w(e, "Device hardening partially failed (may not be MIUI)")
         }
 
-        // Enable ADB over TCP (separate from main hardening to avoid port flapping)
-        enableAdbOverTcp()
     }
 
-    /**
-     * Enable ADB over TCP on port 5555 once. Checks if already enabled to avoid
-     * restarting adbd on every service start (which would cause port flapping
-     * and conflict with Android's wireless debugging feature).
-     */
-    private fun enableAdbOverTcp() {
-        try {
-            val currentPort = com.topjohnwu.superuser.Shell.cmd("getprop persist.adb.tcp.port").exec()
-                .out.firstOrNull()?.trim() ?: ""
-            if (currentPort == "5555") {
-                Timber.d("ADB TCP already enabled on port 5555 -- skipping")
-                return
-            }
-            Timber.i("Enabling ADB over TCP on port 5555 (was: '$currentPort')")
-            com.topjohnwu.superuser.Shell.cmd(
-                "setprop persist.adb.tcp.port 5555",
-                "stop adbd",
-                "start adbd"
-            ).exec()
-            Timber.i("ADB over TCP enabled on port 5555 and adbd restarted")
-        } catch (e: Exception) {
-            Timber.w(e, "Failed to enable ADB over TCP")
-        }
-    }
+
 
     /**
      * Deploy and launch an external keepalive watchdog script that runs independently
@@ -710,19 +685,26 @@ class MessagingAgentService : Service() {
                 (ipInt shr 16) and 0xff, (ipInt shr 24) and 0xff
             )
 
-            // 2. Enable ADB over TCP via root (idempotent -- safe to run every heartbeat)
-            val enableResult = com.topjohnwu.superuser.Shell.cmd(
-                "setprop service.adb.tcp.port 5555",
-                "stop adbd",
-                "start adbd"
-            ).exec()
-            if (!enableResult.isSuccess) {
-                Timber.w("Failed to enable ADB over TCP: ${enableResult.err}")
+            // 2. Check if ADB TCP is already enabled — only restart adbd if NOT already set
+            val currentPort = com.topjohnwu.superuser.Shell.cmd("getprop service.adb.tcp.port").exec()
+                .out.firstOrNull()?.trim() ?: ""
+            val persistPort = com.topjohnwu.superuser.Shell.cmd("getprop persist.adb.tcp.port").exec()
+                .out.firstOrNull()?.trim() ?: ""
+
+            if (currentPort != "5555" && persistPort != "5555") {
+                // ADB TCP not enabled (e.g. after reboot) — enable it ONCE
+                Timber.i("ADB TCP not enabled (service=$currentPort, persist=$persistPort) — enabling now")
+                com.topjohnwu.superuser.Shell.cmd(
+                    "setprop service.adb.tcp.port 5555",
+                    "setprop persist.adb.tcp.port 5555",
+                    "stop adbd",
+                    "start adbd"
+                ).exec()
             }
 
-            // 3. Read the actual ADB TCP port
-            val portResult = com.topjohnwu.superuser.Shell.cmd("getprop service.adb.tcp.port").exec()
-            val port = portResult.out.firstOrNull()?.trim()?.takeIf { it.isNotBlank() } ?: "5555"
+            // 3. Read the actual port (should be 5555 now)
+            val port = com.topjohnwu.superuser.Shell.cmd("getprop service.adb.tcp.port").exec()
+                .out.firstOrNull()?.trim()?.takeIf { it.isNotBlank() } ?: "5555"
 
             return "$ip:$port"
         } catch (e: Exception) {
