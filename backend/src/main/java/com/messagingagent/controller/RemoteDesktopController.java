@@ -101,6 +101,14 @@ public class RemoteDesktopController {
                         toDouble(body.get("x")), toDouble(body.get("y")),
                         toDouble(body.get("screenWidth")), toDouble(body.get("screenHeight")));
                 break;
+            case "drag":
+                int duration = body.containsKey("duration") ? ((Number) body.get("duration")).intValue() : 2000;
+                command = String.format("INPUT_DRAG=%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%d",
+                        toDouble(body.get("x1")), toDouble(body.get("y1")),
+                        toDouble(body.get("x2")), toDouble(body.get("y2")),
+                        toDouble(body.get("screenWidth")), toDouble(body.get("screenHeight")),
+                        duration);
+                break;
             default:
                 return ResponseEntity.badRequest().body(Map.of("error", "Unknown type: " + type));
         }

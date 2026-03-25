@@ -686,18 +686,65 @@ class WebSocketRelayClient @Inject constructor(
                     var framesSent = 0
                     while (isActive) {
                         try {
-                            // 1. Capture screen to PNG file (screencap is the natural rate-limiter)
-                            com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
+                            // 1. Capture screen as RAW (no PNG encoding = 2.6x faster)
+                            val rawFile = "/data/local/tmp/sc_raw"
+                            com.topjohnwu.superuser.Shell.cmd("screencap $rawFile").exec()
 
-                            // 2. Read PNG, decode at 1/3 resolution, compress to small JPEG
-                            val file = java.io.File(tmpFile)
-                            if (!file.exists() || file.length() == 0L) { delay(100); continue }
-                            val pngBytes = file.readBytes()
-                            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 3 }
-                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts) ?: continue
-                            jpegStream.reset()
-                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 40, jpegStream)
-                            bitmap.recycle()
+                            // 2. Read raw RGBA pixels directly into Bitmap (skip PNG encode+decode)
+                            val file = java.io.File(rawFile)
+                            if (!file.exists() || file.length() < 16) { delay(100); continue }
+
+                            val raf = java.io.RandomAccessFile(file, "r")
+                            try {
+                                // Raw header: width(4) + height(4) + format(4) = 12 bytes
+                                val header = ByteArray(12)
+                                raf.readFully(header)
+                                val buf = java.nio.ByteBuffer.wrap(header).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                val rawW = buf.getInt()
+                                val rawH = buf.getInt()
+                                // Skip format (4 bytes already read)
+
+                                val pixelCount = rawW * rawH
+                                val expectedSize = (pixelCount * 4).toLong()
+                                val filePixelSize = file.length() - 12
+
+                                if (filePixelSize < expectedSize || rawW <= 0 || rawH <= 0 || rawW > 4096 || rawH > 8192) {
+                                    // Invalid raw data — fallback to PNG
+                                    raf.close()
+                                    com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
+                                    val pngFile = java.io.File(tmpFile)
+                                    if (!pngFile.exists() || pngFile.length() == 0L) { delay(100); continue }
+                                    val pngBytes = pngFile.readBytes()
+                                    val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 3 }
+                                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts) ?: continue
+                                    jpegStream.reset()
+                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 40, jpegStream)
+                                    bitmap.recycle()
+                                } else {
+                                    // Read raw RGBA pixels
+                                    val pixelBytes = ByteArray(expectedSize.toInt())
+                                    raf.readFully(pixelBytes)
+                                    raf.close()
+
+                                    // Create full-size Bitmap from raw pixels
+                                    val fullBitmap = android.graphics.Bitmap.createBitmap(rawW, rawH, android.graphics.Bitmap.Config.ARGB_8888)
+                                    fullBitmap.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(pixelBytes))
+
+                                    // Scale down to 1/3 for fast JPEG compression
+                                    val scaledW = rawW / 3
+                                    val scaledH = rawH / 3
+                                    val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(fullBitmap, scaledW, scaledH, false)
+                                    fullBitmap.recycle()
+
+                                    jpegStream.reset()
+                                    scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 40, jpegStream)
+                                    scaledBitmap.recycle()
+                                }
+                            } catch (rawEx: Exception) {
+                                try { raf.close() } catch (_: Exception) {}
+                                addLog("WARN", "Raw capture fallback to PNG: ${rawEx.message}")
+                                continue
+                            }
                             val jpegBytes = jpegStream.toByteArray()
 
                             // 3. HTTP POST raw JPEG bytes to backend (no delay — capture is naturally rate-limited)
@@ -796,6 +843,31 @@ class WebSocketRelayClient @Inject constructor(
                         com.topjohnwu.superuser.Shell.cmd("input swipe $sx1 $sy1 $sx2 $sy2 300").exec()
                     } catch (e: Exception) {
                         addLog("ERROR", "Input swipe failed: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("INPUT_DRAG=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Format: INPUT_DRAG=x1,y1,x2,y2,screenWidth,screenHeight,duration
+                        val parts = body.substringAfter("=").split(",")
+                        val x1 = parts[0].toFloat(); val y1 = parts[1].toFloat()
+                        val x2 = parts[2].toFloat(); val y2 = parts[3].toFloat()
+                        val viewW = parts[4].toFloat(); val viewH = parts[5].toFloat()
+                        val duration = parts.getOrNull(6)?.toIntOrNull() ?: 2000
+                        val wmResult = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+                        val wmLine = wmResult.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+                        val resParts = wmLine.substringAfter(":").trim().split("x")
+                        val devW = resParts[0].trim().toFloat()
+                        val devH = resParts[1].trim().toFloat()
+                        val dx1 = (x1 / viewW * devW).toInt()
+                        val dy1 = (y1 / viewH * devH).toInt()
+                        val dx2 = (x2 / viewW * devW).toInt()
+                        val dy2 = (y2 / viewH * devH).toInt()
+                        // Long-duration swipe = drag (triggers Android drag-and-drop on home screen)
+                        com.topjohnwu.superuser.Shell.cmd("input swipe $dx1 $dy1 $dx2 $dy2 $duration").exec()
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Input drag failed: ${e.message}")
                     }
                 }
             }

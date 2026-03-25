@@ -258,6 +258,8 @@ function DeviceView({ device }: { device: Device }) {
   const [tapIndicator, setTapIndicator] = useState<{ x: number; y: number } | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>()
   const longPressTriggered = useRef(false)
+  const mouseDownTime = useRef<number>(0)
+  const hasMoved = useRef(false)
 
   // ── Frame polling via HTTP ──
   useEffect(() => {
@@ -390,19 +392,13 @@ function DeviceView({ device }: { device: Device }) {
     if (!c) return
     setDragStart({ x: c.x, y: c.y })
     longPressTriggered.current = false
-    // Start long press timer (500ms)
+    mouseDownTime.current = Date.now()
+    hasMoved.current = false
+    // Start long press timer (500ms) — only fires if no movement
     clearTimeout(longPressTimer.current)
     longPressTimer.current = setTimeout(() => {
-      const img = imgRef.current
-      if (!img) return
-      const rect = img.getBoundingClientRect()
       longPressTriggered.current = true
-      sendRemoteInput(device.id, {
-        type: 'long_press', x: c.x, y: c.y,
-        screenWidth: rect.width, screenHeight: rect.height,
-      })
-      setTapIndicator({ x: c.x, y: c.y })
-      setTimeout(() => setTapIndicator(null), 800)
+      // Don't send long_press yet — wait for mouseUp to decide drag vs long_press
     }, 500)
   }
 
@@ -412,9 +408,12 @@ function DeviceView({ device }: { device: Device }) {
     if (!c) return
     const dx = c.x - dragStart.x
     const dy = c.y - dragStart.y
-    // Cancel long press if moved more than 10px
     if (Math.sqrt(dx * dx + dy * dy) > 10) {
-      clearTimeout(longPressTimer.current)
+      hasMoved.current = true
+      // Cancel long press timer if moved before 500ms (will be a swipe)
+      if (!longPressTriggered.current) {
+        clearTimeout(longPressTimer.current)
+      }
     }
     setDragEnd({ x: c.x, y: c.y })
   }
@@ -423,18 +422,35 @@ function DeviceView({ device }: { device: Device }) {
     clearTimeout(longPressTimer.current)
     const c = getImgCoords(e)
     if (!c || !dragStart) { setDragStart(null); setDragEnd(null); return }
-    // If long press already fired, skip tap/swipe
-    if (longPressTriggered.current) {
-      setDragStart(null); setDragEnd(null); return
-    }
     const img = imgRef.current!
     const rect = img.getBoundingClientRect()
+    const holdDuration = Date.now() - (mouseDownTime.current || Date.now())
 
     const dx = c.x - dragStart.x
     const dy = c.y - dragStart.y
     const dist = Math.sqrt(dx * dx + dy * dy)
 
-    if (dist < 10) {
+    if (longPressTriggered.current && hasMoved.current && dist > 10) {
+      // DRAG: long press + movement → icon drag-and-drop
+      sendRemoteInput(device.id, {
+        type: 'drag',
+        x1: dragStart.x, y1: dragStart.y,
+        x2: c.x, y2: c.y,
+        screenWidth: rect.width, screenHeight: rect.height,
+        duration: Math.max(holdDuration, 2000),
+      })
+      setTapIndicator({ x: c.x, y: c.y })
+      setTimeout(() => setTapIndicator(null), 400)
+    } else if (longPressTriggered.current && !hasMoved.current) {
+      // LONG PRESS: held >500ms, no movement
+      sendRemoteInput(device.id, {
+        type: 'long_press', x: dragStart.x, y: dragStart.y,
+        screenWidth: rect.width, screenHeight: rect.height,
+      })
+      setTapIndicator({ x: dragStart.x, y: dragStart.y })
+      setTimeout(() => setTapIndicator(null), 800)
+    } else if (dist < 10) {
+      // TAP: short click, no movement
       sendRemoteInput(device.id, {
         type: 'tap', x: dragStart.x, y: dragStart.y,
         screenWidth: rect.width, screenHeight: rect.height,
@@ -442,6 +458,7 @@ function DeviceView({ device }: { device: Device }) {
       setTapIndicator({ x: dragStart.x, y: dragStart.y })
       setTimeout(() => setTapIndicator(null), 400)
     } else {
+      // SWIPE: short hold + movement
       sendRemoteInput(device.id, {
         type: 'swipe',
         x1: dragStart.x, y1: dragStart.y,
