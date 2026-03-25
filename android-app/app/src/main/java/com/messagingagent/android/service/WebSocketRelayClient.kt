@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.*
@@ -640,9 +642,7 @@ class WebSocketRelayClient @Inject constructor(
                             jpegStream.close()
 
                             // 3. HTTP POST raw JPEG bytes to backend
-                            val requestBody = okhttp3.RequestBody.create(
-                                okhttp3.MediaType.parse("application/octet-stream"), jpegBytes
-                            )
+                            val requestBody = jpegBytes.toRequestBody("application/octet-stream".toMediaType())
                             val request = okhttp3.Request.Builder()
                                 .url(uploadUrl)
                                 .post(requestBody)
