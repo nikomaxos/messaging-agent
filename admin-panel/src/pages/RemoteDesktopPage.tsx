@@ -256,6 +256,8 @@ function DeviceView({ device }: { device: Device }) {
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [dragEnd, setDragEnd] = useState<{ x: number; y: number } | null>(null)
   const [tapIndicator, setTapIndicator] = useState<{ x: number; y: number } | null>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>()
+  const longPressTriggered = useRef(false)
 
   // ── Frame polling via HTTP ──
   useEffect(() => {
@@ -293,8 +295,8 @@ function DeviceView({ device }: { device: Device }) {
           }
         } catch { /* ignore fetch errors */ }
       }
-      // Poll faster: every 150ms (~6-7 FPS max)
-      pollRef.current = setInterval(poll, 150)
+      // Poll fast: every 80ms (~12 FPS max on local network)
+      pollRef.current = setInterval(poll, 80)
       poll()
     } else {
       if (pollRef.current) {
@@ -385,18 +387,46 @@ function DeviceView({ device }: { device: Device }) {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const c = getImgCoords(e)
-    if (c) setDragStart({ x: c.x, y: c.y })
+    if (!c) return
+    setDragStart({ x: c.x, y: c.y })
+    longPressTriggered.current = false
+    // Start long press timer (500ms)
+    clearTimeout(longPressTimer.current)
+    longPressTimer.current = setTimeout(() => {
+      const img = imgRef.current
+      if (!img) return
+      const rect = img.getBoundingClientRect()
+      longPressTriggered.current = true
+      sendRemoteInput(device.id, {
+        type: 'long_press', x: c.x, y: c.y,
+        screenWidth: rect.width, screenHeight: rect.height,
+      })
+      setTapIndicator({ x: c.x, y: c.y })
+      setTimeout(() => setTapIndicator(null), 800)
+    }, 500)
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!dragStart) return
     const c = getImgCoords(e)
-    if (c) setDragEnd({ x: c.x, y: c.y })
+    if (!c) return
+    const dx = c.x - dragStart.x
+    const dy = c.y - dragStart.y
+    // Cancel long press if moved more than 10px
+    if (Math.sqrt(dx * dx + dy * dy) > 10) {
+      clearTimeout(longPressTimer.current)
+    }
+    setDragEnd({ x: c.x, y: c.y })
   }
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    clearTimeout(longPressTimer.current)
     const c = getImgCoords(e)
     if (!c || !dragStart) { setDragStart(null); setDragEnd(null); return }
+    // If long press already fired, skip tap/swipe
+    if (longPressTriggered.current) {
+      setDragStart(null); setDragEnd(null); return
+    }
     const img = imgRef.current!
     const rect = img.getBoundingClientRect()
 

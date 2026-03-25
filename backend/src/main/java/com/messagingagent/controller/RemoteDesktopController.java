@@ -96,6 +96,11 @@ public class RemoteDesktopController {
             case "key":
                 command = "INPUT_KEY=" + body.get("keycode");
                 break;
+            case "long_press":
+                command = String.format("INPUT_LONG_PRESS=%.1f,%.1f,%.1f,%.1f",
+                        toDouble(body.get("x")), toDouble(body.get("y")),
+                        toDouble(body.get("screenWidth")), toDouble(body.get("screenHeight")));
+                break;
             default:
                 return ResponseEntity.badRequest().body(Map.of("error", "Unknown type: " + type));
         }

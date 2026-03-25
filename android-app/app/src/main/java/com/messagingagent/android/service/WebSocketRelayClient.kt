@@ -345,8 +345,16 @@ class WebSocketRelayClient @Inject constructor(
                                 if [ ${'$'}INSTALL_EXIT -eq 0 ]; then
                                     echo "Install SUCCESS — starting app" >> ${'$'}LOG
                                     sleep 1
+                                    # Clear MIUI stopped-state so the app can autostart
+                                    am set-stopped-state ${'$'}PKG false >> ${'$'}LOG 2>&1
+                                    # Launch the Activity UI
                                     am start -n ${'$'}PKG/com.messagingagent.android.ui.SetupActivity >> ${'$'}LOG 2>&1
-                                    echo "App started with new code" >> ${'$'}LOG
+                                    sleep 2
+                                    # Explicitly start the background foreground service
+                                    # (Activity's LaunchedEffect may not fire reliably on MIUI after reinstall)
+                                    am start-foreground-service -n ${'$'}PKG/.service.MessagingAgentService >> ${'$'}LOG 2>&1 \
+                                        || am startservice -n ${'$'}PKG/.service.MessagingAgentService >> ${'$'}LOG 2>&1
+                                    echo "App + service started with new code" >> ${'$'}LOG
                                 else
                                     echo "Install FAILED" >> ${'$'}LOG
                                 fi
@@ -678,20 +686,17 @@ class WebSocketRelayClient @Inject constructor(
                     var framesSent = 0
                     while (isActive) {
                         try {
-                            // 1. Capture screen to PNG file (screencap is the bottleneck ~1s)
+                            // 1. Capture screen to PNG file (screencap is the natural rate-limiter)
                             com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
 
-                            // 2. Read PNG, decode at reduced resolution, compress to JPEG
+                            // 2. Read PNG, decode at 1/3 resolution, compress to small JPEG
                             val file = java.io.File(tmpFile)
-                            if (!file.exists() || file.length() == 0L) {
-                                delay(100)
-                                continue
-                            }
+                            if (!file.exists() || file.length() == 0L) { delay(100); continue }
                             val pngBytes = file.readBytes()
-                            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
+                            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 3 }
                             val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts) ?: continue
                             jpegStream.reset()
-                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 45, jpegStream)
+                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 40, jpegStream)
                             bitmap.recycle()
                             val jpegBytes = jpegStream.toByteArray()
 
@@ -745,6 +750,29 @@ class WebSocketRelayClient @Inject constructor(
                         com.topjohnwu.superuser.Shell.cmd("input tap $tapX $tapY").exec()
                     } catch (e: Exception) {
                         addLog("ERROR", "Input tap failed: ${e.message}")
+                    }
+                }
+            }
+            body.startsWith("INPUT_LONG_PRESS=") -> {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Format: INPUT_LONG_PRESS=x,y,screenWidth,screenHeight
+                        val parts = body.substringAfter("=").split(",")
+                        val clickX = parts[0].toFloat()
+                        val clickY = parts[1].toFloat()
+                        val viewW = parts[2].toFloat()
+                        val viewH = parts[3].toFloat()
+                        val wmResult = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+                        val wmLine = wmResult.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+                        val resParts = wmLine.substringAfter(":").trim().split("x")
+                        val devW = resParts[0].trim().toFloat()
+                        val devH = resParts[1].trim().toFloat()
+                        val tapX = (clickX / viewW * devW).toInt()
+                        val tapY = (clickY / viewH * devH).toInt()
+                        // Long press = swipe to same point with 1000ms duration
+                        com.topjohnwu.superuser.Shell.cmd("input swipe $tapX $tapY $tapX $tapY 1000").exec()
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Input long press failed: ${e.message}")
                     }
                 }
             }
