@@ -666,33 +666,36 @@ class WebSocketRelayClient @Inject constructor(
                     val token = screenStreamDeviceToken ?: commandTargetToken ?: ""
                     val uploadUrl = baseUrl.trimEnd('/') + "/api/screen-frame?token=" + java.net.URLEncoder.encode(token, "UTF-8")
                     addLog("INFO", "🖥️ Frame upload URL: $uploadUrl")
+                    // Persistent HTTP client with connection keep-alive for faster uploads
                     val httpClient = okhttp3.OkHttpClient.Builder()
-                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                        .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                        .writeTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                        .connectionPool(okhttp3.ConnectionPool(1, 30, java.util.concurrent.TimeUnit.SECONDS))
                         .build()
+                    // Reusable JPEG buffer to reduce GC pressure
+                    val jpegStream = java.io.ByteArrayOutputStream(65536)
                     var framesSent = 0
                     while (isActive) {
                         try {
-                            // 1. Capture screen to PNG file
+                            // 1. Capture screen to PNG file (screencap is the bottleneck ~1s)
                             com.topjohnwu.superuser.Shell.cmd("screencap -p $tmpFile").exec()
 
-                            // 2. Read PNG, decode at half resolution, compress to JPEG
+                            // 2. Read PNG, decode at reduced resolution, compress to JPEG
                             val file = java.io.File(tmpFile)
                             if (!file.exists() || file.length() == 0L) {
-                                delay(200)
+                                delay(100)
                                 continue
                             }
                             val pngBytes = file.readBytes()
                             val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
                             val bitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size, opts) ?: continue
-                            val jpegStream = java.io.ByteArrayOutputStream(32768)
-                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 35, jpegStream)
+                            jpegStream.reset()
+                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 45, jpegStream)
                             bitmap.recycle()
                             val jpegBytes = jpegStream.toByteArray()
-                            jpegStream.close()
 
-                            // 3. HTTP POST raw JPEG bytes to backend
+                            // 3. HTTP POST raw JPEG bytes to backend (no delay — capture is naturally rate-limited)
                             val requestBody = jpegBytes.toRequestBody("application/octet-stream".toMediaType())
                             val request = okhttp3.Request.Builder()
                                 .url(uploadUrl)
@@ -701,17 +704,19 @@ class WebSocketRelayClient @Inject constructor(
                             val response = httpClient.newCall(request).execute()
                             response.close()
                             framesSent++
-                            if (framesSent % 30 == 1) {
+                            if (framesSent % 50 == 1) {
                                 addLog("INFO", "🖥️ Sent frame #$framesSent (${jpegBytes.size / 1024}KB)")
                             }
                         } catch (e: Exception) {
                             addLog("ERROR", "Screen frame upload failed: ${e.message}")
-                            delay(1000) // back off on error
+                            delay(500) // brief back-off on error
                         }
-                        delay(300) // ~3 FPS
+                        // No artificial delay — screencap itself takes ~800ms-1.2s
                     }
                     // Cleanup
                     try { java.io.File(tmpFile).delete() } catch (_: Exception) {}
+                    jpegStream.close()
+                    httpClient.connectionPool.evictAll()
                     addLog("INFO", "🖥️ Stream stopped after $framesSent frames")
                 }
             }
