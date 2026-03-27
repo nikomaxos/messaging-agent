@@ -47,15 +47,17 @@ public class DeviceSessionEventListener {
         sessionTokenMap.put(sessionId, deviceToken);
 
         deviceRepository.findByRegistrationToken(deviceToken).ifPresentOrElse(device -> {
-            device.setStatus(Device.Status.ONLINE);
+            if (device.getStatus() != Device.Status.BUSY) {
+                device.setStatus(Device.Status.ONLINE);
+            }
             device.setSessionId(sessionId);
             device.setLastHeartbeat(Instant.now());
             device.setConnectedAt(Instant.now());
             deviceRepository.save(device);
-            log.info("Device '{}' (id={}) ONLINE — sessionId={}", device.getName(), device.getId(), sessionId);
+            log.info("Device '{}' (id={}) CONNECTED — sessionId={}, status={}", device.getName(), device.getId(), sessionId, device.getStatus());
             broker.convertAndSend("/topic/devices",
                 Map.of("id", device.getId(), "name", device.getName(),
-                       "status", "ONLINE", "lastHeartbeat", device.getLastHeartbeat().toString(),
+                       "status", device.getStatus().name(), "lastHeartbeat", device.getLastHeartbeat().toString(),
                        "connectedAt", device.getConnectedAt().toString()));
         }, () -> log.warn("CONNECT from unknown deviceToken={}", deviceToken));
     }

@@ -33,7 +33,8 @@ android-app/apk-updates/
 *.bak
 *.old
 *.tmp
-
+*.py
+*.csv
 # Database copies
 *.db
 

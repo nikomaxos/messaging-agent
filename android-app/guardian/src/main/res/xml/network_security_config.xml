@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allows cleartext HTTP to any host. This app connects exclusively to a
+  local backend (LAN IP / home network). Android's domain-config does NOT
+  support CIDR notation, so we allow cleartext at the base level instead.
+  Switch to HTTPS in production by removing cleartextTrafficPermitted="true".
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

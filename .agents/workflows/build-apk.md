@@ -11,14 +11,17 @@ description: Build the Android debug APK and upload it for OTA updates
 docker run --rm -v c:\Dev\messaging-agent\android-app:/project -w /project android-apk-builder ./gradlew clean assembleDebug
 ```
 
-2. Copy the APK to the standard location:
+2. Copy the APKs to the standard location:
 ```
 Copy-Item "c:\Dev\messaging-agent\android-app\app\build\outputs\apk\debug\app-debug.apk" "c:\Dev\messaging-agent\android-app\MessagingAgent-debug.apk" -Force
+Copy-Item "c:\Dev\messaging-agent\android-app\guardian\build\outputs\apk\debug\guardian-debug.apk" "c:\Dev\messaging-agent\android-app\MessagingGuardian-debug.apk" -Force
 ```
 
-3. Upload the APK to the backend for OTA updates:
+3. Upload the APKs to the backend for OTA updates:
 ```
-$token = (Invoke-RestMethod -Uri http://localhost:8080/api/auth/login -Method POST -Body '{"username":"admin","password":"admin"}' -ContentType 'application/json').token; $form = [System.Net.Http.MultipartFormDataContent]::new(); $fileBytes = [System.IO.File]::ReadAllBytes("c:\Dev\messaging-agent\android-app\MessagingAgent-debug.apk"); $fileContent = [System.Net.Http.ByteArrayContent]::new($fileBytes); $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/octet-stream"); $form.Add($fileContent, "file", "MessagingAgent-debug.apk"); $client = [System.Net.Http.HttpClient]::new(); $client.DefaultRequestHeaders.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new("Bearer", $token); $result = $client.PostAsync("http://localhost:8080/api/apk/upload", $form).Result; Write-Host "Upload status: $($result.StatusCode)"
+$token = (Invoke-RestMethod -Uri http://localhost:8080/api/auth/login -Method POST -Body '{"username":"admin","password":"admin"}' -ContentType 'application/json').token
+curl.exe -X POST http://localhost:8080/api/apk/upload -H "Authorization: Bearer $token" -F "file=@c:\Dev\messaging-agent\android-app\MessagingAgent-debug.apk"
+curl.exe -X POST http://localhost:8080/api/apk/upload -H "Authorization: Bearer $token" -F "file=@c:\Dev\messaging-agent\android-app\MessagingGuardian-debug.apk"
 ```
 
 4. Verify the uploaded APK info:

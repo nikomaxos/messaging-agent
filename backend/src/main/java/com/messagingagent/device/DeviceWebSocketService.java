@@ -220,28 +220,34 @@ public class DeviceWebSocketService {
         boolean isFinalResult = result.getResult() != SmsDeliveryResultEvent.Result.SENT;
 
         if (deviceToken != null && isFinalResult) {
-            deviceRepository.findByRegistrationToken(deviceToken).ifPresent(device -> {
-                if (device.getStatus() == Device.Status.BUSY) {
-                    device.setStatus(Device.Status.ONLINE);
-                    deviceRepository.save(device);
-                    log.info("Device {} unlocked BUSY→ONLINE after final DLR: {}", device.getName(), result.getResult());
+            // Check if this message was already dynamically expired by RcsExpirationService
+            Optional<MessageLog> msgOpt = messageLogRepository.findBySmppMessageId(result.getCorrelationId());
+            if (msgOpt.isPresent() && msgOpt.get().getRcsExpiresAt() == null && msgOpt.get().getErrorDetail() != null && msgOpt.get().getErrorDetail().contains("timed out")) {
+                log.warn("Ignoring inFlight decrement for stale final DLR '{}' from {} (already decremented by RcsExpirationService)", 
+                         result.getResult(), result.getCorrelationId());
+            } else {
+                deviceRepository.findByRegistrationToken(deviceToken).ifPresent(device -> {
+                    deviceRepository.decrementInFlight(device.getId());
+                    int newInFlight = Math.max(0, (device.getInFlightDispatches() != null ? device.getInFlightDispatches() : 0) - 1);
+                    device.setInFlightDispatches(newInFlight);
                     
-                    messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", device.getId(), "status", "ONLINE"));
-                    
+                    log.info("Device {} finished DLR processing for {}. InFlight is now {}", device.getName(), result.getCorrelationId(), newInFlight);
+                
+                    messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", device.getId(), "inFlightDispatches", newInFlight));
+                
                     if (device.getGroup() != null) {
                         // If device has a send interval, schedule delayed drain
                         double interval = device.getSendIntervalSeconds() != null ? device.getSendIntervalSeconds() : 0.0;
                         if (interval > 0) {
                             long delayMs = (long) (interval * 1000);
-                            log.debug("Device {} has {}s send interval, scheduling drain in {}ms", device.getName(), interval, delayMs);
                             DeviceGroup grp = device.getGroup();
                             scheduler.schedule(() -> drainQueueForGroup(grp), delayMs, TimeUnit.MILLISECONDS);
                         } else {
                             drainQueueForGroup(device.getGroup());
                         }
                     }
-                }
-            });
+                });
+            }
         } else if (deviceToken != null && !isFinalResult) {
             log.debug("SENT signal for device — keeping BUSY while awaiting final DLR");
         }
@@ -263,8 +269,13 @@ public class DeviceWebSocketService {
 
         // Drain as many queued messages as there are available devices
         while (true) {
-            // Re-fetch available (non-rate-limited) devices
+            // Re-fetch available (non-rate-limited) devices that have not hit the InFlight Token Bucket capacity
             List<Device> available = onlineDevices.stream().filter(d -> {
+                int inFlight = d.getInFlightDispatches() != null ? d.getInFlightDispatches() : 0;
+                if (inFlight >= Device.MAX_CONCURRENT_DISPATCHES) {
+                    return false; // Token bucket is full
+                }
+                
                 double interval = d.getSendIntervalSeconds() != null ? d.getSendIntervalSeconds() : 0.0;
                 if (interval > 0 && d.getLastDispatchedAt() != null) {
                     long elapsedMs = Duration.between(d.getLastDispatchedAt(), Instant.now()).toMillis();
@@ -297,10 +308,11 @@ public class DeviceWebSocketService {
 
             log.info("Draining QUEUED message id={} to device id={} (fair LB)", queued.getSmppMessageId(), target.getId());
 
-            // Lock device
-            target.setStatus(Device.Status.BUSY);
-            deviceRepository.save(target);
-            messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", target.getId(), "status", "BUSY"));
+            // Lock device natively (increment inFlight Token Bucket without altering status)
+            deviceRepository.incrementInFlight(target.getId());
+            target.setInFlightDispatches((target.getInFlightDispatches() != null ? target.getInFlightDispatches() : 0) + 1);
+
+            messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", target.getId(), "inFlightDispatches", target.getInFlightDispatches()));
 
             // Dispatch message
             queued.setStatus(MessageLog.Status.DISPATCHED);
@@ -319,8 +331,10 @@ public class DeviceWebSocketService {
             event.setMessageText(queued.getMessageText());
             sendSmsToDevice(target, event);
 
-            // Remove from available pool (now BUSY)
-            onlineDevices.remove(target);
+            // Remove from available pool only if the Token Bucket is full
+            if (target.getInFlightDispatches() >= Device.MAX_CONCURRENT_DISPATCHES) {
+                onlineDevices.remove(target);
+            }
         }
 
         // Schedule a delayed re-drain for any devices in rate-limit cooldown
@@ -343,15 +357,17 @@ public class DeviceWebSocketService {
     }
 
     /**
-     * Unlock a device from BUSY to ONLINE and trigger queue drain for the given group.
+     * Decrement a device's inFlight Token Bucket and trigger queue drain for the given group.
      * Called by RcsExpirationService when messages expire without a DLR from the APK.
      */
-    public void unlockDeviceAndDrainQueue(Device device, DeviceGroup group) {
-        if (device != null && device.getStatus() == Device.Status.BUSY) {
-            device.setStatus(Device.Status.ONLINE);
-            deviceRepository.save(device);
-            log.info("Device {} unlocked BUSY→ONLINE after expiration", device.getName());
-            messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", device.getId(), "status", "ONLINE"));
+    public void unlockDeviceAndDrainQueue(Device device, DeviceGroup group, String expiredCorrelationId) {
+        if (device != null) {
+            deviceRepository.decrementInFlight(device.getId());
+            int newInFlight = Math.max(0, (device.getInFlightDispatches() != null ? device.getInFlightDispatches() : 0) - 1);
+            device.setInFlightDispatches(newInFlight);
+            
+            log.info("Device {} inFlight decremented after expiration of {}. Current inFlight: {}", device.getName(), expiredCorrelationId, newInFlight);
+            messagingTemplate.convertAndSend("/topic/devices", java.util.Map.of("id", device.getId(), "inFlightDispatches", newInFlight));
         }
         if (group != null) {
             drainQueueForGroup(group);

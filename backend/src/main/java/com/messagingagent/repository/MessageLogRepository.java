@@ -91,12 +91,17 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
 
     // Live TPS: count messages in time buckets
     @org.springframework.data.jpa.repository.Query(
-        value = "SELECT date_trunc('second', created_at) AS ts, COUNT(*) AS cnt " +
-                "FROM message_log WHERE created_at >= :since " +
+        value = "SELECT date_trunc('second', COALESCE(rcs_dlr_received_at, delivered_at, fallback_dlr_received_at, created_at)) AS ts, COUNT(*) AS cnt " +
+                "FROM message_log WHERE status IN ('DELIVERED', 'FAILED', 'RCS_FAILED') AND COALESCE(rcs_dlr_received_at, delivered_at, fallback_dlr_received_at, created_at) >= :since " +
                 "GROUP BY ts ORDER BY ts",
         nativeQuery = true)
     java.util.List<Object[]> countPerSecondSince(
-            @org.springframework.data.repository.query.Param("since") java.time.Instant since);
+            @org.springframework.data.repository.query.Param("since") java.sql.Timestamp since);
 
     long countByCreatedAtAfter(java.time.Instant after);
+    
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(m) FROM MessageLog m WHERE m.status IN ('DELIVERED', 'FAILED', 'RCS_FAILED') " +
+        "AND COALESCE(m.rcsDlrReceivedAt, m.deliveredAt, m.fallbackDlrReceivedAt, m.createdAt) >= :since")
+    long countTerminalAfter(@org.springframework.data.repository.query.Param("since") java.time.Instant since);
 }

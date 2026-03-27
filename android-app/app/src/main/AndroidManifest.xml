@@ -32,6 +32,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- Root - declared for documentation; libsu handles it at runtime -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <queries>
         <intent>
@@ -53,6 +54,8 @@
         <activity
             android:name=".ui.SetupActivity"
             android:exported="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -65,7 +68,7 @@
             android:name=".service.MessagingAgentService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync|location" />
 
         <receiver
             android:name=".receiver.BootReceiver"
@@ -91,6 +94,19 @@
             android:name=".receiver.RebootWatchdogReceiver"
             android:enabled="true"
             android:exported="false" />
+
+        <service android:name=".bot.BotService"
+            android:exported="false"
+            android:foregroundServiceType="shortService"
+            android:process=":bot" />
+
+        <receiver android:name=".service.CommReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="com.messagingagent.android.comm.ACTION_DISPATCH_RESULT" />
+                <action android:name="com.messagingagent.android.comm.ACTION_DLR_UPDATE" />
+                <action android:name="com.messagingagent.android.comm.ACTION_RECHECK_RESULT" />
+            </intent-filter>
+        </receiver>
 
         <!-- Provide APK files for self-updating (Fallback OTA) -->
         <provider

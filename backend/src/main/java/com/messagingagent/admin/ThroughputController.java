@@ -56,7 +56,7 @@ public class ThroughputController {
         Instant now = Instant.now();
 
         // Time-series: per-second counts
-        List<Object[]> raw = messageLogRepository.countPerSecondSince(since);
+        List<Object[]> raw = messageLogRepository.countPerSecondSince(java.sql.Timestamp.from(since));
         List<Map<String, Object>> timeSeries = new ArrayList<>();
         for (Object[] row : raw) {
             Timestamp ts = (Timestamp) row[0];
@@ -65,10 +65,10 @@ public class ThroughputController {
         }
 
         // Compute TPS rates for different windows
-        long last1s  = messageLogRepository.countByCreatedAtAfter(now.minusSeconds(1));
-        long last10s = messageLogRepository.countByCreatedAtAfter(now.minusSeconds(10));
-        long last60s = messageLogRepository.countByCreatedAtAfter(now.minusSeconds(60));
-        long last5m  = messageLogRepository.countByCreatedAtAfter(now.minusSeconds(300));
+        long last1s  = messageLogRepository.countTerminalAfter(now.minusSeconds(1));
+        long last10s = messageLogRepository.countTerminalAfter(now.minusSeconds(10));
+        long last60s = messageLogRepository.countTerminalAfter(now.minusSeconds(60));
+        long last5m  = messageLogRepository.countTerminalAfter(now.minusSeconds(300));
 
         Map<String, Object> tps = new LinkedHashMap<>();
         tps.put("last1s", last1s);

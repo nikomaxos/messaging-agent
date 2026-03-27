@@ -20,6 +20,7 @@ import java.util.Calendar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlin.coroutines.resume
 import com.messagingagent.android.data.SimRegistration
 import com.messagingagent.android.data.RegistrationState
 import com.messagingagent.android.rcs.PendingDlr
@@ -61,7 +62,6 @@ class MessagingAgentService : Service() {
 
     @Inject lateinit var prefs: PreferencesRepository
     @Inject lateinit var wsClient: WebSocketRelayClient
-    @Inject lateinit var dlrTracker: PendingDlrTracker
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val CHANNEL_ID = "messaging_agent_service"
@@ -228,7 +228,7 @@ class MessagingAgentService : Service() {
                         val location = if (forceLocationRefresh || (now - lastLocationSendTime >= 3600000)) {
                             lastLocationSendTime = now
                             forceLocationRefresh = false
-                            readLocation()
+                            readLocationActive()
                         } else {
                             Pair(null, null)
                         }
@@ -270,239 +270,7 @@ class MessagingAgentService : Service() {
                 }
             }
         }
-        // DLR Watchdog runs as a SEPARATE parallel coroutine -- cannot be after the infinite while loop!
-        scope.launch {
-            Timber.i("DLR Watchdog coroutine started")
-            dlrWatchdog()
-        }
         return START_STICKY
-    }
-    private suspend fun dlrWatchdog() {
-        var lastGcTime = System.currentTimeMillis()
-        // Track which correlationIds have already had SENT notification sent (avoids duplicates)
-        val sentNotified = mutableSetOf<String>()
-        // Track when DELIVERED was sent -- keep monitoring for SEEN/READ (status=11)
-        val deliveredAt = mutableMapOf<String, Long>()
-
-        val bugleDbDir = "/data/data/com.google.android.apps.messaging/databases"
-        val srcDb = "$bugleDbDir/bugle_db"
-        val tmpDb = "${applicationContext.filesDir.absolutePath}/dlr_check.db"
-        val uid = android.os.Process.myUid()
-
-        // Channel bridges FileObserver callbacks into the coroutine scope
-        val changeChannel = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
-
-        // FileObserver watches bugle_db directory for write events (inotify)
-        val observer = object : android.os.FileObserver(
-            java.io.File(bugleDbDir),
-            CLOSE_WRITE or MODIFY
-        ) {
-            override fun onEvent(event: Int, path: String?) {
-                if (path != null && (path.contains("bugle_db"))) {
-                    changeChannel.trySend(Unit)
-                }
-            }
-        }
-
-        // Root: ensure our process can observe the directory
-        com.topjohnwu.superuser.Shell.cmd(
-            "chmod 755 '$bugleDbDir'"
-        ).exec()
-        observer.startWatching()
-        Timber.i("DLR Watchdog: FileObserver started on $bugleDbDir")
-
-        try {
-            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                // Wait for either:
-                // 1. FileObserver triggers a change (instant)
-                // 2. 2-second timeout (periodic fallback check for when FileObserver misses events)
-                kotlinx.coroutines.withTimeoutOrNull(2000) {
-                    changeChannel.receive()
-                }
-
-                val now = System.currentTimeMillis()
-
-                // Garbage collect stale entries (> 2 hours old) -- only check every 60s
-                if (now - lastGcTime > 60_000) {
-                    lastGcTime = now
-                    val pending = dlrTracker.getPendingDlrs()
-                    val stale = pending.filter { now - it.addedAt > 2 * 60 * 60 * 1000L }
-                    if (stale.isNotEmpty()) {
-                        stale.forEach { Timber.w("DLR GC: removing stale tracking ${it.correlationId}") }
-                        dlrTracker.removeResolved(stale)
-                    }
-                }
-
-                val currentPending = dlrTracker.getPendingDlrs()
-                if (currentPending.isEmpty()) continue
-
-                val resolved = mutableListOf<PendingDlr>()
-
-                // Copy bugle_db ONLY (no WAL/SHM) to avoid native SQLite crash from corrupt WAL
-                try {
-                    com.topjohnwu.superuser.Shell.cmd(
-                        "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
-                    ).exec()
-
-                    android.database.sqlite.SQLiteDatabase.openDatabase(
-                        tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-                    ).use { db ->
-                        // Collect all bugle _ids already claimed by pending DLRs (to prevent duplicates)
-                        val claimedBugleIds = mutableSetOf<Long>()
-                        currentPending.filter { it.bugleMessageId > 0 }.forEach { claimedBugleIds.add(it.bugleMessageId) }
-
-                        for (p in currentPending) {
-                            try {
-                                val ageMs = now - p.addedAt
-
-                                // Query by exact bugle_db _id when known, fallback to first UNCLAIMED row after initialMaxId
-                                val query = if (p.bugleMessageId > 0) {
-                                    Pair("SELECT _id, message_status FROM messages WHERE _id = ?", arrayOf(p.bugleMessageId.toString()))
-                                } else {
-                                    // Build exclusion list of already-claimed bugle _ids
-                                    val excludeClause = if (claimedBugleIds.isNotEmpty()) {
-                                        " AND _id NOT IN (${claimedBugleIds.joinToString(",")})"
-                                    } else ""
-                                    Pair("SELECT _id, message_status FROM messages WHERE _id > ?$excludeClause ORDER BY _id ASC LIMIT 1", arrayOf(p.initialMaxId.toString()))
-                                }
-                                db.rawQuery(query.first, query.second
-                                ).use { cursor ->
-                                    if (cursor.moveToNext()) {
-                                        val matchedBugleId = cursor.getLong(0)
-                                        val status = cursor.getInt(1)
-                                        // Claim this bugle _id so other pending DLRs in this loop can't match it
-                                        claimedBugleIds.add(matchedBugleId)
-                                        val alreadyDelivered = deliveredAt.containsKey(p.correlationId)
-
-                                        when (status) {
-                                            11 -> {
-                                                // SEEN/READ -- recipient opened the message
-                                                if (alreadyDelivered) {
-                                                    // DELIVERED was already sent -- just update errorDetail with SEEN/READ
-                                                    Timber.i(" DLR SEEN: ${p.correlationId} -- status=11, updating with SEEN/READ (age=${ageMs/1000}s)")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "DELIVERED", "SEEN/READ"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send SEEN/READ via WebSocket") }
-                                                } else {
-                                                    // DELIVERED wasn't sent yet -- send it with SEEN/READ in one shot
-                                                    Timber.i(" DLR DELIVERED+SEEN: ${p.correlationId} -- status=11, first detection (age=${ageMs/1000}s)")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "DELIVERED", "SEEN/READ"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send DLR via WebSocket") }
-                                                }
-                                                resolved.add(p)
-                                                deliveredAt.remove(p.correlationId)
-                                            }
-                                            2 -> {
-                                                // DELIVERED -- message confirmed delivered to recipient's device
-                                                if (!alreadyDelivered) {
-                                                    // First time seeing status=2: send DELIVERED but keep tracking for SEEN/READ
-                                                    deliveredAt[p.correlationId] = now
-                                                    Timber.i(" DLR DELIVERED: ${p.correlationId} -- status=2, monitoring for SEEN/READ (age=${ageMs/1000}s)")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "DELIVERED"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send DELIVERED via WebSocket") }
-                                                } else {
-                                                    // Already sent DELIVERED -- waiting for SEEN/READ
-                                                    // Give up after 2 minutes
-                                                    val waitedMs = now - deliveredAt[p.correlationId]!!
-                                                    if (waitedMs > 120_000) {
-                                                        Timber.i(" DLR SEEN timeout: ${p.correlationId} -- 2min without SEEN/READ, resolving")
-                                                        resolved.add(p)
-                                                        deliveredAt.remove(p.correlationId)
-                                                    }
-                                                }
-                                            }
-                                            8, 5, 9, 3 -> {
-                                                // ERROR-like statuses -- but don't report immediately!
-                                                // Google Messages can set transient error statuses before
-                                                // the message is actually processed. Wait at least 8 seconds.
-                                                if (ageMs > 8_000) {
-                                                    Timber.w(" DLR FAILED: ${p.correlationId} -- bugle status=$status (age=${ageMs/1000}s)")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "ERROR", "bugle_status=$status"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
-                                                    resolved.add(p)
-                                                    deliveredAt.remove(p.correlationId)
-                                                } else {
-                                                    // Transient -- keep waiting for status to settle
-                                                    Timber.d(" DLR WAIT: ${p.correlationId} -- bugle status=$status transient (age=${ageMs/1000}s < 8s)")
-                                                }
-                                            }
-                                            1, 100 -> {
-                                                // SENDING / SENT -- message being submitted or queued in RCS network.
-                                                // status=100 is Google Messages' internal "QUEUED/SENT" code
-                                                // Send SENT to unlock device (once), but if stuck >15s treat as error.
-                                                if (!sentNotified.contains(p.correlationId)) {
-                                                    sentNotified.add(p.correlationId)
-                                                    Timber.i(" DLR SENT: ${p.correlationId} -- message being sent (status=1, age=${ageMs/1000}s)")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "SENT"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send SENT via WebSocket") }
-                                                }
-                                                if (ageMs > 45_000) {
-                                                    Timber.w(" DLR STUCK SENDING: ${p.correlationId} -- bugle status=1 for ${ageMs/1000}s, treating as ERROR")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "ERROR", "bugle_status=1 (stuck sending ${ageMs/1000}s)"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
-                                                    resolved.add(p)
-                                                }
-                                            }
-                                            else -> {
-                                                // Unknown status -- log it and keep waiting up to 8s, then report as ERROR
-                                                if (ageMs > 8_000) {
-                                                    Timber.w(" DLR UNKNOWN: ${p.correlationId} -- bugle status=$status (age=${ageMs/1000}s)")
-                                                    try {
-                                                        wsClient.sendDeliveryResultAsync(
-                                                            DeliveryResult(p.correlationId, "ERROR", "bugle_status=$status (unknown)"),
-                                                            p.deviceToken
-                                                        )
-                                                    } catch (e: Exception) { Timber.e(e, "Failed to send ERROR via WebSocket") }
-                                                    resolved.add(p)
-                                                    deliveredAt.remove(p.correlationId)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Timber.e(e, "DLR Watchdog: exception for ${p.correlationId}")
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "DLR Watchdog: failed to copy/open bugle_db")
-                } finally {
-                    com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' '$tmpDb-journal'").exec()
-                }
-
-                if (resolved.isNotEmpty()) {
-                    dlrTracker.removeResolved(resolved)
-                    resolved.forEach { sentNotified.remove(it.correlationId) }
-                }
-            }
-        } finally {
-            observer.stopWatching()
-            Timber.i("DLR Watchdog: FileObserver stopped")
-        }
     }
 
     override fun onDestroy() {
@@ -572,16 +340,36 @@ class MessagingAgentService : Service() {
             .notify(NOTIFICATION_ID, buildNotification(status))
     }
 
+    @Suppress("DEPRECATION")
     @android.annotation.SuppressLint("MissingPermission")
-    private fun readLocation(): Pair<Double?, Double?> {
+    private suspend fun readLocationActive(): Pair<Double?, Double?> {
         return try {
             val lm = applicationContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            var loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            if (loc == null) loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            if (loc == null) loc = lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-            
-            if (loc != null) Pair(loc.latitude, loc.longitude) else Pair(null, null)
+            kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                try {
+                    val listener = object : android.location.LocationListener {
+                        override fun onLocationChanged(loc: android.location.Location) {
+                            try { lm.removeUpdates(this) } catch (e: Exception) {}
+                            if (cont.isActive) cont.resume(Pair(loc.latitude, loc.longitude))
+                        }
+                        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+                        override fun onProviderEnabled(provider: String) {}
+                        override fun onProviderDisabled(provider: String) {}
+                    }
+                    lm.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, android.os.Looper.getMainLooper())
+                    
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                        kotlinx.coroutines.delay(12000)
+                        try { lm.removeUpdates(listener) } catch (e: Exception) {}
+                        if (cont.isActive) cont.resume(Pair(null, null))
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error requesting single update")
+                    if (cont.isActive) cont.resume(Pair(null, null))
+                }
+            }
         } catch (e: Exception) {
+            Timber.e(e, "Location manager setup failed")
             Pair(null, null)
         }
     }

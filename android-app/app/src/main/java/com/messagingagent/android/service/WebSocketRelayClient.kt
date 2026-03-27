@@ -5,6 +5,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.*
@@ -47,7 +48,6 @@ data class LogEntry(val time: String, val level: String, val message: String)
 @Singleton
 class WebSocketRelayClient @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
-    private val rcsSender: RcsSender,
     private val prefs: com.messagingagent.android.data.PreferencesRepository
 ) {
     private val client = OkHttpClient.Builder()
@@ -240,9 +240,9 @@ class WebSocketRelayClient @Inject constructor(
                 val httpCode = response?.code?.toString() ?: "no-response"
                 addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
                 onStatus("Disconnected — retrying…")
-                scheduleRetry(backendUrl, sims, onStatus, myGen)
             }
         })
+        }
     }
 
     private fun scheduleRetry(backendUrl: String, sims: List<com.messagingagent.android.data.SimRegistration>, onStatus: (String) -> Unit, myGen: Int) {
@@ -261,8 +261,8 @@ class WebSocketRelayClient @Inject constructor(
     private fun handleMessage(text: String) {
         if (!text.startsWith("MESSAGE")) return
         val destMatch = Regex("""destination:(.+)""").find(text)?.groupValues?.get(1)
-        val body = text.substringAfter("\n\n").trimEnd('\u0000')
-
+        val bodyMatch = Regex("""\r?\n\r?\n([\s\S]*)""").find(text)
+        val body = (bodyMatch?.groupValues?.get(1) ?: text).trimEnd('\u0000').trim()
         if (destMatch?.startsWith("/queue/commands.") == true) {
             val deviceIdStr = destMatch.substringAfterLast(".")
             val sim = activeSims.find { it.deviceId.toString() == deviceIdStr }
@@ -275,36 +275,19 @@ class WebSocketRelayClient @Inject constructor(
             val sim = activeSims.find { it.deviceId.toString() == deviceIdStr } ?: return
 
             val dispatch = json.decodeFromString<SmsDispatch>(body)
-            CoroutineScope(Dispatchers.IO).launch {
-                val result = rcsSender.sendRcs(
-                    correlationId = dispatch.correlationId,
-                    deviceToken = sim.deviceToken,
-                    to = dispatch.destinationAddress,
-                    text = dispatch.messageText,
-                    subscriptionId = sim.subscriptionId,
-                    dlrDelayMinSec = dispatch.dlrDelayMinSec,
-                    dlrDelayMaxSec = dispatch.dlrDelayMaxSec
-                )
-                
-                // If the bot successfully tapped the physical Send button,
-                // the device stays BUSY. The DLR watchdog will detect status=2
-                // (submitted to network) in bugle_db and send SENT to unlock the device.
-                if (!result.success) {
-                    sendDeliveryResult(DeliveryResult(
-                        correlationId = dispatch.correlationId,
-                        result = if (result.noRcs) "NO_RCS" else "ERROR",
-                        errorDetail = result.error
-                    ), sim.deviceToken)
-                } else if (result.sentEarly) {
-                    // Fast-path: DB verify confirmed message entered bugle_db.
-                    // Send SENT immediately to unlock device — skip DLR watchdog latency.
-                    Timber.i("Fast-path SENT: sending immediately for ${dispatch.correlationId}")
-                    sendDeliveryResult(DeliveryResult(
-                        correlationId = dispatch.correlationId,
-                        result = "SENT"
-                    ), sim.deviceToken)
-                }
+            // Fire robust Intent to the isolated :bot execution process
+            val botIntent = android.content.Intent(context, com.messagingagent.android.bot.BotService::class.java).apply {
+                action = "com.messagingagent.android.bot.ACTION_SEND"
+                putExtra("correlationId", dispatch.correlationId)
+                putExtra("deviceToken", sim.deviceToken)
+                putExtra("to", dispatch.destinationAddress)
+                putExtra("text", dispatch.messageText)
+                putExtra("subscriptionId", sim.subscriptionId)
+                putExtra("dlrDelayMinSec", dispatch.dlrDelayMinSec)
+                putExtra("dlrDelayMaxSec", dispatch.dlrDelayMaxSec)
             }
+            androidx.core.content.ContextCompat.startForegroundService(context, botIntent)
+            addLog("INFO", "Forwarded request ${dispatch.correlationId} to BotService (:bot) via IPC")
         } catch (e: Exception) {
             addLog("ERROR", "Failed to parse dispatch: ${e.message}")
         }
@@ -329,121 +312,18 @@ class WebSocketRelayClient @Inject constructor(
                 val url = activeBackendUrl ?: return
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        if (commandTargetToken != null) sendApkUpdateStatus("Downloading…", commandTargetToken)
-                        addLog("INFO", "Downloading APK update...")
-                        val request = Request.Builder().url("${url.trimEnd('/')}/api/public/apk/download").build()
-                        val response = client.newCall(request).execute()
-                        if (response.isSuccessful) {
-                            // 1. Download APK directly to /data/local/tmp (root-writable, persists across installs)
-                            val tmpApk = "/data/local/tmp/update.apk"
-                            val tmpDir = java.io.File(context.cacheDir, "ota_staging")
-                            tmpDir.mkdirs()
-                            val stagingApk = java.io.File(tmpDir, "update.apk")
-                            response.body?.byteStream()?.use { input ->
-                                stagingApk.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                            val downloadedSize = stagingApk.length()
-                            addLog("INFO", "APK downloaded: ${downloadedSize / 1024}KB")
-
-                            if (commandTargetToken != null) sendApkUpdateStatus("Installing…", commandTargetToken)
-
-                            // 2. Copy APK to /data/local/tmp SYNCHRONOUSLY (before detaching installer)
-                            com.topjohnwu.superuser.Shell.cmd(
-                                "cp '${stagingApk.absolutePath}' $tmpApk && chmod 644 $tmpApk"
-                            ).exec()
-                            addLog("INFO", "APK staged at $tmpApk")
-
-                            // 3. Write installer script to /data/local/tmp (NOT app cache — survives force-stop)
-                            val script = """
-                                #!/system/bin/sh
-                                LOG=/data/local/tmp/ota.log
-                                PKG=com.messagingagent.android
-                                echo "=== OTA Update $(date) ===" > ${'$'}LOG
-                                echo "APK size: $(ls -l $tmpApk | awk '{print ${'$'}5}') bytes" >> ${'$'}LOG
-
-                                # Wait for the app to close its WebSocket cleanly
-                                sleep 3
-
-                                # Kill any running process
-                                am force-stop ${'$'}PKG >> ${'$'}LOG 2>&1
-                                PID=$(pidof ${'$'}PKG 2>/dev/null)
-                                [ -n "${'$'}PID" ] && kill -9 ${'$'}PID 2>/dev/null
-                                echo "Stopped old process" >> ${'$'}LOG
-                                sleep 1
-
-                                # Uninstall but KEEP app data (-k flag)
-                                # This removes old code/dex cache but preserves registration & settings
-                                pm uninstall -k ${'$'}PKG >> ${'$'}LOG 2>&1
-                                echo "Uninstalled (data kept)" >> ${'$'}LOG
-                                sleep 2
-
-                                # Kill any zombie process MIUI may have respawned
-                                PID=$(pidof ${'$'}PKG 2>/dev/null)
-                                [ -n "${'$'}PID" ] && kill -9 ${'$'}PID 2>/dev/null
-                                sleep 1
-
-                                # Fresh install (no -r needed since app was uninstalled)
-                                pm install -g $tmpApk >> ${'$'}LOG 2>&1
-                                INSTALL_EXIT=${'$'}?
-                                echo "pm install exit: ${'$'}INSTALL_EXIT" >> ${'$'}LOG
-
-                                # Cleanup APK
-                                rm -f $tmpApk
-
-                                if [ ${'$'}INSTALL_EXIT -eq 0 ]; then
-                                    echo "Install SUCCESS — starting app" >> ${'$'}LOG
-                                    sleep 1
-                                    # Clear MIUI stopped-state so the app can autostart
-                                    am set-stopped-state ${'$'}PKG false >> ${'$'}LOG 2>&1
-                                    # Launch the Activity UI
-                                    am start -n ${'$'}PKG/com.messagingagent.android.ui.SetupActivity >> ${'$'}LOG 2>&1
-                                    sleep 2
-                                    # Explicitly start the background foreground service
-                                    # (Activity's LaunchedEffect may not fire reliably on MIUI after reinstall)
-                                    am start-foreground-service -n ${'$'}PKG/.service.MessagingAgentService >> ${'$'}LOG 2>&1 \
-                                        || am startservice -n ${'$'}PKG/.service.MessagingAgentService >> ${'$'}LOG 2>&1
-                                    echo "App + service started with new code" >> ${'$'}LOG
-                                else
-                                    echo "Install FAILED" >> ${'$'}LOG
-                                fi
-                                echo "=== OTA Complete ===" >> ${'$'}LOG
-                            """.trimIndent()
-
-                            com.topjohnwu.superuser.Shell.cmd(
-                                "cat > /data/local/tmp/installer.sh << 'ENDSCRIPT'\n$script\nENDSCRIPT",
-                                "chmod 755 /data/local/tmp/installer.sh"
-                            ).exec()
-
-                            // 4. Launch installer as a fully detached root process
-                            val installResult = com.topjohnwu.superuser.Shell.cmd(
-                                "setsid sh /data/local/tmp/installer.sh &"
-                            ).exec()
-
-                            if (installResult.isSuccess) {
-                                addLog("INFO", "OTA installer launched. App will restart in ~7 seconds.")
-                                ws?.close(1000, "Applying OTA Update")
-                            } else {
-                                // Root not available — fall back to Package Installer UI
-                                addLog("WARN", "Root install failed. Opening Package Installer...")
-                                val uri = androidx.core.content.FileProvider.getUriForFile(
-                                    context, "${context.packageName}.provider", stagingApk
-                                )
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, "application/vnd.android.package-archive")
-                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                }
-                                context.startActivity(intent)
-                                if (commandTargetToken != null) sendApkUpdateStatus("Waiting for user to install", commandTargetToken)
-                            }
-                        } else {
-                            if (commandTargetToken != null) sendApkUpdateStatus("Failed: download error", commandTargetToken)
-                            addLog("ERROR", "APK download failed: HTTP ${response.code}")
+                        if (commandTargetToken != null) sendApkUpdateStatus("Handing off to Guardian...", commandTargetToken)
+                        addLog("INFO", "Delegating APK update to Guardian App...")
+                        
+                        val intent = android.content.Intent("com.messagingagent.guardian.ACTION_TRIGGER_OTA").apply {
+                            putExtra("url", "${url.trimEnd('/')}/api/public/apk/download")
+                            addFlags(android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                            setPackage("com.messagingagent.guardian")
                         }
+                        context.sendBroadcast(intent)
+                        addLog("INFO", "Update Broadcast successfully queued to Guardian")
                     } catch (e: Exception) {
-                        if (commandTargetToken != null) sendApkUpdateStatus("Failed: error", commandTargetToken)
-                        addLog("ERROR", "APK update error: ${e.message}")
+                        addLog("ERROR", "Guardian handover failed: ${e.message}")
                     }
                 }
             }
@@ -504,106 +384,14 @@ class WebSocketRelayClient @Inject constructor(
                 }
             }
             body.startsWith("RECHECK_DLR=") -> {
-                CoroutineScope(Dispatchers.IO).launch {
-                    val correlationId = body.substringAfter("=").trim()
-                    addLog("INFO", "🔄 DLR re-check requested for $correlationId")
-                    try {
-                        // Look up the pending DLR entry for this correlationId
-                        val pending = rcsSender.dlrTracker.getPendingDlrs()
-                            .firstOrNull { it.correlationId == correlationId }
-                        
-                        if (pending != null && pending.bugleMessageId > 0) {
-                            // We have the exact bugle_db message ID — query it directly
-                            val tmpDb = "${context.filesDir.absolutePath}/dlr_recheck.db"
-                            val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
-                            val uid = android.os.Process.myUid()
-                            com.topjohnwu.superuser.Shell.cmd(
-                                "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
-                            ).exec()
-
-                            var deliveryResult: String? = null
-                            var errorDetail: String? = null
-                            try {
-                                android.database.sqlite.SQLiteDatabase.openDatabase(
-                                    tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-                                ).use { db ->
-                                    db.rawQuery(
-                                        "SELECT message_status FROM messages WHERE _id = ?",
-                                        arrayOf(pending.bugleMessageId.toString())
-                                    ).use { cursor ->
-                                        if (cursor.moveToFirst()) {
-                                            when (cursor.getInt(0)) {
-                                                2, 13, 14 -> { deliveryResult = "DELIVERED"; errorDetail = null }
-                                                11 -> { deliveryResult = "DELIVERED"; errorDetail = "SEEN/READ" }
-                                                8, 5, 9 -> { deliveryResult = "ERROR"; errorDetail = "RCS send failed (bugle status=${cursor.getInt(0)})" }
-                                                // 1 = still sending, don't report yet
-                                            }
-                                        }
-                                    }
-                                }
-                            } finally {
-                                com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' '$tmpDb-journal'").exec()
-                            }
-
-                            if (deliveryResult != null) {
-                                addLog("INFO", "🔄 DLR re-check: $correlationId → $deliveryResult (bugleId=${pending.bugleMessageId})")
-                                sendDeliveryResultAsync(
-                                    DeliveryResult(correlationId, deliveryResult!!, errorDetail),
-                                    pending.deviceToken
-                                )
-                                rcsSender.dlrTracker.removeResolved(listOf(pending))
-                            } else {
-                                addLog("INFO", "🔄 DLR re-check: $correlationId — still pending in bugle_db")
-                            }
-                        } else if (pending != null) {
-                            // We know about it but don't have the bugle_db ID — try fallback query
-                            val tmpDb = "${context.filesDir.absolutePath}/dlr_recheck.db"
-                            val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
-                            val uid = android.os.Process.myUid()
-                            com.topjohnwu.superuser.Shell.cmd(
-                                "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
-                            ).exec()
-
-                            var deliveryResult: String? = null
-                            var errorDetail: String? = null
-                            try {
-                                android.database.sqlite.SQLiteDatabase.openDatabase(
-                                    tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-                                ).use { db ->
-                                    db.rawQuery(
-                                        "SELECT _id, message_status FROM messages WHERE _id > ? ORDER BY _id ASC LIMIT 1",
-                                        arrayOf(pending.initialMaxId.toString())
-                                    ).use { cursor ->
-                                        if (cursor.moveToFirst()) {
-                                            when (cursor.getInt(1)) {
-                                                2, 13, 14 -> { deliveryResult = "DELIVERED" }
-                                                11 -> { deliveryResult = "DELIVERED"; errorDetail = "SEEN/READ" }
-                                                8, 5, 9 -> { deliveryResult = "ERROR"; errorDetail = "RCS send failed" }
-                                            }
-                                        }
-                                    }
-                                }
-                            } finally {
-                                com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' '$tmpDb-journal'").exec()
-                            }
-
-                            if (deliveryResult != null) {
-                                addLog("INFO", "🔄 DLR re-check fallback: $correlationId → $deliveryResult")
-                                sendDeliveryResultAsync(
-                                    DeliveryResult(correlationId, deliveryResult!!, errorDetail),
-                                    pending.deviceToken
-                                )
-                                rcsSender.dlrTracker.removeResolved(listOf(pending))
-                            } else {
-                                addLog("INFO", "🔄 DLR re-check fallback: $correlationId — still pending")
-                            }
-                        } else {
-                            addLog("WARN", "🔄 DLR re-check: $correlationId — not found in pending tracker (already GC'd or resolved)")
-                        }
-                    } catch (e: Exception) {
-                        addLog("ERROR", "🔄 DLR re-check failed for $correlationId: ${e.message}")
-                    }
+                val correlationId = body.substringAfter("=").trim()
+                addLog("INFO", "🔄 DLR re-check forwarded to BotService for $correlationId")
+                val botIntent = android.content.Intent(context, com.messagingagent.android.bot.BotService::class.java).apply {
+                    action = "com.messagingagent.android.bot.ACTION_RECHECK_DLR"
+                    putExtra("correlationId", correlationId)
+                    putExtra("deviceToken", commandTargetToken ?: "")
                 }
+                androidx.core.content.ContextCompat.startForegroundService(context, botIntent)
             }
             body == "PIN_AUTOSTART" -> {
                 CoroutineScope(Dispatchers.IO).launch {
@@ -622,6 +410,16 @@ class WebSocketRelayClient @Inject constructor(
                             "pm disable-user --user 0 com.miui.securitycenter/com.miui.securitycenter.update.UpdateCheckJob 2>/dev/null"
                         ).exec()
                         addLog("INFO", "🛡️ MIUI Security Center auto-update disabled")
+
+                        com.topjohnwu.superuser.Shell.cmd(
+                            "dumpsys deviceidle whitelist +com.messagingagent.android",
+                            "cmd appops set com.messagingagent.android AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore 2>/dev/null",
+                            "cmd appops set com.messagingagent.android 10008 ignore 2>/dev/null", // MIUI Autostart
+                            "cmd appops set com.messagingagent.android AUTO_START ignore 2>/dev/null",
+                            "cmd appops set com.messagingagent.android 10020 ignore 2>/dev/null", // MIUI Background Start
+                            "cmd appops set com.messagingagent.android RUN_IN_BACKGROUND allow 2>/dev/null"
+                        ).exec()
+                        addLog("INFO", "🛡️ Enforced AppOps policies: Autostart, Battery No-Restrictions, and Disabled Permission Revocation")
 
                         addLog("INFO", "✅ Device hardening re-applied successfully")
                     } catch (e: Exception) {
@@ -1014,7 +812,7 @@ class WebSocketRelayClient @Inject constructor(
         sendDeliveryResult(result, token)
     }
 
-    private fun sendDeliveryResult(result: DeliveryResult, token: String) {
+    internal fun sendDeliveryResult(result: DeliveryResult, token: String) {
         val body = Json.encodeToString(DeliveryResult.serializer(), result)
         ws?.send("SEND\ndestination:/app/delivery.result\ndeviceToken:$token\n\n$body\u0000")
         addLog("INFO", "Delivery result sent: ${result.result} for ${result.correlationId}")

@@ -16,4 +16,18 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     Optional<Device> findByImei(String imei);
     List<Device> findByStatus(Device.Status status);
     long countByStatus(Device.Status status);
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query("UPDATE Device d SET d.inFlightDispatches = COALESCE(d.inFlightDispatches, 0) + 1 WHERE d.id = :deviceId")
+    void incrementInFlight(@org.springframework.data.repository.query.Param("deviceId") Long deviceId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query("UPDATE Device d SET d.inFlightDispatches = CASE WHEN COALESCE(d.inFlightDispatches, 0) > 0 THEN d.inFlightDispatches - 1 ELSE 0 END WHERE d.id = :deviceId")
+    void decrementInFlight(@org.springframework.data.repository.query.Param("deviceId") Long deviceId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query("UPDATE Device d SET d.inFlightDispatches = 0 WHERE d.id = :deviceId")
+    void resetInFlight(@org.springframework.data.repository.query.Param("deviceId") Long deviceId);
 }

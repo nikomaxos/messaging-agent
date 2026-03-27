@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "MessagingAgent"
 include(":app")
+include(":guardian")

@@ -76,7 +76,8 @@ class RcsDeliveryObserver @Inject constructor(
                             if (cursor.moveToFirst()) {
                                 val msgStatus = cursor.getInt(0)
                                 when (msgStatus) {
-                                    2, 13, 14 -> status = RcsDeliveryStatus.DELIVERED // 2=Sent, 13=Delivered, 14=Read
+                                    11, 13, 14 -> status = RcsDeliveryStatus.DELIVERED // 11, 13=Delivered, 14=Read
+                                    2 -> status = RcsDeliveryStatus.SENT // 2=Sent (Submitted)
                                     5, 8, 9 -> status = RcsDeliveryStatus.FAILED     // Failed/Error
                                     // 3=Sending, 4=Outbox -> keep waiting
                                 }
@@ -106,4 +107,4 @@ class RcsDeliveryObserver @Inject constructor(
         }
 }
 
-enum class RcsDeliveryStatus { DELIVERED, FAILED, TIMEOUT }
+enum class RcsDeliveryStatus { SENT, DELIVERED, FAILED, TIMEOUT }

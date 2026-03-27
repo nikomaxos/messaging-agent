@@ -96,6 +96,14 @@ public class Device {
     @Column(name = "last_self_healing_at")
     private Instant lastSelfHealingAt;
 
+    // Sliding Window Token Bucket for Multiplexed DLRs (Phase 6)
+    @Column(name = "in_flight_dispatches")
+    @Builder.Default
+    private Integer inFlightDispatches = 0;
+
+    @Transient
+    public static final int MAX_CONCURRENT_DISPATCHES = 5;
+
     // GPS location (reported via heartbeat)
     private Double latitude;
     private Double longitude;

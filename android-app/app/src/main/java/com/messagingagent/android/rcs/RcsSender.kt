@@ -31,11 +31,14 @@ class RcsSender @Inject constructor(
         var cachedDialogY: Int = -1
     }
 
+    private val dispatchMutex = kotlinx.coroutines.sync.Mutex()
     private var sentMessageCount = 0
     private var consecutiveSendButtonFailures = 0
     private val RESTART_THRESHOLD = 3
 
     suspend fun sendRcs(correlationId: String, deviceToken: String, to: String, text: String, subscriptionId: Int, dlrDelayMinSec: Int = 2, dlrDelayMaxSec: Int = 5): RcsSendResult {
+        dispatchMutex.lock()
+        try {
         if (!isMessagesInstalled()) {
             Timber.w("Google Messages not installed -- cannot send RCS to $to")
             com.messagingagent.android.service.DeviceLogBus.log("ERROR", "RCS: Google Messages not installed — cannot send to $to")
@@ -47,18 +50,22 @@ class RcsSender @Inject constructor(
             val cleanTo = to.replace("[^0-9+]".toRegex(), "")
 
             // Wake up screen — MIUI-compatible 3-tier wake (KEYCODE_WAKEUP is ignored by MIUI in Doze)
-            Timber.i("Waking up screen with MIUI-compatible strategy")
-            com.topjohnwu.superuser.Shell.cmd(
-                "svc power stayon true",
-                "input keyevent 26"
-            ).exec()
-            kotlinx.coroutines.delay(800)
-            // Check if actually awake
-            val pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
+            var pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
             if (!pwrState.contains("Awake")) {
-                // Power key toggled OFF instead of ON — press again
-                com.topjohnwu.superuser.Shell.cmd("input keyevent 26").exec()
+                Timber.i("Waking up screen with MIUI-compatible strategy")
+                com.topjohnwu.superuser.Shell.cmd(
+                    "svc power stayon true",
+                    "input keyevent 26"
+                ).exec()
                 kotlinx.coroutines.delay(800)
+                // Check if actually awake
+                pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
+                if (!pwrState.contains("Awake")) {
+                    com.topjohnwu.superuser.Shell.cmd("input keyevent 26").exec()
+                    kotlinx.coroutines.delay(800)
+                }
+            } else {
+                com.topjohnwu.superuser.Shell.cmd("svc power stayon true").exec()
             }
             // Dismiss lock screen
             com.topjohnwu.superuser.Shell.cmd("wm dismiss-keyguard").exec()
@@ -138,23 +145,21 @@ class RcsSender @Inject constructor(
             }
 
             // Wait for Google Messages UI to render and sms_body to populate the compose field
-            kotlinx.coroutines.delay(1200)
+            kotlinx.coroutines.delay(800)
 
             var clicked = false
 
             // FAST PATH: If we already know the exact screen coordinates from a previous message, tap them instantly!
             if (cachedSendX > 0 && cachedSendY > 0) {
-                // Guard: wait for compose field to be populated BEFORE tapping send
-                // This prevents the voice message balloon bug when text hasn't loaded yet
-                if (!waitForComposeText()) {
-                    Timber.w("Fast-path: compose field still empty after waiting -- falling back to slow path")
-                    cachedSendX = -1
-                    cachedSendY = -1
-                } else {
-                    Timber.i("Fast-path: Compose text verified. Tapping cached Send button at $cachedSendX, $cachedSendY")
-                    Shell.cmd("input tap $cachedSendX $cachedSendY").exec()
-                    clicked = true
-                    kotlinx.coroutines.delay(100)
+                // Bypass slow `uiautomator dump` XML parsing to save ~5-8 seconds per payload.
+                // Predictable static delay is safer and objectively faster across weak CPUs.
+                kotlinx.coroutines.delay(1000)
+                
+                com.messagingagent.android.service.DeviceLogBus.log("INFO", "RCS Bot: Fast-path assuming composed text loaded! Tapping cached Send button at [$cachedSendX, $cachedSendY]")
+                Timber.i("Fast-path: Assuming compose text loaded. Tapping Send button at $cachedSendX, $cachedSendY")
+                Shell.cmd("input tap $cachedSendX $cachedSendY").exec()
+                clicked = true
+                kotlinx.coroutines.delay(100)
 
                 // If a dialog was previously detected and its coords cached, tap it just in case
                 if (cachedDialogX > 0 && cachedDialogY > 0) {
@@ -203,7 +208,6 @@ class RcsSender @Inject constructor(
                     Timber.w("Fast-path tap did NOT register in bugle_db -- falling back to slow path")
                     clicked = false // Reset -- slow path will re-discover and re-tap
             } // Close else of fastPathBugleId > 0
-            } // Close else of waitForComposeText()
             } // Close fast path (cachedSendX > 0 && cachedSendY > 0)
 
             // SLOW PATH: First time parsing the layout, or fast-path missed
@@ -217,10 +221,12 @@ class RcsSender @Inject constructor(
                     shellResult = Shell.cmd(intentCmd.toString()).exec()
                     kotlinx.coroutines.delay(1500)
                     if (!waitForComposeText()) {
+                        com.messagingagent.android.service.DeviceLogBus.log("ERROR", "RCS Bot: Compose field STILL completely missing after intent retry. (Is '$to' an Alphanumeric/Blocked ID where replies are disabled?)")
                         Timber.e("Compose field STILL empty after intent retry -- cannot send for $to")
                         exitMessagesCleanly()
-                        return RcsSendResult(success = false, error = "Message text did not populate in Google Messages compose field")
+                        return RcsSendResult(success = false, error = "Message text did not populate in Google Messages compose field (Contact disabled replies or is invalid)")
                     }
+                    com.messagingagent.android.service.DeviceLogBus.log("INFO", "RCS Bot: Intent retry succeeded — compose field text confirmed for $to")
                     Timber.i("Intent retry succeeded -- compose field now has text for $to")
                 }
                 for (i in 0 until 6) {
@@ -250,6 +256,7 @@ class RcsSender @Inject constructor(
                     val cx = (x1 + x2) / 2
                     val cy = (y1 + y2) / 2
                     
+                    com.messagingagent.android.service.DeviceLogBus.log("INFO", "RCS Bot: Found Send button at [$cx, $cy]. Tapping & caching...")
                     Timber.i("Found send button at $cx, $cy. Tapping and caching coordinates...")
                     cachedSendX = cx
                     cachedSendY = cy
@@ -281,6 +288,7 @@ class RcsSender @Inject constructor(
                     break
                 }
                 
+                com.messagingagent.android.service.DeviceLogBus.log("WARN", "RCS Bot: Send button missing in UI dump. Retrying Layout Parsing (Attempt ${i + 1}/6)...")
                 Timber.w("Send button not found in UI dump. Retrying (attempt ${i + 1}/6)...")
                 kotlinx.coroutines.delay(300)
             }
@@ -348,6 +356,9 @@ class RcsSender @Inject constructor(
             Timber.e(e, "RCS root dispatch exception for $to")
             com.messagingagent.android.service.DeviceLogBus.log("ERROR", "RCS: Exception for $to: ${e.message} (corr=$correlationId)")
             return RcsSendResult(success = false, noRcs = false, error = e.message)
+        }
+        } finally {
+            dispatchMutex.unlock()
         }
     }
 

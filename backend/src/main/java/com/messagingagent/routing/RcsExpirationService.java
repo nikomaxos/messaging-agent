@@ -88,7 +88,7 @@ public class RcsExpirationService {
             
             // Unlock the device and trigger queue drain so the next message can be dispatched
             if (logEntry.getDevice() != null && logEntry.getDeviceGroup() != null) {
-                deviceWebSocketService.unlockDeviceAndDrainQueue(logEntry.getDevice(), logEntry.getDeviceGroup());
+                deviceWebSocketService.unlockDeviceAndDrainQueue(logEntry.getDevice(), logEntry.getDeviceGroup(), logEntry.getSmppMessageId());
             }
         }
     }
