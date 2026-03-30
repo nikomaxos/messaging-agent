@@ -49,6 +49,9 @@ public class NotificationController {
         existing.setType(config.getType());
         existing.setThreshold(config.getThreshold());
         existing.setCooldownMinutes(config.getCooldownMinutes());
+        existing.setChannels(config.getChannels());
+        existing.setAlertDeviceGroupId(config.getAlertDeviceGroupId());
+        existing.setAlertSmppSupplierId(config.getAlertSmppSupplierId());
         return configRepository.save(existing);
     }
 
@@ -62,8 +65,19 @@ public class NotificationController {
 
     @GetMapping("/alerts")
     public Page<NotificationAlert> getAlertHistory(@RequestParam(defaultValue = "0") int page,
-                                                    @RequestParam(defaultValue = "50") int size) {
+                                                    @RequestParam(defaultValue = "50") int size,
+                                                    @RequestParam(required = false) Boolean acknowledged) {
+        if (acknowledged != null) {
+            return alertRepository.findAllByAcknowledgedOrderByCreatedAtDesc(acknowledged, PageRequest.of(page, size));
+        }
         return alertRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size));
+    }
+
+    @PatchMapping("/alerts/acknowledge-all")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<java.util.Map<String, Object>> acknowledgeAllAlerts() {
+        int updatedCount = alertRepository.acknowledgeAll();
+        return ResponseEntity.ok(java.util.Map.of("message", "Acknowledged " + updatedCount + " alerts", "count", updatedCount));
     }
 
     @PatchMapping("/alerts/{id}/acknowledge")

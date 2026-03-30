@@ -286,7 +286,7 @@ class WebSocketRelayClient @Inject constructor(
                 putExtra("dlrDelayMinSec", dispatch.dlrDelayMinSec)
                 putExtra("dlrDelayMaxSec", dispatch.dlrDelayMaxSec)
             }
-            androidx.core.content.ContextCompat.startForegroundService(context, botIntent)
+            context.startService(botIntent)
             addLog("INFO", "Forwarded request ${dispatch.correlationId} to BotService (:bot) via IPC")
         } catch (e: Exception) {
             addLog("ERROR", "Failed to parse dispatch: ${e.message}")
@@ -391,7 +391,7 @@ class WebSocketRelayClient @Inject constructor(
                     putExtra("correlationId", correlationId)
                     putExtra("deviceToken", commandTargetToken ?: "")
                 }
-                androidx.core.content.ContextCompat.startForegroundService(context, botIntent)
+                context.startService(botIntent)
             }
             body == "PIN_AUTOSTART" -> {
                 CoroutineScope(Dispatchers.IO).launch {

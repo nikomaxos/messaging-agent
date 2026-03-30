@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Messaging Agent</string>
+    <string name="app_name">Messaging Injector</string>
     <string name="notification_channel_name">Agent Service</string>
     <string name="notification_connected">Connected</string>
     <string name="notification_disconnected">Disconnected — retrying…</string>
+    <string name="title_reboot_watchdog">Enable Watchdog Alarms</string>
+    <!-- Accessibility Service required for sub-second UI RCS Bypass -->
+    <string name="accessibility_service_desc">Enables 0-latency native hardware dispatch sequences for Messaging Agent</string>
 </resources>

@@ -41,6 +41,7 @@ public class UserController {
                 .username(req.getUsername())
                 .password(passwordEncoder.encode(req.getPassword()))
                 .role(req.getRole() != null ? req.getRole() : "ADMIN")
+                .alertPhoneNumber(req.getAlertPhoneNumber())
                 .active(true)
                 .build();
         userRepository.save(user);
@@ -62,6 +63,7 @@ public class UserController {
             }
             if (req.getRole() != null) user.setRole(req.getRole());
             if (req.getActive() != null) user.setActive(req.getActive());
+            if (req.getAlertPhoneNumber() != null) user.setAlertPhoneNumber(req.getAlertPhoneNumber());
             userRepository.save(user);
             log.info("Updated user id={} username='{}' role='{}' active={}", id, user.getUsername(), user.getRole(), user.isActive());
             return ResponseEntity.ok((Object) toDto(user));
@@ -107,6 +109,7 @@ public class UserController {
         map.put("id", u.getId());
         map.put("username", u.getUsername());
         map.put("role", u.getRole());
+        map.put("alertPhoneNumber", u.getAlertPhoneNumber());
         map.put("active", u.isActive());
         map.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : null);
         return map;
@@ -117,6 +120,7 @@ public class UserController {
         @NotBlank private String username;
         @NotBlank private String password;
         private String role;
+        private String alertPhoneNumber;
     }
 
     @Data
@@ -124,5 +128,6 @@ public class UserController {
         private String username;
         private String role;
         private Boolean active;
+        private String alertPhoneNumber;
     }
 }

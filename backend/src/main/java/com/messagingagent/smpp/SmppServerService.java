@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import com.messagingagent.repository.SmppServerSettingsRepository;
 import com.messagingagent.model.SmppServerSettings;
 import org.springframework.stereotype.Service;
+import com.messagingagent.service.SystemLogService;
 
 /**
  * SMPP Server using CloudHopper.
@@ -43,19 +44,22 @@ public class SmppServerService {
     private final RedisTemplate<String, String> redis;
     private final com.messagingagent.repository.SmppClientRepository smppClientRepository;
     private final SmppServerSettingsRepository settingsRepository;
+    private final SystemLogService systemLogService;
 
     private Instant uptimeStartedAt;
 
     public SmppServerService(KafkaTemplate<String, SmsInboundEvent> kafkaTemplate,
                               SmppSessionRegistry sessionRegistry,
-                              @Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis,
+                              @org.springframework.beans.factory.annotation.Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis,
                               com.messagingagent.repository.SmppClientRepository smppClientRepository,
-                              SmppServerSettingsRepository settingsRepository) {
+                              SmppServerSettingsRepository settingsRepository,
+                              SystemLogService systemLogService) {
         this.kafkaTemplate = kafkaTemplate;
         this.sessionRegistry = sessionRegistry;
         this.redis = redis;
         this.smppClientRepository = smppClientRepository;
         this.settingsRepository = settingsRepository;
+        this.systemLogService = systemLogService;
     }
 
     public Instant getUptimeStartedAt() {
@@ -90,9 +94,11 @@ public class SmppServerService {
             smppServer.start();
             uptimeStartedAt = Instant.now();
             log.info("SMPP Server started on {}:{}", bindHost, bindPort);
+            systemLogService.logAndBroadcast("INFO", "SMPP Server", "Started", "Listening on " + bindHost + ":" + bindPort);
         } catch (Exception e) {
             log.error("Failed to start SMPP Server", e);
             uptimeStartedAt = null;
+            systemLogService.logAndBroadcast("ERROR", "SMPP Server", "Failed to start", e.getMessage());
         }
     }
 
@@ -102,6 +108,7 @@ public class SmppServerService {
             smppServer.destroy(); 
             uptimeStartedAt = null; 
             log.info("SMPP Server stopped and destroyed"); 
+            systemLogService.logAndBroadcast("INFO", "SMPP Server", "Stopped", "Server destroyed");
         }
     }
 
@@ -132,9 +139,13 @@ public class SmppServerService {
             
             var clientOpt = smppClientRepository.findBySystemId(cfg.getSystemId());
             if (clientOpt.isEmpty() || !clientOpt.get().isActive() || !clientOpt.get().getPassword().equals(cfg.getPassword())) {
+                systemLogService.logAndBroadcast("WARN", "SMPP Server", "Bind Rejected",
+                    "Invalid credentials for systemId: " + cfg.getSystemId());
                 throw new SmppProcessingException(SmppConstants.STATUS_INVPASWD);
             }
             log.info("SMPP bind accepted: systemId={}", cfg.getSystemId());
+            systemLogService.logAndBroadcast("INFO", "SMPP Server", "Bind Accepted",
+                "Client " + cfg.getSystemId() + " successfully authenticated");
         }
 
         @Override
@@ -143,12 +154,16 @@ public class SmppServerService {
             session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), session.getConfiguration().getSystemId()));
             sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now()));
             log.info("SMPP session created id={}", sessionId);
+            systemLogService.logAndBroadcast("INFO", "SMPP Server", "Session Created",
+                "Session ID: " + sessionId + " for " + session.getConfiguration().getSystemId());
         }
 
         @Override
         public void sessionDestroyed(Long sessionId, SmppServerSession session) {
             sessionRegistry.unregister(sessionId.toString());
             log.info("SMPP session destroyed id={}", sessionId);
+            systemLogService.logAndBroadcast("WARN", "SMPP Server", "Session Destroyed",
+                "Session ID: " + sessionId + " for " + session.getConfiguration().getSystemId());
         }
     }
 

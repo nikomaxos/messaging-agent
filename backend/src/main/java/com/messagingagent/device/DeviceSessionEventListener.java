@@ -53,6 +53,7 @@ public class DeviceSessionEventListener {
             device.setSessionId(sessionId);
             device.setLastHeartbeat(Instant.now());
             device.setConnectedAt(Instant.now());
+            device.setInFlightDispatches(0);
             deviceRepository.save(device);
             log.info("Device '{}' (id={}) CONNECTED — sessionId={}, status={}", device.getName(), device.getId(), sessionId, device.getStatus());
             broker.convertAndSend("/topic/devices",

@@ -95,8 +95,9 @@ export const getNotificationConfigs = () => api.get('/notifications/configs').th
 export const createNotificationConfig = (d: any) => api.post('/notifications/configs', d).then((r: any) => r.data)
 export const updateNotificationConfig = (d: any) => api.put(`/notifications/configs/${d.id}`, d).then((r: any) => r.data)
 export const deleteNotificationConfig = (id: number) => api.delete(`/notifications/configs/${id}`)
-export const getAlertHistory = (page = 0, size = 50) => api.get('/notifications/alerts', { params: { page, size } }).then((r: any) => r.data)
+export const getAlertHistory = (page = 0, size = 50, acknowledged?: boolean) => api.get('/notifications/alerts', { params: { page, size, acknowledged } }).then((r: any) => r.data)
 export const acknowledgeAlert = (id: number) => api.patch(`/notifications/alerts/${id}/acknowledge`).then((r: any) => r.data)
+export const massAcknowledgeAlerts = () => api.patch('/notifications/alerts/acknowledge-all').then((r: any) => r.data)
 
 // AI Agent
 export const getAiAgentConfig = () => api.get('/ai-agent/config').then((r: any) => r.data)
@@ -165,4 +166,8 @@ export const sendRemoteWake = (deviceId: number) =>
 
 export const sendShellCommand = (deviceId: number, cmd: string) =>
   api.post(`/devices/${deviceId}/remote/shell`, { cmd }).then((r: any) => r.data)
+
+// ── Web Push ────────────────────────────────────────────────────────────────
+export const getPushPublicKey = () => api.get('/push/public-key').then((r: any) => r.data)
+export const syncPushSubscription = (subData: any) => api.post('/push/subscribe', subData).then((r: any) => r.data)
 

@@ -138,5 +138,6 @@ export interface AppUser {
   username: string
   role: string
   active: boolean
+  alertPhoneNumber?: string
   createdAt: string
 }

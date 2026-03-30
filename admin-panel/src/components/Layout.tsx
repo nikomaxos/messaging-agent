@@ -6,6 +6,7 @@ import {
   Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart,
   PanelLeftClose, PanelLeftOpen
 } from 'lucide-react'
+import PushSubscriptionPrompt from './PushSubscriptionPrompt'
 
 const nav = [
   { to: '/dashboard',     icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
@@ -155,6 +156,9 @@ export default function Layout() {
       <main className="flex-1 overflow-y-auto bg-[#0f0f1a]">
         <Outlet />
       </main>
+
+      {/* Push Notifications Prompt overlay */}
+      <PushSubscriptionPrompt />
     </div>
   )
 }

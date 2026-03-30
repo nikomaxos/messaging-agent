@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getNotificationConfigs, createNotificationConfig, updateNotificationConfig,
-  deleteNotificationConfig, getAlertHistory, acknowledgeAlert
+  deleteNotificationConfig, getAlertHistory, acknowledgeAlert, massAcknowledgeAlerts,
+  getGroups, getSmscSuppliers
 } from '../api/client'
 import { Bell, Plus, Trash2, Check, X, ToggleLeft, ToggleRight, AlertTriangle, AlertCircle, Info } from 'lucide-react'
 import { format } from 'date-fns'
@@ -27,12 +28,23 @@ export default function NotificationsPage() {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editConfig, setEditConfig] = useState<any>(null)
-  const [form, setForm] = useState({ name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true })
+  const [form, setForm] = useState<{
+    name: string; type: string; threshold: number; cooldownMinutes: number; enabled: boolean;
+    channels: string[]; alertDeviceGroupId: number | null; alertSmppSupplierId: number | null;
+  }>({ 
+    name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true,
+    channels: ['BROWSER_PUSH'], alertDeviceGroupId: null, alertSmppSupplierId: null
+  })
+
+  const { data: deviceGroups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
+  const { data: smppSuppliers = [] } = useQuery({ queryKey: ['smsc-suppliers'], queryFn: getSmscSuppliers })
 
   const { data: configs = [] } = useQuery({ queryKey: ['notif-configs'], queryFn: getNotificationConfigs })
-  const { data: alertsData } = useQuery({ queryKey: ['alert-history'], queryFn: () => getAlertHistory(0, 100), refetchInterval: 15_000 })
+  const { data: alertsData } = useQuery({ queryKey: ['active-alerts'], queryFn: () => getAlertHistory(0, 100, false), refetchInterval: 15_000 })
+  const { data: archivedAlertsData } = useQuery({ queryKey: ['archived-alerts'], queryFn: () => getAlertHistory(0, 50, true) })
 
-  const alerts = alertsData?.content ?? []
+  const activeAlerts = alertsData?.content ?? []
+  const archivedAlerts = archivedAlertsData?.content ?? []
 
   const createMut = useMutation({
     mutationFn: createNotificationConfig,
@@ -48,19 +60,47 @@ export default function NotificationsPage() {
   })
   const ackMut = useMutation({
     mutationFn: acknowledgeAlert,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['alert-history'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['active-alerts'] })
+      qc.invalidateQueries({ queryKey: ['archived-alerts'] })
+    },
+  })
+  const massAckMut = useMutation({
+    mutationFn: massAcknowledgeAlerts,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['active-alerts'] })
+      qc.invalidateQueries({ queryKey: ['archived-alerts'] })
+    },
   })
 
   const resetForm = () => {
     setShowForm(false)
     setEditConfig(null)
-    setForm({ name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true })
+    setForm({ 
+      name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true,
+      channels: ['BROWSER_PUSH'], alertDeviceGroupId: null, alertSmppSupplierId: null
+    })
   }
 
   const startEdit = (c: any) => {
     setEditConfig(c)
-    setForm({ name: c.name, type: c.type, threshold: c.threshold, cooldownMinutes: c.cooldownMinutes, enabled: c.enabled })
+    setForm({ 
+      name: c.name, type: c.type, threshold: c.threshold, 
+      cooldownMinutes: c.cooldownMinutes, enabled: c.enabled,
+      channels: c.channels || [],
+      alertDeviceGroupId: c.alertDeviceGroupId || null,
+      alertSmppSupplierId: c.alertSmppSupplierId || null
+    })
     setShowForm(true)
+  }
+
+  const toggleChannel = (ch: string) => {
+    setForm(prev => ({
+      ...prev,
+      channels: prev.channels.includes(ch)
+        ? prev.channels.filter(c => c !== ch)
+        : [...prev.channels, ch]
+    }))
   }
 
   const saveConfig = () => {
@@ -107,6 +147,7 @@ export default function NotificationsPage() {
                     <div className="text-sm font-medium text-white">{c.name}</div>
                     <div className="text-[10px] text-slate-500">
                       {c.type} • Threshold: {c.threshold} • Cooldown: {c.cooldownMinutes}min
+                      {c.channels && c.channels.length > 0 && ` • Channels: ${c.channels.join(', ')}`}
                       {c.lastTriggeredAt && <> • Last: {format(new Date(c.lastTriggeredAt), 'MMM d HH:mm')}</>}
                     </div>
                   </div>
@@ -123,26 +164,57 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {/* ── Alert History ──────────────────────────────────────────── */}
+      {/* ── Active Alert History ──────────────────────────────────────────── */}
       <div className="glass p-5">
-        <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-          <AlertTriangle size={14} className="text-amber-400" /> Alert History
-        </h2>
-        {alerts.length === 0 ? (
-          <div className="text-slate-500 text-sm text-center py-6">No alerts have been triggered yet.</div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-white flex items-center gap-2">
+            <AlertTriangle size={14} className="text-amber-400" /> Active Alerts
+          </h2>
+          {activeAlerts.length > 0 && (
+            <button 
+              className="px-3 py-1 bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-400 text-xs font-semibold rounded transition"
+              onClick={() => massAckMut.mutate()}
+              disabled={massAckMut.isPending}
+            >
+              Mass Acknowledge
+            </button>
+          )}
+        </div>
+        
+        {activeAlerts.length === 0 ? (
+          <div className="text-slate-500 text-sm text-center py-6">No unacknowledged alerts.</div>
         ) : (
-          <div className="space-y-1 max-h-[400px] overflow-y-auto">
-            {alerts.map((a: any) => (
-              <div key={a.id} className={`flex items-center gap-3 px-3 py-2 rounded text-xs ${a.acknowledged ? 'opacity-50' : ''} ${a.severity === 'CRITICAL' ? 'bg-red-900/10 border border-red-500/15' : a.severity === 'WARNING' ? 'bg-amber-900/10 border border-amber-500/15' : 'bg-white/[0.02] border border-white/5'}`}>
+          <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1">
+            {activeAlerts.map((a: any) => (
+              <div key={a.id} className={`flex items-center gap-3 px-3 py-2 rounded text-xs ${a.severity === 'CRITICAL' ? 'bg-red-900/10 border border-red-500/15' : a.severity === 'WARNING' ? 'bg-amber-900/10 border border-amber-500/15' : 'bg-white/[0.02] border border-white/5'}`}>
                 {severityIcon(a.severity)}
                 <span className="text-slate-300 flex-1">{a.message}</span>
                 <span className="text-slate-600 font-mono">{a.metricValue != null ? `${a.metricValue}` : ''}</span>
                 <span className="text-slate-600 whitespace-nowrap">{format(new Date(a.createdAt), 'MMM d HH:mm')}</span>
-                {!a.acknowledged && (
-                  <button className="text-emerald-500 hover:text-emerald-400 transition" onClick={() => ackMut.mutate(a.id)} title="Acknowledge">
-                    <Check size={14} />
-                  </button>
-                )}
+                <button className="text-emerald-500 hover:text-emerald-400 transition" onClick={() => ackMut.mutate(a.id)} title="Acknowledge">
+                  <Check size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Archived Alerts ──────────────────────────────────────────────── */}
+      <div className="glass p-5 opacity-80">
+        <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+          <Info size={14} className="text-slate-400" /> Archived Alerts (Acknowledged)
+        </h2>
+        {archivedAlerts.length === 0 ? (
+          <div className="text-slate-500 text-sm text-center py-6">No archived alerts found.</div>
+        ) : (
+          <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1">
+            {archivedAlerts.map((a: any) => (
+              <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded text-xs bg-black/20 border border-white/5 opacity-70">
+                {severityIcon(a.severity)}
+                <span className="text-slate-400 flex-1">{a.message}</span>
+                <span className="text-slate-600 font-mono">{a.metricValue != null ? `${a.metricValue}` : ''}</span>
+                <span className="text-slate-600 whitespace-nowrap">{format(new Date(a.createdAt), 'MMM d HH:mm')}</span>
               </div>
             ))}
           </div>
@@ -181,6 +253,41 @@ export default function NotificationsPage() {
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Cooldown (min)</label>
                   <input type="number" className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
                     value={form.cooldownMinutes} onChange={e => setForm({ ...form, cooldownMinutes: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div className="pt-2">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Notification Channels</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <input type="checkbox" checked={form.channels.includes('BROWSER_PUSH')} onChange={() => toggleChannel('BROWSER_PUSH')} className="rounded border-slate-700 bg-slate-900 text-brand-500" />
+                    Browser Push
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <input type="checkbox" checked={form.channels.includes('RCS_VIRTUAL_SMSC')} onChange={() => toggleChannel('RCS_VIRTUAL_SMSC')} className="rounded border-slate-700 bg-slate-900 text-brand-500" />
+                    RCS via Virtual SMSC
+                  </label>
+                  {form.channels.includes('RCS_VIRTUAL_SMSC') && (
+                    <div className="pl-6 pt-1">
+                      <select className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-1.5"
+                        value={form.alertDeviceGroupId || ''} onChange={e => setForm({ ...form, alertDeviceGroupId: e.target.value ? Number(e.target.value) : null })}>
+                        <option value="">-- Select Admin Device Group --</option>
+                        {deviceGroups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <input type="checkbox" checked={form.channels.includes('SMPP_SUPPLIER')} onChange={() => toggleChannel('SMPP_SUPPLIER')} className="rounded border-slate-700 bg-slate-900 text-brand-500" />
+                    SMS via SMPP
+                  </label>
+                  {form.channels.includes('SMPP_SUPPLIER') && (
+                    <div className="pl-6 pt-1">
+                      <select className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-1.5"
+                        value={form.alertSmppSupplierId || ''} onChange={e => setForm({ ...form, alertSmppSupplierId: e.target.value ? Number(e.target.value) : null })}>
+                        <option value="">-- Select Admin SMPP Supplier --</option>
+                        {smppSuppliers.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name} ({s.supplier.systemId})</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">

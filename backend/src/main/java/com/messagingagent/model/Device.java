@@ -102,7 +102,7 @@ public class Device {
     private Integer inFlightDispatches = 0;
 
     @Transient
-    public static final int MAX_CONCURRENT_DISPATCHES = 5;
+    public static final int MAX_CONCURRENT_DISPATCHES = 50;
 
     // GPS location (reported via heartbeat)
     private Double latitude;

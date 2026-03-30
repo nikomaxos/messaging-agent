@@ -113,4 +113,37 @@ public class ApkUpdateController {
                 .contentLength(file.length())
                 .body(resource);
     }
+
+    private static final String GUARDIAN_FILE_NAME = "guardian.apk";
+
+    @PostMapping("/api/apk/upload-guardian")
+    public ResponseEntity<String> uploadGuardian(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty() || !file.getOriginalFilename().endsWith(".apk")) {
+            return ResponseEntity.badRequest().body("File must be an APK and not empty");
+        }
+        try {
+            Path path = Paths.get(APK_DIR, GUARDIAN_FILE_NAME);
+            Files.write(path, file.getBytes());
+            log.info("New Guardian APK uploaded successfully");
+            return ResponseEntity.ok("Guardian APK uploaded successfully");
+        } catch (IOException e) {
+            log.error("Failed to upload Guardian APK", e);
+            return ResponseEntity.internalServerError().body("Failed to save Guardian APK");
+        }
+    }
+
+    @GetMapping("/api/public/guardian/download")
+    public ResponseEntity<Resource> downloadGuardian() {
+        File file = new File(APK_DIR, GUARDIAN_FILE_NAME);
+        if (!file.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Resource resource = new FileSystemResource(file);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"guardian.apk\"")
+                .contentType(MediaType.parseMediaType("application/vnd.android.package-archive"))
+                .contentLength(file.length())
+                .body(resource);
+    }
 }

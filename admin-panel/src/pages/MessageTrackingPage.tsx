@@ -303,7 +303,7 @@ export default function MessageTrackingPage() {
                 checked={logs.length > 0 && selectedIds.size === logs.length}
                 onChange={toggleSelectAll} />
             </th>
-            <th className="px-4 pt-4 pb-3">#</th>
+            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('id')}># <SortIcon field="id" /></th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('createdAt')}>Timestamp <SortIcon field="createdAt" /></th>
             <th className="px-2">Time</th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('sourceAddress')}>From <SortIcon field="sourceAddress" /></th>

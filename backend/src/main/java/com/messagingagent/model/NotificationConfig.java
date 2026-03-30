@@ -5,6 +5,8 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "notification_config")
@@ -49,6 +51,19 @@ public class NotificationConfig {
 
     @Column(name = "last_triggered_at")
     private Instant lastTriggeredAt;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "notification_config_channels", joinColumns = @JoinColumn(name = "config_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "channel")
+    @Builder.Default
+    private Set<NotificationChannel> channels = new HashSet<>();
+
+    @Column(name = "alert_device_group_id")
+    private Long alertDeviceGroupId;
+
+    @Column(name = "alert_smpp_supplier_id")
+    private Long alertSmppSupplierId;
 
     @CreationTimestamp
     private Instant createdAt;

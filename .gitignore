@@ -55,3 +55,6 @@ sqlite_tools/
 !backend/**/*.json
 !.agent/**/*.json
 !.vscode/**/*.json
+
+android-app/guardian/build/
+messaging-agent.code-workspace

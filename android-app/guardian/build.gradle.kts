@@ -13,6 +13,7 @@ android {
         targetSdk = 34
         versionCode = 113
         versionName = "1.1.6"
+        buildConfigField("String", "API_BASE_URL", "\"http://rcs.nikomaxos.duckdns.org\"")
     }
 
     buildTypes {
@@ -21,6 +22,10 @@ android {
         }
         debug {
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

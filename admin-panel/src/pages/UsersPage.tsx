@@ -11,7 +11,7 @@ export default function UsersPage() {
 
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<AppUser | null>(null)
-  const [form, setForm] = useState({ username: '', password: '', role: 'ADMIN' })
+  const [form, setForm] = useState({ username: '', password: '', role: 'ADMIN', alertPhoneNumber: '' })
   const [pwResetId, setPwResetId] = useState<number | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
@@ -33,10 +33,10 @@ export default function UsersPage() {
     onError: (err: any) => alert(err.response?.data?.error || err.message)
   })
 
-  const reset = () => { setShowForm(false); setEditing(null); setForm({ username: '', password: '', role: 'ADMIN' }) }
-  const openEdit = (u: AppUser) => { setEditing(u); setForm({ username: u.username, password: '', role: u.role }); setShowForm(true) }
+  const reset = () => { setShowForm(false); setEditing(null); setForm({ username: '', password: '', role: 'ADMIN', alertPhoneNumber: '' }) }
+  const openEdit = (u: AppUser) => { setEditing(u); setForm({ username: u.username, password: '', role: u.role, alertPhoneNumber: u.alertPhoneNumber || '' }); setShowForm(true) }
   const save = () => {
-    if (editing) updateMut.mutate({ id: editing.id, d: { username: form.username, role: form.role } })
+    if (editing) updateMut.mutate({ id: editing.id, d: { username: form.username, role: form.role, alertPhoneNumber: form.alertPhoneNumber } })
     else createMut.mutate(form)
   }
 
@@ -67,6 +67,10 @@ export default function UsersPage() {
               </div>
             )}
             <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Alert Phone #</label>
+              <input className="input text-black" placeholder="Optional (e.g. +1234)" value={form.alertPhoneNumber} onChange={e => setForm({ ...form, alertPhoneNumber: e.target.value })} />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Role</label>
               <select className="input text-black" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                 <option value="ADMIN">Admin</option>
@@ -88,6 +92,7 @@ export default function UsersPage() {
           <thead><tr>
             <th className="px-4 pt-4 pb-3">Username</th>
             <th className="px-4">Role</th>
+            <th className="px-4">Alert Number</th>
             <th className="px-4">Status</th>
             <th className="px-4">Created</th>
             <th className="px-4 text-right">Actions</th>
@@ -110,6 +115,9 @@ export default function UsersPage() {
                     {u.role === 'ADMIN' ? <ShieldCheck size={10} /> : <ShieldOff size={10} />}
                     {u.role}
                   </span>
+                </td>
+                <td className="px-4 text-slate-400 text-xs">
+                  {u.alertPhoneNumber || '-'}
                 </td>
                 <td className="px-4">
                   <button

@@ -17,16 +17,16 @@ Copy-Item "c:\Dev\messaging-agent\android-app\app\build\outputs\apk\debug\app-de
 Copy-Item "c:\Dev\messaging-agent\android-app\guardian\build\outputs\apk\debug\guardian-debug.apk" "c:\Dev\messaging-agent\android-app\MessagingGuardian-debug.apk" -Force
 ```
 
-3. Upload the APKs to the backend for OTA updates:
+4. Upload the APKs to the backend for OTA updates:
 ```
-$token = (Invoke-RestMethod -Uri http://localhost:8080/api/auth/login -Method POST -Body '{"username":"admin","password":"admin"}' -ContentType 'application/json').token
-curl.exe -X POST http://localhost:8080/api/apk/upload -H "Authorization: Bearer $token" -F "file=@c:\Dev\messaging-agent\android-app\MessagingAgent-debug.apk"
-curl.exe -X POST http://localhost:8080/api/apk/upload -H "Authorization: Bearer $token" -F "file=@c:\Dev\messaging-agent\android-app\MessagingGuardian-debug.apk"
+$token = (Invoke-RestMethod -Uri http://localhost:9090/api/auth/login -Method POST -Body '{"username":"admin","password":"admin123"}' -ContentType 'application/json').token
+curl.exe -X POST http://localhost:9090/api/apk/upload -H "Authorization: Bearer $token" -F "file=@c:\Dev\messaging-agent\android-app\MessagingAgent-debug.apk"
+curl.exe -X POST http://localhost:9090/api/apk/upload-guardian -H "Authorization: Bearer $token" -F "file=@c:\Dev\messaging-agent\android-app\MessagingGuardian-debug.apk"
 ```
 
 4. Verify the uploaded APK info:
 ```
-$token = (Invoke-RestMethod -Uri http://localhost:8080/api/auth/login -Method POST -Body '{"username":"admin","password":"admin"}' -ContentType 'application/json').token; Invoke-RestMethod -Uri http://localhost:8080/api/apk/info -Headers @{Authorization="Bearer $token"}
+$token = (Invoke-RestMethod -Uri http://localhost:9090/api/auth/login -Method POST -Body '{"username":"admin","password":"admin123"}' -ContentType 'application/json').token; Invoke-RestMethod -Uri http://localhost:9090/api/apk/info -Headers @{Authorization="Bearer $token"}
 ```
 
 > **IMPORTANT**: Every time a new APK version is built, it MUST be uploaded to the backend for OTA updates using step 3. This ensures devices can auto-update to the latest version.

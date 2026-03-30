@@ -82,6 +82,11 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
 
     long countByStatusAndCreatedAtAfter(MessageLog.Status status, java.time.Instant after);
 
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.status = :status AND m.createdAt >= :after AND (m.sourceAddress IS NULL OR m.sourceAddress != 'SYSTEM')")
+    long countUserMessagesByStatusAndCreatedAtAfter(
+            @org.springframework.data.repository.query.Param("status") MessageLog.Status status,
+            @org.springframework.data.repository.query.Param("after") java.time.Instant after);
+
     // DLQ: find failed messages older than cutoff
     java.util.List<MessageLog> findByStatusAndCreatedAtBefore(MessageLog.Status status, java.time.Instant before);
 

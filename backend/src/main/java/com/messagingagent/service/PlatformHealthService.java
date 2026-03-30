@@ -69,6 +69,14 @@ public class PlatformHealthService {
             if (info != null && info.boundAt() != null) {
                 s.put("uptimeSeconds", ChronoUnit.SECONDS.between(info.boundAt(), Instant.now()));
             }
+            if (!connected) {
+                Instant disconnectedAt = smscConnectionManager.getDisconnectedAt(supplier.getId());
+                if (disconnectedAt != null) {
+                    s.put("disconnectedSeconds", ChronoUnit.SECONDS.between(disconnectedAt, Instant.now()));
+                } else {
+                    s.put("disconnectedSeconds", 0L);
+                }
+            }
             suppliers.add(s);
         }
         result.put("smscSuppliers", suppliers);
@@ -145,11 +153,11 @@ public class PlatformHealthService {
     // ── Metric accessors for AlertScheduler ──────────────────────────
     public double getDeliveryRate(long windowMinutes) {
         Instant since = Instant.now().minus(windowMinutes, ChronoUnit.MINUTES);
-        long delivered = messageLogRepository.countByStatusAndCreatedAtAfter(
+        long delivered = messageLogRepository.countUserMessagesByStatusAndCreatedAtAfter(
                 com.messagingagent.model.MessageLog.Status.DELIVERED, since);
-        long failed = messageLogRepository.countByStatusAndCreatedAtAfter(
+        long failed = messageLogRepository.countUserMessagesByStatusAndCreatedAtAfter(
                 com.messagingagent.model.MessageLog.Status.FAILED, since);
-        long rcsFailedCount = messageLogRepository.countByStatusAndCreatedAtAfter(
+        long rcsFailedCount = messageLogRepository.countUserMessagesByStatusAndCreatedAtAfter(
                 com.messagingagent.model.MessageLog.Status.RCS_FAILED, since);
         long total = delivered + failed + rcsFailedCount;
         return total == 0 ? 100.0 : (delivered * 100.0 / total);

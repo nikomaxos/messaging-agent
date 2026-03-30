@@ -33,6 +33,9 @@ public class AppUser {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "alert_phone_number", length = 30)
+    private String alertPhoneNumber;
+
     @CreationTimestamp
     private Instant createdAt;
 }

@@ -16,6 +16,7 @@
         android:label="Messaging Guardian"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <!-- The main Activity just triggers the permission request flow -->
@@ -47,11 +48,29 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".InstallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.messagingagent.guardian.ACTION_INSTALL_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
         <!-- The foreground service that executes the download + PackageInstaller -->
         <service
             android:name=".GuardianService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.messagingagent.guardian.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
 
     </application>
 </manifest>

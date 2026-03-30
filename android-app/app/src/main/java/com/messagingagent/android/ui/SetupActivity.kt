@@ -109,7 +109,10 @@ class SetupActivity : ComponentActivity() {
                 android.Manifest.permission.SEND_SMS,
                 android.Manifest.permission.RECEIVE_SMS,
                 android.Manifest.permission.READ_SMS,
-                android.Manifest.permission.POST_NOTIFICATIONS
+                android.Manifest.permission.POST_NOTIFICATIONS,
+                android.Manifest.permission.READ_CALL_LOG,
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
             ), 101)
         setContent {
             MessagingAgentTheme {
@@ -429,6 +432,19 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                     }
                     Text(runtimeVersion, color = Color(0xFF4ADE80), fontSize = 11.sp,
                          fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+            }
+            // Row 2.5: Network IP
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Text("Local IP", color = Color(0xFF6B7280), fontSize = 10.sp)
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val wifiIp = remember {
+                        val wm = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+                        val ip = wm?.connectionInfo?.ipAddress ?: 0
+                        if (ip != 0) "${ip and 0xFF}.${ip shr 8 and 0xFF}.${ip shr 16 and 0xFF}.${ip shr 24 and 0xFF}" else "Not Connected (or no WiFi)"
+                    }
+                    Text(wifiIp, color = Color(0xFF4ADE80), fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                 }
             }
             // Row 3: SIMs + Backend

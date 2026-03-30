@@ -11,6 +11,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://api.xposed.info/") }
         maven { url = uri("https://jitpack.io") }
     }
 }
@@ -18,3 +19,4 @@ dependencyResolutionManagement {
 rootProject.name = "MessagingAgent"
 include(":app")
 include(":guardian")
+include(":xposed-injector")

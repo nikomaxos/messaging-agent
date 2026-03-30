@@ -36,7 +36,7 @@ class BotService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
         // Run as foreground to prevent Android 11+ App Standby drops while querying queue
-        startForeground(1002, notification)
+        // startForeground(1002, notification)
         Timber.i("BotService (:bot Process) initialized natively.")
 
         // Background loop to poll for pending Delivery Receipts
@@ -94,82 +94,121 @@ class BotService : Service() {
                 if (currentPending.isEmpty()) continue
 
                 val resolved = mutableListOf<com.messagingagent.android.rcs.PendingDlr>()
+                val claimedBugleIds = mutableSetOf<Long>()
+                currentPending.filter { it.bugleMessageId > 0 }.forEach { claimedBugleIds.add(it.bugleMessageId) }
+
+                val processStatus = { p: com.messagingagent.android.rcs.PendingDlr, matchedBugleId: Long, status: Int ->
+                    val ageMs = now - p.addedAt
+                    claimedBugleIds.add(matchedBugleId)
+                    val alreadyDelivered = deliveredAt.containsKey(p.correlationId)
+
+                    when (status) {
+                        11 -> {
+                            sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", "SEEN/READ")
+                            resolved.add(p)
+                            deliveredAt.remove(p.correlationId)
+                        }
+                        2 -> {
+                            if (!alreadyDelivered) {
+                                deliveredAt[p.correlationId] = now
+                                sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", null)
+                            } else {
+                                val waitedMs = now - deliveredAt[p.correlationId]!!
+                                if (waitedMs > 120_000) {
+                                    resolved.add(p)
+                                    deliveredAt.remove(p.correlationId)
+                                }
+                            }
+                        }
+                        8, 5, 9, 3 -> {
+                            if (ageMs > 8_000) {
+                                sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status")
+                                resolved.add(p)
+                                deliveredAt.remove(p.correlationId)
+                            }
+                        }
+                        1, 100 -> {
+                            if (!sentNotified.contains(p.correlationId)) {
+                                sentNotified.add(p.correlationId)
+                                sendCommResult(p.correlationId, p.deviceToken, "SENT", null)
+                            }
+                            if (ageMs > 300_000) {
+                                sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=1 (timeout after 5m)")
+                                resolved.add(p)
+                            }
+                        }
+                        else -> {
+                            if (ageMs > 8_000) {
+                                sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status (unknown)")
+                                resolved.add(p)
+                                deliveredAt.remove(p.correlationId)
+                            }
+                        }
+                    }
+                }
 
                 try {
-                    com.topjohnwu.superuser.Shell.cmd(
-                        "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
-                    ).exec()
-
-                    android.database.sqlite.SQLiteDatabase.openDatabase(
-                        tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-                    ).use { db ->
-                        val claimedBugleIds = mutableSetOf<Long>()
-                        currentPending.filter { it.bugleMessageId > 0 }.forEach { claimedBugleIds.add(it.bugleMessageId) }
-
-                        for (p in currentPending) {
-                            try {
-                                val ageMs = now - p.addedAt
-                                val query = if (p.bugleMessageId > 0) {
-                                    Pair("SELECT _id, message_status FROM messages WHERE _id = ?", arrayOf(p.bugleMessageId.toString()))
+                    val canUseSqlite = com.topjohnwu.superuser.Shell.cmd("[ -x /data/local/tmp/sqlite3 ] && echo 1 || echo 0").exec().out.joinToString("").trim() == "1"
+                    if (canUseSqlite) {
+                        val minId = currentPending.minOfOrNull { 
+                            if (it.bugleMessageId > 0) it.bugleMessageId else it.initialMaxId 
+                        } ?: 0L
+                        val sqliteCmd = "/data/local/tmp/sqlite3 '$srcDb'"
+                        val sql = "SELECT _id, message_status FROM messages WHERE _id >= $minId ORDER BY _id ASC LIMIT 200;"
+                        
+                        try {
+                            val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
+                            val lines = res.out.map { it.trim() }.filter { it.contains("|") }
+                            
+                            for (p in currentPending) {
+                                val matchLine = if (p.bugleMessageId > 0) {
+                                    lines.firstOrNull { it.startsWith("${p.bugleMessageId}|") }
                                 } else {
+                                    lines.firstOrNull { 
+                                        val rowId = it.substringBefore("|").toLongOrNull() ?: 0L
+                                        rowId > p.initialMaxId && !claimedBugleIds.contains(rowId) 
+                                    }
+                                }
+                                
+                                if (matchLine != null) {
+                                    val parts = matchLine.split("|")
+                                    val matchedBugleId = parts[0].toLongOrNull() ?: 0L
+                                    val status = parts[1].toIntOrNull() ?: -1
+                                    if (matchedBugleId > 0 && status != -1) {
+                                        processStatus(p, matchedBugleId, status)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) { Timber.e(e, "BotService: batch sqlite3 exception") }
+                        
+                    } else {
+                        com.topjohnwu.superuser.Shell.cmd(
+                            "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
+                        ).exec()
+
+                        android.database.sqlite.SQLiteDatabase.openDatabase(
+                            tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+                        ).use { db ->
+                            for (p in currentPending) {
+                                try {
                                     val excludeClause = if (claimedBugleIds.isNotEmpty()) {
                                         " AND _id NOT IN (${claimedBugleIds.joinToString(",")})"
                                     } else ""
-                                    Pair("SELECT _id, message_status FROM messages WHERE _id > ?$excludeClause ORDER BY _id ASC LIMIT 1", arrayOf(p.initialMaxId.toString()))
-                                }
-                                db.rawQuery(query.first, query.second).use { cursor ->
-                                    if (cursor.moveToNext()) {
-                                        val matchedBugleId = cursor.getLong(0)
-                                        val status = cursor.getInt(1)
-                                        claimedBugleIds.add(matchedBugleId)
-                                        val alreadyDelivered = deliveredAt.containsKey(p.correlationId)
-
-                                        when (status) {
-                                            11 -> {
-                                                sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", "SEEN/READ")
-                                                resolved.add(p)
-                                                deliveredAt.remove(p.correlationId)
-                                            }
-                                            2 -> {
-                                                if (!alreadyDelivered) {
-                                                    deliveredAt[p.correlationId] = now
-                                                    sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", null)
-                                                } else {
-                                                    val waitedMs = now - deliveredAt[p.correlationId]!!
-                                                    if (waitedMs > 120_000) {
-                                                        resolved.add(p)
-                                                        deliveredAt.remove(p.correlationId)
-                                                    }
-                                                }
-                                            }
-                                            8, 5, 9, 3 -> {
-                                                if (ageMs > 8_000) {
-                                                    sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status")
-                                                    resolved.add(p)
-                                                    deliveredAt.remove(p.correlationId)
-                                                }
-                                            }
-                                            1, 100 -> {
-                                                if (!sentNotified.contains(p.correlationId)) {
-                                                    sentNotified.add(p.correlationId)
-                                                    sendCommResult(p.correlationId, p.deviceToken, "SENT", null)
-                                                }
-                                                if (ageMs > 300_000) {
-                                                    sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=1 (timeout after 5m)")
-                                                    resolved.add(p)
-                                                }
-                                            }
-                                            else -> {
-                                                if (ageMs > 8_000) {
-                                                    sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status (unknown)")
-                                                    resolved.add(p)
-                                                    deliveredAt.remove(p.correlationId)
-                                                }
-                                            }
+                                    
+                                    val query = if (p.bugleMessageId > 0) {
+                                        Pair("SELECT _id, message_status FROM messages WHERE _id = ?", arrayOf(p.bugleMessageId.toString()))
+                                    } else {
+                                        Pair("SELECT _id, message_status FROM messages WHERE _id > ?$excludeClause ORDER BY _id ASC LIMIT 1", arrayOf(p.initialMaxId.toString()))
+                                    }
+                                    db.rawQuery(query.first, query.second).use { cursor ->
+                                        if (cursor.moveToNext()) {
+                                            val matchedBugleId = cursor.getLong(0)
+                                            val status = cursor.getInt(1)
+                                            processStatus(p, matchedBugleId, status)
                                         }
                                     }
-                                }
-                            } catch (e: Exception) { Timber.e(e, "BotService: exception for ${p.correlationId}") }
+                                } catch (e: Exception) { Timber.e(e, "BotService: rawQuery exception for ${p.correlationId}") }
+                            }
                         }
                     }
                 } catch (e: Exception) {
