@@ -18,6 +18,7 @@ import com.cloudhopper.smpp.pdu.SubmitSmResp;
 import com.cloudhopper.smpp.type.Address;
 import com.cloudhopper.smpp.type.SmppChannelException;
 import com.cloudhopper.smpp.type.SmppTimeoutException;
+import com.messagingagent.model.MessageLog;
 import com.messagingagent.model.SmscSupplier;
 import com.messagingagent.repository.SmscSupplierRepository;
 import jakarta.annotation.PreDestroy;
@@ -314,9 +315,19 @@ public class SmscConnectionManager {
 
                     if (receiptedMessageId != null) {
                         log.info("Parsed fallback receipted message id: {}", receiptedMessageId);
-                        messageLogRepository.findBySupplierMessageId(receiptedMessageId).ifPresent(l -> {
-                            l.setFallbackDlrReceivedAt(Instant.now());
-                            messageLogRepository.save(l);
+                        
+                        final String finalReceiptedMessageId = receiptedMessageId;
+                        // First try fallbackMessageId (new standard), then supplierMessageId (legacy)
+                        messageLogRepository.findByFallbackMessageId(finalReceiptedMessageId)
+                            .or(() -> messageLogRepository.findBySupplierMessageId(finalReceiptedMessageId))
+                            .ifPresent(l -> {
+                                l.setFallbackDlrReceivedAt(Instant.now());
+                                // Only mark as DELIVERED if it's currently FAILED or DISPATCHED or RCS_FAILED, 
+                                // to track ultimate fallback success.
+                                if (l.getStatus() != MessageLog.Status.DELIVERED) {
+                                    l.setStatus(MessageLog.Status.DELIVERED);
+                                }
+                                messageLogRepository.save(l);
                         });
                     }
                 } catch (Exception e) {

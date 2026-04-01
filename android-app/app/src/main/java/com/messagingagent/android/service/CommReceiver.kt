@@ -19,11 +19,11 @@ class CommReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
-        val corrId = intent.getStringExtra("correlationId") ?: return
         val deviceToken = intent.getStringExtra("deviceToken") ?: return
 
         when (action) {
             "com.messagingagent.android.comm.ACTION_DISPATCH_RESULT" -> {
+                val corrId = intent.getStringExtra("correlationId") ?: return
                 val success = intent.getBooleanExtra("success", false)
                 val noRcs = intent.getBooleanExtra("noRcs", false)
                 val error = intent.getStringExtra("error")
@@ -45,6 +45,7 @@ class CommReceiver : BroadcastReceiver() {
                 }
             }
             "com.messagingagent.android.comm.ACTION_DLR_UPDATE" -> {
+                val corrId = intent.getStringExtra("correlationId") ?: return
                 Timber.i("CommReceiver: DLR UPDATE arrived for $corrId")
                 wsClient.sendDeliveryResult(DeliveryResult(
                     correlationId = corrId,
@@ -52,6 +53,7 @@ class CommReceiver : BroadcastReceiver() {
                 ), deviceToken)
             }
             "com.messagingagent.android.comm.ACTION_RECHECK_RESULT" -> {
+                val corrId = intent.getStringExtra("correlationId") ?: return
                 val resultStr = intent.getStringExtra("result") ?: "ERROR"
                 val errorDetail = intent.getStringExtra("errorDetail")
                 Timber.i("CommReceiver: Manual DLR RECHECK arrived for $corrId ($resultStr)")
@@ -60,6 +62,11 @@ class CommReceiver : BroadcastReceiver() {
                     result = resultStr,
                     errorDetail = errorDetail
                 ), deviceToken)
+            }
+            "com.messagingagent.android.comm.ACTION_BULK_DLR_RESULT" -> {
+                val b64data = intent.getStringExtra("bulkDataBase64") ?: return
+                Timber.i("CommReceiver: Bulk Matrix DLR result arrived with size ${b64data.length}")
+                wsClient.sendBulkDlrResult(b64data, deviceToken)
             }
         }
     }

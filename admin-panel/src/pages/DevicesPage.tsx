@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance, bulkDeviceCommand } from '../api/client'
 import { Device, DeviceGroup } from '../types'
-import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse, Layers, MapPin, FileText, Smartphone, Monitor } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse, Layers, MapPin, FileText, Smartphone, Monitor, QrCode } from 'lucide-react'
 import { FormatDistanceToNowOptions, formatDistanceToNow, format } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
@@ -11,6 +11,7 @@ import GroupsPage from './GroupsPage'
 import DeviceMapPage from './DeviceMapPage'
 import DeviceLogsPage from './DeviceLogsPage'
 import RemoteDesktopPage from './RemoteDesktopPage'
+import { MatrixSetupModal } from '../components/MatrixSetupModal'
 import { useSearchParams } from 'react-router-dom'
 
 type Tab = 'devices' | 'groups' | 'map' | 'logs' | 'remote'
@@ -67,6 +68,7 @@ export default function DevicesPage() {
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
   const stompRef = useRef<Client | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [setupMatrixForDevice, setSetupMatrixForDevice] = useState<Device | null>(null)
 
   const { data: devices = [], refetch, isFetching } = useQuery({
     queryKey: ['devices'],
@@ -242,6 +244,11 @@ export default function DevicesPage() {
 
   return (
     <div className="p-6 space-y-6">
+      <MatrixSetupModal
+        isOpen={setupMatrixForDevice !== null}
+        device={setupMatrixForDevice}
+        onClose={() => setSetupMatrixForDevice(null)}
+      />
       <ConfirmModal
         isOpen={confirmAction !== null}
         title={confirmAction?.title || ''}
@@ -606,6 +613,8 @@ export default function DevicesPage() {
                         Block<br/>Calls
                       </span>
                     </label>
+                    <button className="btn-primary !px-2 !py-1 !text-brand-300 !bg-brand-500/10 !border-brand-500/20" title="Matrix Setup Guide" onClick={() => setSetupMatrixForDevice(d)}><QrCode size={13} /></button>
+
                     <button className={`btn-secondary !px-2 !py-1 ${d.autostartPinned ? '!text-emerald-400' : '!text-amber-400'}`} title="Pin Autostart (MIUI protection)" onClick={() => confirmAndSendCommand(d.id, 'PIN_AUTOSTART')}><ShieldCheck size={13} /></button>
                     <button className="btn-secondary !px-2 !py-1 text-brand-400" title="Push APK Update" onClick={() => confirmAndSendCommand(d.id, 'UPDATE_APK')}><DownloadCloud size={13} /></button>
                     <button className="btn-secondary !px-2 !py-1 text-emerald-400" title="Reconnect" onClick={() => confirmAndSendCommand(d.id, 'RECONNECT')}><RefreshCcw size={13} /></button>
@@ -635,6 +644,12 @@ export default function DevicesPage() {
       {activeTab === 'map' && <DeviceMapPage />}
       {activeTab === 'logs' && <DeviceLogsPage />}
       {activeTab === 'remote' && <RemoteDesktopPage />}
+      
+      <MatrixSetupModal 
+        isOpen={setupMatrixForDevice !== null} 
+        device={setupMatrixForDevice} 
+        onClose={() => setSetupMatrixForDevice(null)} 
+      />
     </div>
   )
 }

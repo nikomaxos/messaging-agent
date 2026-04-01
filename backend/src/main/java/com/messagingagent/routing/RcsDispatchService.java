@@ -132,6 +132,8 @@ public class RcsDispatchService {
                 .deviceGroup(group)
                 .createdAt(Instant.ofEpochMilli(event.getTimestampMs()))
                 .rcsExpiresAt(selection != null && selection.rcsExpirationSeconds != null && selection.rcsExpirationSeconds > 0 ? Instant.now().plus(selection.rcsExpirationSeconds, ChronoUnit.SECONDS) : null)
+                .autoFailExpiresAt(selection != null && selection.autoFailEnabled && selection.autoFailTimeoutMinutes != null && selection.autoFailTimeoutMinutes > 0 ? Instant.now().plus(selection.autoFailTimeoutMinutes, ChronoUnit.MINUTES) : null)
+                .routingMode(selection != null ? selection.routingMode : com.messagingagent.model.RoutingMode.WEBSOCKET)
                 .resendTrigger(selection != null ? selection.resendTrigger : null)
                 .fallbackSmsc(selection != null ? selection.fallbackSmsc : null)
                 .build();
@@ -254,7 +256,7 @@ public class RcsDispatchService {
                             
                     if (supplierMsgId != null) {
                         logEntry.setStatus(MessageLog.Status.DELIVERED); // Mark delivered since it's offloaded 
-                        logEntry.setSupplierMessageId(supplierMsgId);
+                        logEntry.setFallbackMessageId(supplierMsgId);
                         smppResponseService.sendDeliverySm(result.getCorrelationId());
                     }
                 }
@@ -269,14 +271,21 @@ public class RcsDispatchService {
         SmscSupplier fallbackSmsc;
         Integer rcsExpirationSeconds;
         String resendTrigger;
+        com.messagingagent.model.RoutingMode routingMode;
+        boolean autoFailEnabled;
+        Integer autoFailTimeoutMinutes;
 
         RoutingSelection() {}
 
-        RoutingSelection(DeviceGroup deviceGroup, SmscSupplier fallbackSmsc, Integer rcsExpirationSeconds, String resendTrigger) {
+        RoutingSelection(DeviceGroup deviceGroup, SmscSupplier fallbackSmsc, Integer rcsExpirationSeconds, String resendTrigger, 
+                         com.messagingagent.model.RoutingMode routingMode, boolean autoFailEnabled, Integer autoFailTimeoutMinutes) {
             this.deviceGroup = deviceGroup;
             this.fallbackSmsc = fallbackSmsc;
             this.rcsExpirationSeconds = rcsExpirationSeconds;
             this.resendTrigger = resendTrigger;
+            this.routingMode = routingMode;
+            this.autoFailEnabled = autoFailEnabled;
+            this.autoFailTimeoutMinutes = autoFailTimeoutMinutes;
         }
     }
 
@@ -318,7 +327,8 @@ public class RcsDispatchService {
             rcsExpirationSeconds = routing.getRcsExpirationSeconds();
         }
 
-        return new RoutingSelection(chosenDest.getDeviceGroup(), fallback, rcsExpirationSeconds, resendTrigger);
+        return new RoutingSelection(chosenDest.getDeviceGroup(), fallback, rcsExpirationSeconds, resendTrigger, 
+                routing.getRoutingMode(), routing.isAutoFailEnabled(), routing.getAutoFailTimeoutMinutes());
     }
 
     /**

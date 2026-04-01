@@ -206,6 +206,13 @@ public class SmppServerService {
                 String srcAddr = sm.getSourceAddress() != null ? sm.getSourceAddress().getAddress() : "";
                 String dstAddr = sm.getDestAddress()   != null ? sm.getDestAddress().getAddress()   : "";
                 
+                if (Boolean.TRUE.equals(redis.hasKey("smpp:ait:block:" + dstAddr))) {
+                    log.warn("Blocked SUBMIT_SM for destination={} due to AIT auto-block policy", dstAddr);
+                    SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
+                    resp.setCommandStatus(SmppConstants.STATUS_INVBDSTADDR); // Invalid destination address
+                    return resp;
+                }
+
                 byte[] shortMessage = sm.getShortMessage();
                 if (shortMessage == null && sm.hasOptionalParameter(SmppConstants.TAG_MESSAGE_PAYLOAD)) {
                     shortMessage = sm.getOptionalParameter(SmppConstants.TAG_MESSAGE_PAYLOAD).getValue();

@@ -35,11 +35,11 @@ class MessagingUiAutomatorService : AccessibilityService() {
                 val cd = node.contentDescription?.toString()?.lowercase() ?: ""
                 val txt = node.text?.toString()?.lowercase() ?: ""
                 
-                if (resName.contains("Compose:Draft:Send") || resName.contains("send_message_button_icon")) {
+                if (resName.contains("Compose:Draft:Send", ignoreCase = true) || resName.contains("send_message_button_icon", ignoreCase = true)) {
                     matches = true
-                } else if (txt == "send sms" || txt == "send rcs message") {
+                } else if (txt.contains("send") || txt.contains("αποστολ") || txt.contains("enviar")) {
                     matches = true
-                } else if (cd.contains("send ") || cd.contains("αποστολή") || cd.contains("enviar")) {
+                } else if (cd.contains("send") || cd.contains("αποστολ") || cd.contains("enviar")) {
                      matches = true
                 }
 

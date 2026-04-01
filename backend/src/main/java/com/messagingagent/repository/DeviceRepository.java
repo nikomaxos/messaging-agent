@@ -11,10 +11,10 @@ import java.util.Optional;
 @Repository
 public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findByGroupAndStatus(DeviceGroup group, Device.Status status);
+    List<Device> findByStatus(Device.Status status);
     List<Device> findByGroup(DeviceGroup group);
     Optional<Device> findByRegistrationToken(String token);
     Optional<Device> findByImei(String imei);
-    List<Device> findByStatus(Device.Status status);
     long countByStatus(Device.Status status);
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional

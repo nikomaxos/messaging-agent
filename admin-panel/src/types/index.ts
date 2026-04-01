@@ -62,18 +62,23 @@ export interface SmppRouting {
   deviceGroup: DeviceGroup
   default: boolean
   createdAt: string
+  routingMode?: 'WEBSOCKET' | 'MATRIX'
+  autoFailEnabled?: boolean
+  autoFailTimeoutMinutes?: number
 }
 
 export interface MessageLog {
   id: number
   smppMessageId?: string
   supplierMessageId?: string
+  fallbackMessageId?: string
   customerMessageId?: string
   parentMessage?: MessageLog
   sourceAddress?: string
   destinationAddress?: string
   messageText?: string
   status: 'RECEIVED' | 'DISPATCHED' | 'DELIVERED' | 'RCS_FAILED' | 'FAILED'
+  routingMode?: 'WEBSOCKET' | 'MATRIX'
   device?: Pick<Device, 'id' | 'name' | 'simIccid' | 'phoneNumber' | 'imei'>
   errorDetail?: string
   fallbackSmsc?: any

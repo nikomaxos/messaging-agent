@@ -23,7 +23,8 @@ public class NotificationConfig {
         QUEUE_BUILDUP,
         DEVICE_OFFLINE,
         SMSC_DISCONNECT,
-        SELF_HEALING_ESCALATION
+        SELF_HEALING_ESCALATION,
+        POSSIBLE_AIT_TRAFFIC
     }
 
     @Id
@@ -58,6 +59,10 @@ public class NotificationConfig {
     @Column(name = "channel")
     @Builder.Default
     private Set<NotificationChannel> channels = new HashSet<>();
+
+    @Column(name = "auto_block")
+    @Builder.Default
+    private boolean autoBlock = false;
 
     @Column(name = "alert_device_group_id")
     private Long alertDeviceGroupId;

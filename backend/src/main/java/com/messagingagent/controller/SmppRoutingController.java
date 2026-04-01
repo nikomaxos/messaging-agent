@@ -3,6 +3,7 @@ package com.messagingagent.controller;
 import com.messagingagent.dto.SmppRoutingDto;
 import com.messagingagent.model.SmppRouting;
 import com.messagingagent.model.SmppRoutingDestination;
+import com.messagingagent.model.RoutingMode;
 import com.messagingagent.repository.DeviceGroupRepository;
 import com.messagingagent.repository.SmppClientRepository;
 import com.messagingagent.repository.SmppRoutingRepository;
@@ -46,6 +47,15 @@ public class SmppRoutingController {
 
         routing.setSmppClient(client.get());
         routing.setDefault(payload.isDefault());
+        
+        try {
+            routing.setRoutingMode(RoutingMode.valueOf(payload.getRoutingMode()));
+        } catch (Exception e) {
+            routing.setRoutingMode(RoutingMode.WEBSOCKET);
+        }
+        routing.setAutoFailEnabled(payload.isAutoFailEnabled());
+        routing.setAutoFailTimeoutMinutes(payload.getAutoFailTimeoutMinutes() != 0 ? payload.getAutoFailTimeoutMinutes() : 15);
+        
         routing.setLoadBalancerEnabled(payload.isLoadBalancerEnabled());
         routing.setResendEnabled(payload.isResendEnabled());
         routing.setResendTrigger(payload.getResendTrigger());

@@ -21,6 +21,7 @@ import AuditLogPage from './pages/AuditLogPage'
 import ReportsPage from './pages/ReportsPage'
 import ThroughputPage from './pages/ThroughputPage'
 import TrafficAnalyticsPage from './pages/TrafficAnalyticsPage'
+import DeployPage from './pages/DeployPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="throughput" element={<ThroughputPage />} />
             <Route path="analytics" element={<TrafficAnalyticsPage />} />
+            <Route path="deploy" element={<DeployPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

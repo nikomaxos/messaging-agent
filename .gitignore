@@ -55,6 +55,10 @@ sqlite_tools/
 !backend/**/*.json
 !.agent/**/*.json
 !.vscode/**/*.json
+!deploy-agent/**/*.json
+
+# Deploy logs (generated on remote servers)
+deploy-logs/
 
 android-app/guardian/build/
 messaging-agent.code-workspace

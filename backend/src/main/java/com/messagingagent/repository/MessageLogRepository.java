@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, JpaSpecificationExecutor<MessageLog> {
     Optional<MessageLog> findBySmppMessageId(String smppMessageId);
     Optional<MessageLog> findBySupplierMessageId(String supplierMessageId);
+    Optional<MessageLog> findByFallbackMessageId(String fallbackMessageId);
     Page<MessageLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<MessageLog> findByStatus(MessageLog.Status status, Pageable pageable);
 
@@ -42,11 +43,32 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     java.util.List<MessageLog> findExpiredLogs(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 
     java.util.List<MessageLog> findByStatusAndRcsSentAtIsNotNull(MessageLog.Status status);
+    
 
     java.util.List<MessageLog> findByStatusAndRcsSentAtIsNullAndDispatchedAtBefore(MessageLog.Status status, java.time.Instant threshold);
 
     @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = 'DISPATCHED' AND m.dispatchedAt < :cutoff AND m.fallbackStartedAt IS NULL")
     java.util.List<MessageLog> findStaleDispatched(@org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
+
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.device.id = :deviceId AND m.destinationAddress = :dest AND m.status = 'DISPATCHED' AND m.dispatchedAt <= :cutoff")
+    java.util.List<MessageLog> findPriorDispatchedForMatrix(
+            @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
+            @org.springframework.data.repository.query.Param("dest") String dest,
+            @org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
+
+    // Find DISPATCHED or DELIVERED messages (without SEEN) for a device+dest — used for batch read receipt processing
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.device.id = :deviceId AND m.destinationAddress = :dest AND m.status IN ('DISPATCHED', 'DELIVERED') AND m.dispatchedAt <= :cutoff AND (m.errorDetail IS NULL OR m.errorDetail != 'SEEN/READ')")
+    java.util.List<MessageLog> findPriorUnseenForMatrix(
+            @org.springframework.data.repository.query.Param("deviceId") Long deviceId,
+            @org.springframework.data.repository.query.Param("dest") String dest,
+            @org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
+
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m JOIN FETCH m.device WHERE m.status = :status AND m.routingMode = :routingMode")
+    java.util.List<MessageLog> findByStatusAndRoutingMode(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("routingMode") com.messagingagent.model.RoutingMode routingMode);
+
+    // Find DELIVERED Matrix messages that don't have SEEN/READ yet — for bridge DB read_receipt_sent polling
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m JOIN FETCH m.device WHERE m.status = :status AND m.routingMode = :routingMode AND (m.errorDetail IS NULL OR m.errorDetail != 'SEEN/READ')")
+    java.util.List<MessageLog> findByStatusAndRoutingModeAndErrorDetailIsNull(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("routingMode") com.messagingagent.model.RoutingMode routingMode);
 
     // --- Performance scoring queries (rolling 2h window, per device) ---
 
@@ -109,4 +131,26 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
         "SELECT COUNT(m) FROM MessageLog m WHERE m.status IN ('DELIVERED', 'FAILED', 'RCS_FAILED') " +
         "AND COALESCE(m.rcsDlrReceivedAt, m.deliveredAt, m.fallbackDlrReceivedAt, m.createdAt) >= :since")
     long countTerminalAfter(@org.springframework.data.repository.query.Param("since") java.time.Instant since);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT COUNT(*) FROM (" +
+                "  SELECT destination_address FROM message_log " +
+                "  WHERE created_at >= :since " +
+                "  GROUP BY destination_address " +
+                "  HAVING COUNT(id) >= :trafficThreshold" +
+                ") as ait", 
+        nativeQuery = true)
+    long countSuspiciousAitNumbers(
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since, 
+            @org.springframework.data.repository.query.Param("trafficThreshold") int trafficThreshold);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT destination_address FROM message_log " +
+                "WHERE created_at >= :since " +
+                "GROUP BY destination_address " +
+                "HAVING COUNT(id) >= :trafficThreshold", 
+        nativeQuery = true)
+    java.util.List<String> findSuspiciousAitNumbers(
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since, 
+            @org.springframework.data.repository.query.Param("trafficThreshold") int trafficThreshold);
 }

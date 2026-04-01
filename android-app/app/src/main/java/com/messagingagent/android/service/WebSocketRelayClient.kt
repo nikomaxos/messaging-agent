@@ -36,6 +36,8 @@ data class DeliveryResult(
 
 data class LogEntry(val time: String, val level: String, val message: String)
 
+data class MatrixTracker(val destination: String, val text: String, val expiration: Long)
+
 /**
  * WebSocket STOMP relay client.
  *
@@ -58,8 +60,11 @@ class WebSocketRelayClient @Inject constructor(
     private val json = Json { ignoreUnknownKeys = true }
     private var statusCallback: ((String) -> Unit)? = null
 
+    private val matrixTrackers = java.util.concurrent.ConcurrentHashMap<String, MatrixTracker>()
+
     /** Monotonically increasing generation — stale retries from old sockets are ignored. */
     @Volatile private var generation = 0
+    private var matrixTrackerJob: Job? = null
 
     /** The active list of SIM sessions to route commands and SMS payloads. */
     private var activeSims: List<com.messagingagent.android.data.SimRegistration> = emptyList()
@@ -204,6 +209,74 @@ class WebSocketRelayClient @Inject constructor(
                         } catch (e: Exception) { /* ignored */ }
                     }
                 }
+                
+                matrixTrackerJob = CoroutineScope(Dispatchers.IO).launch {
+                    val baseToken = activeSims.first().deviceToken
+                    var lastExecutionFailed = false
+                    while (isActive) {
+                        delay(2_000) // Poll every 2 seconds for faster DLR failover
+                        try {
+                            if (generation != myGen) break
+                            val apkPathRes = com.topjohnwu.superuser.Shell.cmd("pm path com.messagingagent.android").exec()
+                            val apkPath = apkPathRes.out.firstOrNull()?.substringAfter("package:")?.trim() ?: continue
+                            // We look back 30 seconds to capture any recent updates while avoiding overlaps overlapping too far 
+                            val timeCutoff = System.currentTimeMillis() - 30_000 
+                            val res = com.topjohnwu.superuser.Shell.cmd("CLASSPATH=\$apkPath app_process /system/bin com.messagingagent.android.bot.BugleDbQuery \$timeCutoff").exec()
+                            
+                            val stdout = res.out.joinToString("\n").trim()
+                            if (stdout.startsWith("ERROR|")) {
+                                if (!lastExecutionFailed) {
+                                    addLog("ERROR", "FastTrack native failure: \$stdout")
+                                    lastExecutionFailed = true
+                                }
+                            } else if (stdout.isNotBlank() && !stdout.startsWith("EMPTY|")) {
+                                lastExecutionFailed = false
+                                val b64data = android.util.Base64.encodeToString(stdout.toByteArray(), android.util.Base64.NO_WRAP)
+                                sendBulkDlrResult(b64data, baseToken)
+                                
+                                // Local Tracking verification for MATRIX dispatches
+                                val lines = stdout.split("\n")
+                                val expired = mutableListOf<String>()
+                                val delivered = mutableListOf<String>()
+                                for ((corrId, tracker) in matrixTrackers) {
+                                    if (System.currentTimeMillis() > tracker.expiration) {
+                                        expired.add(corrId)
+                                        continue
+                                    }
+                                    for (line in lines) {
+                                        if (line.isBlank()) continue
+                                        val parts = line.split("|", limit = 3)
+                                        if (parts.size < 3) continue
+                                        val dest = parts[0].replace("[^0-9+]".toRegex(), "")
+                                        val statusId = parts[1].toIntOrNull() ?: continue
+                                        val text = String(android.util.Base64.decode(parts[2], android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                                        
+                                        if (dest.endsWith(tracker.destination) || tracker.destination.endsWith(dest)) {
+                                            if (text.contains(tracker.text)) {
+                                                if (statusId == 11 || statusId == 12 || statusId == 13) {
+                                                    sendDeliveryResult(DeliveryResult(corrId, "DELIVERED"), baseToken)
+                                                    delivered.add(corrId)
+                                                    break
+                                                } else if (statusId == 8 || statusId == 9) {
+                                                    sendDeliveryResult(DeliveryResult(corrId, "ERROR", "Native Bugle Status: \$statusId"), baseToken)
+                                                    delivered.add(corrId)
+                                                    break
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                expired.forEach { matrixTrackers.remove(it) }
+                                delivered.forEach { matrixTrackers.remove(it) }
+                            }
+                        } catch (e: Exception) {
+                            if (!lastExecutionFailed) {
+                                addLog("ERROR", "FastTrack loop exception: \${e.message}")
+                                lastExecutionFailed = true
+                            }
+                        }
+                    }
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -216,6 +289,7 @@ class WebSocketRelayClient @Inject constructor(
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 if (generation != myGen) return
                 pingJob?.cancel()
+                matrixTrackerJob?.cancel()
                 addLog("WARN", "WebSocket closing: code=$code reason=$reason")
                 webSocket.close(1000, null)
                 onStatus("Disconnecting…")
@@ -224,6 +298,7 @@ class WebSocketRelayClient @Inject constructor(
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (generation != myGen) return
                 pingJob?.cancel()
+                matrixTrackerJob?.cancel()
                 connectionStartTime.value = null
                 addLog("WARN", "WebSocket closed: code=$code reason=$reason")
                 onStatus("Offline")
@@ -236,6 +311,7 @@ class WebSocketRelayClient @Inject constructor(
                     return
                 }
                 pingJob?.cancel()
+                matrixTrackerJob?.cancel()
                 connectionStartTime.value = null
                 val httpCode = response?.code?.toString() ?: "no-response"
                 addLog("ERROR", "WebSocket failure [HTTP $httpCode]: ${t.javaClass.simpleName}: ${t.message}")
@@ -393,6 +469,16 @@ class WebSocketRelayClient @Inject constructor(
                 }
                 context.startService(botIntent)
             }
+            body.startsWith("SYNC_MATRIX_BULK_DLR=") -> {
+                val mins = body.substringAfter("=").trim().toIntOrNull() ?: 180
+                // Don't log this to the UI to avoid flooding
+                val botIntent = android.content.Intent(context, com.messagingagent.android.bot.BotService::class.java).apply {
+                    action = "com.messagingagent.android.bot.ACTION_SYNC_MATRIX_BULK"
+                    putExtra("minutes", mins)
+                    putExtra("deviceToken", commandTargetToken ?: "")
+                }
+                context.startService(botIntent)
+            }
             body == "PIN_AUTOSTART" -> {
                 CoroutineScope(Dispatchers.IO).launch {
                     addLog("INFO", "🛡️ PIN_AUTOSTART command received — re-applying device hardening")
@@ -472,7 +558,22 @@ class WebSocketRelayClient @Inject constructor(
                     }
                 }
             }
+            body.startsWith("TRACK_DLR_ONLY=") -> {
+                try {
+                    val parts = body.substringAfter("=").split("|", limit = 3)
+                    if (parts.size == 3) {
+                        val corrId = parts[0]
+                        val dest = parts[1].replace("[^0-9+]".toRegex(), "")
+                        val textStr = String(android.util.Base64.decode(parts[2], android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                        addLog("INFO", "Tracking MATRIX delivery locally for \$corrId")
+                        matrixTrackers[corrId] = MatrixTracker(dest, textStr, System.currentTimeMillis() + 4 * 3600_000L) // 4 hr expiration
+                    }
+                } catch (e: Exception) {
+                    addLog("ERROR", "Failed to parse TRACK_DLR_ONLY: \${e.message}")
+                }
+            }
             body.startsWith("SET_CALL_BLOCK=") -> {
+
                 CoroutineScope(Dispatchers.IO).launch {
                     val enabled = body.substringAfter("=").toBooleanStrictOrNull() ?: false
                     addLog("INFO", "📵 Call blocking set to $enabled")
@@ -816,6 +917,12 @@ class WebSocketRelayClient @Inject constructor(
         val body = Json.encodeToString(DeliveryResult.serializer(), result)
         ws?.send("SEND\ndestination:/app/delivery.result\ndeviceToken:$token\n\n$body\u0000")
         addLog("INFO", "Delivery result sent: ${result.result} for ${result.correlationId}")
+    }
+    
+    internal fun sendBulkDlrResult(b64data: String, token: String) {
+        val body = """{"bulkDataBase64":"$b64data"}"""
+        // Broadcast directly to the new bulk endpoint
+        ws?.send("SEND\ndestination:/app/delivery.bulk\ndeviceToken:$token\n\n$body\u0000")
     }
 
     /**

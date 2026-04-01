@@ -171,3 +171,9 @@ export const sendShellCommand = (deviceId: number, cmd: string) =>
 export const getPushPublicKey = () => api.get('/push/public-key').then((r: any) => r.data)
 export const syncPushSubscription = (subData: any) => api.post('/push/subscribe', subData).then((r: any) => r.data)
 
+// ── Deploy / Auto-Update ───────────────────────────────────────────
+export const getDeployConfig = () => api.get('/deploy/config').then((r: any) => r.data)
+export const updateDeployConfig = (d: any) => api.put('/deploy/config', d).then((r: any) => r.data)
+export const getDeployStatus = () => api.get('/deploy/status').then((r: any) => r.data)
+export const triggerDeploy = () => api.post('/deploy/trigger').then((r: any) => r.data)
+

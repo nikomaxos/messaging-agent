@@ -20,6 +20,8 @@ data class PendingDlr(
     val bugleMessageId: Long = 0,  // Exact bugle_db _id of the sent message (0 = not captured yet)
     val dlrDelayMinSec: Int = 2,
     val dlrDelayMaxSec: Int = 5,
+    val routingMode: String = "WEBSOCKET",
+    val messageText: String? = null,
     val addedAt: Long = System.currentTimeMillis()
 )
 

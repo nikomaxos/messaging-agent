@@ -11,6 +11,9 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
   const [formData, setFormData] = useState<any>({
     smppClientId: '',
     isDefault: false,
+    routingMode: 'WEBSOCKET',
+    autoFailEnabled: false,
+    autoFailTimeoutMinutes: 15,
     loadBalancerEnabled: false,
     resendEnabled: false,
     fallbackSmscId: '',
@@ -24,6 +27,9 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
       setFormData({
         smppClientId: route.smppClientId || '',
         isDefault: route.isDefault || false,
+        routingMode: route.routingMode || 'WEBSOCKET',
+        autoFailEnabled: route.autoFailEnabled || false,
+        autoFailTimeoutMinutes: route.autoFailTimeoutMinutes || 15,
         loadBalancerEnabled: route.loadBalancerEnabled || false,
         resendEnabled: route.resendEnabled || false,
         fallbackSmscId: route.fallbackSmscId || '',
@@ -41,6 +47,9 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
       setFormData({
         smppClientId: '',
         isDefault: false,
+        routingMode: 'WEBSOCKET',
+        autoFailEnabled: false,
+        autoFailTimeoutMinutes: 15,
         loadBalancerEnabled: false,
         resendEnabled: false,
         fallbackSmscId: '',
@@ -70,6 +79,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
     const payload = {
       ...formData,
       smppClientId: Number(formData.smppClientId),
+      autoFailTimeoutMinutes: formData.autoFailTimeoutMinutes ? Number(formData.autoFailTimeoutMinutes) : 15,
       fallbackSmscId: formData.fallbackSmscId ? Number(formData.fallbackSmscId) : null,
       rcsExpirationSeconds: formData.rcsExpirationSeconds ? Number(formData.rcsExpirationSeconds) : null,
       destinations: formData.destinations.map((d: any) => ({
@@ -132,6 +142,37 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
                  checked={formData.isDefault} onChange={(e: any) => setFormData({...formData, isDefault: e.target.checked})} />
               <span className="font-medium">Default Route</span>
             </label>
+          </div>
+
+          <hr className="border-white/5" />
+
+          {/* Routing Strategy */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400">Routing Strategy & Validation</h3>
+            <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-lg border border-white/5">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1.5">Delivery Method</label>
+                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+                  value={formData.routingMode} onChange={(e: any) => setFormData({...formData, routingMode: e.target.value})}>
+                  <option value="WEBSOCKET">WebSocket (Native App)</option>
+                  <option value="MATRIX">Matrix (Mautrix Bridge)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit mt-1">
+                  <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
+                    checked={formData.autoFailEnabled} onChange={(e: any) => setFormData({...formData, autoFailEnabled: e.target.checked})} />
+                  <span className="font-medium">Enable Auto-Fail Timeout</span>
+                </label>
+                {formData.autoFailEnabled && (
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="1" className="w-20 bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm text-center"
+                      value={formData.autoFailTimeoutMinutes} onChange={(e: any) => setFormData({...formData, autoFailTimeoutMinutes: parseInt(e.target.value) || 0})} />
+                    <span className="text-xs text-slate-400">Time (mins) before marking dropped</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <hr className="border-white/5" />
@@ -334,7 +375,17 @@ export default function SmppRoutingPage() {
                  <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Source Client</div>
                  <div className="font-medium text-white text-lg">{r.smppClientName}</div>
                  <div className="text-xs text-slate-400 font-mono mt-0.5">{r.smppClientSystemId}</div>
-                 {r.isDefault && <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest leading-none">Default Route</span>}
+                 <div className="flex items-center gap-2 mt-2">
+                   {r.isDefault && <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest leading-none">Default</span>}
+                   <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest leading-none border ${r.routingMode === 'MATRIX' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
+                     {r.routingMode || 'WEBSOCKET'}
+                   </span>
+                 </div>
+                 {r.autoFailEnabled && (
+                   <div className="text-[10px] text-amber-500/70 mt-1 uppercase tracking-wide">
+                     Auto-fail: {r.autoFailTimeoutMinutes}m
+                   </div>
+                 )}
                </div>
 
                <div className="w-px h-16 bg-white/[0.05] mt-1 shrink-0 px-0"></div>

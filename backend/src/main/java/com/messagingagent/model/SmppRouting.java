@@ -52,6 +52,18 @@ public class SmppRouting {
     @Builder.Default
     private boolean isDefault = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "routing_mode", length = 30)
+    @Builder.Default
+    private RoutingMode routingMode = RoutingMode.WEBSOCKET;
+
+    @Column(name = "auto_fail_enabled", nullable = false)
+    @Builder.Default
+    private boolean autoFailEnabled = false;
+
+    @Column(name = "auto_fail_timeout_minutes")
+    private Integer autoFailTimeoutMinutes;
+
     @CreationTimestamp
     private Instant createdAt;
 

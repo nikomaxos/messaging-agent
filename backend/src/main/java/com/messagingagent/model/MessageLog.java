@@ -34,6 +34,9 @@ public class MessageLog {
     private String supplierMessageId;
 
     @Column(length = 50)
+    private String fallbackMessageId;
+
+    @Column(length = 50)
     private String customerMessageId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -54,6 +57,10 @@ public class MessageLog {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private Status status = Status.RECEIVED;
+
+    @Column(columnDefinition = "integer default 0")
+    @Builder.Default
+    private Integer dispatchAttempts = 0;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id")
@@ -89,6 +96,12 @@ public class MessageLog {
     private SmscSupplier smscSupplier;
 
     private Instant rcsExpiresAt;
+
+    private Instant autoFailExpiresAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "routing_mode", length = 30)
+    private RoutingMode routingMode;
 
     @Column(length = 20)
     private String resendTrigger;

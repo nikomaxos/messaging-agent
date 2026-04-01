@@ -442,18 +442,27 @@ export default function MessageTrackingPage() {
                  <div className="text-sm text-slate-300 bg-white/5 p-3 rounded border border-white/5 whitespace-pre-wrap">{selectedLog.messageText}</div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 md:grid-cols-${selectedLog.fallbackMessageId ? '3' : '2'} gap-4`}>
                 <div className="space-y-1 bg-brand-900/10 p-3 rounded border border-brand-500/10">
                   <div className="text-[10px] font-bold text-brand-500 uppercase tracking-wider">Customer Message ID (Correlation)</div>
                   <div className="text-xs font-mono text-brand-300 break-all">{selectedLog.customerMessageId || selectedLog.smppMessageId || 'N/A'}</div>
                 </div>
-                <div className="space-y-1 bg-amber-900/10 p-3 rounded border border-amber-500/10">
+                <div className="space-y-1 bg-teal-900/10 p-3 rounded border border-teal-500/10">
                   <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-1.5">
-                  <div className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Supplier Message ID</div>
-                    <div className="text-[10px] font-bold text-slate-400">{selectedLog.fallbackSmsc?.name || 'Unknown Provider'}</div>
+                    <div className="text-[10px] font-bold text-teal-500 uppercase tracking-wider">Primary Matrix/Supplier ID</div>
+                    <div className="text-[10px] font-bold text-slate-400">Matrix Server / Main</div>
                   </div>
-                  <div className="text-xs font-mono text-amber-300 break-all">{selectedLog.supplierMessageId || 'N/A'}</div>
+                  <div className="text-xs font-mono text-teal-300 break-all">{selectedLog.supplierMessageId || 'N/A'}</div>
                 </div>
+                {selectedLog.fallbackMessageId && (
+                  <div className="space-y-1 bg-amber-900/10 p-3 rounded border border-amber-500/10">
+                    <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-1.5">
+                      <div className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Fallback SMSC Msg ID</div>
+                      <div className="text-[10px] font-bold text-slate-400">{selectedLog.fallbackSmsc?.name || 'Unknown Provider'}</div>
+                    </div>
+                    <div className="text-xs font-mono text-amber-300 break-all">{selectedLog.fallbackMessageId}</div>
+                  </div>
+                )}
               </div>
 
               {/* Timestamps Section */}

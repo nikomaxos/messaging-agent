@@ -21,6 +21,8 @@ public class Device {
         ONLINE, OFFLINE, BUSY, MAINTENANCE
     }
 
+
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -42,6 +44,8 @@ public class Device {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "group_id")
     private DeviceGroup group;
+
+
 
     // Heartbeat data
     private Integer batteryPercent;

@@ -81,24 +81,25 @@ class RcsSender @Inject constructor(
                         "svc power stayon true",
                         "input keyevent 26"
                     ).exec()
-                    kotlinx.coroutines.delay(800)
+                    kotlinx.coroutines.delay(1000)
                     // Check if actually awake
                     pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
                     if (!pwrState.contains("Awake")) {
                         com.topjohnwu.superuser.Shell.cmd("input keyevent 26").exec()
-                        kotlinx.coroutines.delay(800)
+                        kotlinx.coroutines.delay(1000)
                     }
                 } else {
                     com.topjohnwu.superuser.Shell.cmd("svc power stayon true").exec()
                 }
                 // Dismiss lock screen
                 com.topjohnwu.superuser.Shell.cmd("wm dismiss-keyguard").exec()
+                kotlinx.coroutines.delay(300)
                 val wmRes = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
                 val wmL = wmRes.out.lastOrNull { it.contains("x") } ?: "1080x2400"
                 val rp = wmL.substringAfter(":").trim().split("x")
                 val dW = rp[0].trim().toInt(); val dH = rp[1].trim().toInt()
                 com.topjohnwu.superuser.Shell.cmd("input swipe ${dW/2} ${(dH*0.85).toInt()} ${dW/2} ${(dH*0.25).toInt()} 300").exec()
-                kotlinx.coroutines.delay(500)
+                kotlinx.coroutines.delay(800)
                 
                 // MIUI workaround: Ensure Google Messages has background activity launch permission
                 Shell.cmd(
@@ -112,14 +113,29 @@ class RcsSender @Inject constructor(
 
             // [PHASE 8 NATIVE ACCESSIBILITY INJECTION]: Ultra-low latency UI bypass.
             // Dispatch standard Intent to open the chat window, and use the in-memory Accessibility tree to blindly click the physical Send button.
-            val startCmd = java.lang.StringBuilder("am start -a android.intent.action.SENDTO ")
+            val startCmd = java.lang.StringBuilder("am start -W -a android.intent.action.SENDTO ")
                 .append("-d 'smsto:$cleanTo' ")
                 .append("--es sms_body '$safeText'")
             
             Shell.cmd(startCmd.toString()).exec()
             
-            // Allow EXACTLY 800 milliseconds for Google Messages UI to initially render in the foreground, or 300ms if already open
-            kotlinx.coroutines.delay(if (recentlySent) 300L else 800L)
+            // Verify Google Messages actually launched — retry up to 2 times if it didn't
+            var messagesLaunched = false
+            for (attempt in 1..3) {
+                kotlinx.coroutines.delay(if (recentlySent) 300L else 800L)
+                val focusedApp = Shell.cmd("dumpsys window | grep mCurrentFocus").exec().out.joinToString("")
+                if (focusedApp.contains(MESSAGES_PKG)) {
+                    messagesLaunched = true
+                    Timber.i("Google Messages confirmed in foreground (attempt $attempt)")
+                    break
+                }
+                Timber.w("Google Messages NOT in foreground (attempt $attempt): $focusedApp — retrying intent...")
+                Shell.cmd(startCmd.toString()).exec()
+            }
+            
+            if (!messagesLaunched) {
+                Timber.e("Google Messages failed to launch after 3 attempts — will still try to find Send button")
+            }
             
             // Attempt 0-latency native memory-mapped tap
             com.messagingagent.android.service.MessagingUiAutomatorService.lastFoundSendButtonRect = null

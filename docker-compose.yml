@@ -124,6 +124,72 @@ services:
     ports:
       - "80:80"       # Web admin panel
 
+  # ─── Matrix Architecture ───────────────────────────────────────────────────
+
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: ma-synapse
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./matrix/synapse:/data
+    environment:
+      - SYNAPSE_SERVER_NAME=synapse
+      - SYNAPSE_REPORT_STATS=no
+      - SYNAPSE_CONFIG_DIR=/data
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    ports:
+      - "8008:8008"
+
+  mautrix-gmessages:
+    image: dock.mau.dev/mautrix/gmessages:latest
+    container_name: ma-mautrix-gmessages
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      synapse:
+        condition: service_started
+    volumes:
+      - ./matrix/mautrix-gmessages:/data
+    ports:
+      - "29336:29336"
+
+  element-web:
+    image: vectorim/element-web:latest
+    container_name: ma-element-web
+    restart: unless-stopped
+    volumes:
+      - ./matrix/element-config.json:/app/config.json
+    ports:
+      - "8080:80"
+
+  # ─── Deploy Agent (Production only) ─────────────────────────────────────
+  # Auto-deploy sidecar: receives GitHub webhooks and triggers git pull + rebuild.
+  # Only starts when using: docker compose --profile production up -d
+
+  deploy-agent:
+    build:
+      context: ./deploy-agent
+      dockerfile: Dockerfile
+    container_name: ma-deploy-agent
+    restart: unless-stopped
+    profiles:
+      - production
+    environment:
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-change-me-in-production}
+      DEPLOY_BRANCH: ${DEPLOY_BRANCH:-main}
+      DEPLOY_COOLDOWN: ${DEPLOY_COOLDOWN:-60}
+      REPO_DIR: /repo
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/repo
+    working_dir: /repo
+    ports:
+      - "9000:9000"
+
 volumes:
   postgres_data:
   zookeeper_data:

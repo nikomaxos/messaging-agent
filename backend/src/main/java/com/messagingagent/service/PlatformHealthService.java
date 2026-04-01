@@ -176,4 +176,15 @@ public class PlatformHealthService {
     public long getOnlineDeviceCount() {
         return deviceRepository.countByStatus(com.messagingagent.model.Device.Status.ONLINE);
     }
+
+    public long evaluateSuspiciousAitNumbers(int windowMinutes, int trafficThreshold, boolean shouldBlock) {
+        Instant since = Instant.now().minus(windowMinutes, ChronoUnit.MINUTES);
+        List<String> suspiciousNumbers = messageLogRepository.findSuspiciousAitNumbers(since, trafficThreshold);
+        if (shouldBlock) {
+            for (String dest : suspiciousNumbers) {
+                redis.opsForValue().set("smpp:ait:block:" + dest, "true", java.time.Duration.ofHours(24));
+            }
+        }
+        return suspiciousNumbers.size();
+    }
 }

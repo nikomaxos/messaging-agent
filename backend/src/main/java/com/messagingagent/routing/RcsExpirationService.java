@@ -67,7 +67,7 @@ public class RcsExpirationService {
                             
                     if (supplierMsgId != null) {
                         logEntry.setStatus(MessageLog.Status.DELIVERED);
-                        logEntry.setSupplierMessageId(supplierMsgId);
+                        logEntry.setFallbackMessageId(supplierMsgId);
                         smppResponseService.sendDeliverySm(logEntry.getSmppMessageId());
                         handledByFallback = true;
                     }

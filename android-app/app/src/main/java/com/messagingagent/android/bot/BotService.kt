@@ -108,38 +108,25 @@ class BotService : Service() {
                             resolved.add(p)
                             deliveredAt.remove(p.correlationId)
                         }
-                        2 -> {
-                            if (!alreadyDelivered) {
-                                deliveredAt[p.correlationId] = now
-                                sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", null)
-                            } else {
-                                val waitedMs = now - deliveredAt[p.correlationId]!!
-                                if (waitedMs > 120_000) {
-                                    resolved.add(p)
-                                    deliveredAt.remove(p.correlationId)
-                                }
-                            }
+                        12 -> {
+                            sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", "SEEN/READ")
+                            resolved.add(p)
+                            deliveredAt.remove(p.correlationId)
                         }
-                        8, 5, 9, 3 -> {
+                        8, 5, 9 -> {
                             if (ageMs > 8_000) {
                                 sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status")
                                 resolved.add(p)
                                 deliveredAt.remove(p.correlationId)
                             }
                         }
-                        1, 100 -> {
+                        else -> {
                             if (!sentNotified.contains(p.correlationId)) {
                                 sentNotified.add(p.correlationId)
-                                sendCommResult(p.correlationId, p.deviceToken, "SENT", null)
+                                sendCommResult(p.correlationId, p.deviceToken, "SENT", "status=$status")
                             }
                             if (ageMs > 300_000) {
-                                sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=1 (timeout after 5m)")
-                                resolved.add(p)
-                            }
-                        }
-                        else -> {
-                            if (ageMs > 8_000) {
-                                sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status (unknown)")
+                                sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status (timeout after 5m)")
                                 resolved.add(p)
                                 deliveredAt.remove(p.correlationId)
                             }
@@ -148,74 +135,47 @@ class BotService : Service() {
                 }
 
                 try {
-                    val canUseSqlite = com.topjohnwu.superuser.Shell.cmd("[ -x /data/local/tmp/sqlite3 ] && echo 1 || echo 0").exec().out.joinToString("").trim() == "1"
-                    if (canUseSqlite) {
-                        val minId = currentPending.minOfOrNull { 
-                            if (it.bugleMessageId > 0) it.bugleMessageId else it.initialMaxId 
-                        } ?: 0L
-                        val sqliteCmd = "/data/local/tmp/sqlite3 '$srcDb'"
-                        val sql = "SELECT _id, message_status FROM messages WHERE _id >= $minId ORDER BY _id ASC LIMIT 200;"
-                        
+                    val sqliteCmd = "/data/local/tmp/sqlite3 '$srcDb'"
+
+                    for (p in currentPending) {
                         try {
-                            val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
-                            val lines = res.out.map { it.trim() }.filter { it.contains("|") }
-                            
-                            for (p in currentPending) {
-                                val matchLine = if (p.bugleMessageId > 0) {
-                                    lines.firstOrNull { it.startsWith("${p.bugleMessageId}|") }
-                                } else {
-                                    lines.firstOrNull { 
-                                        val rowId = it.substringBefore("|").toLongOrNull() ?: 0L
-                                        rowId > p.initialMaxId && !claimedBugleIds.contains(rowId) 
-                                    }
-                                }
-                                
+                            var matchedBugleId = 0L
+                            var status = -1
+
+                            if (p.bugleMessageId > 0) {
+                                val sql = "SELECT _id, message_status FROM messages WHERE _id = ${p.bugleMessageId};"
+                                val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
+                                val matchLine = res.out.firstOrNull { it.contains("|") }?.trim()
                                 if (matchLine != null) {
                                     val parts = matchLine.split("|")
-                                    val matchedBugleId = parts[0].toLongOrNull() ?: 0L
-                                    val status = parts[1].toIntOrNull() ?: -1
-                                    if (matchedBugleId > 0 && status != -1) {
-                                        processStatus(p, matchedBugleId, status)
-                                    }
+                                    matchedBugleId = parts[0].toLongOrNull() ?: 0L
+                                    status = parts[1].toIntOrNull() ?: -1
+                                }
+                            } else {
+                                val excludeClause = if (claimedBugleIds.isNotEmpty()) " AND _id NOT IN (${claimedBugleIds.joinToString(",")})" else ""
+                                val sql = "SELECT _id, message_status FROM messages WHERE _id > ${p.initialMaxId}$excludeClause ORDER BY _id ASC LIMIT 1;"
+                                
+                                val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
+                                val matchLine = res.out.firstOrNull { it.contains("|") }?.trim()
+                                if (matchLine != null) {
+                                    val parts = matchLine.split("|")
+                                    matchedBugleId = parts[0].toLongOrNull() ?: 0L
+                                    status = parts[1].toIntOrNull() ?: -1
                                 }
                             }
-                        } catch (e: Exception) { Timber.e(e, "BotService: batch sqlite3 exception") }
-                        
-                    } else {
-                        com.topjohnwu.superuser.Shell.cmd(
-                            "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
-                        ).exec()
 
-                        android.database.sqlite.SQLiteDatabase.openDatabase(
-                            tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-                        ).use { db ->
-                            for (p in currentPending) {
-                                try {
-                                    val excludeClause = if (claimedBugleIds.isNotEmpty()) {
-                                        " AND _id NOT IN (${claimedBugleIds.joinToString(",")})"
-                                    } else ""
-                                    
-                                    val query = if (p.bugleMessageId > 0) {
-                                        Pair("SELECT _id, message_status FROM messages WHERE _id = ?", arrayOf(p.bugleMessageId.toString()))
-                                    } else {
-                                        Pair("SELECT _id, message_status FROM messages WHERE _id > ?$excludeClause ORDER BY _id ASC LIMIT 1", arrayOf(p.initialMaxId.toString()))
-                                    }
-                                    db.rawQuery(query.first, query.second).use { cursor ->
-                                        if (cursor.moveToNext()) {
-                                            val matchedBugleId = cursor.getLong(0)
-                                            val status = cursor.getInt(1)
-                                            processStatus(p, matchedBugleId, status)
-                                        }
-                                    }
-                                } catch (e: Exception) { Timber.e(e, "BotService: rawQuery exception for ${p.correlationId}") }
+                            if (matchedBugleId > 0 && status != -1) {
+                                if (p.bugleMessageId == 0L) {
+                                    dlrTracker.updateBugleMessageId(p.correlationId, matchedBugleId)
+                                }
+                                processStatus(p, matchedBugleId, status)
                             }
-                        }
+                        } catch (e: Exception) { Timber.e(e, "BotService: rawQuery exception for ${p.correlationId}") }
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "BotService: failed to copy/open bugle_db")
-                } finally {
-                    com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm' '$tmpDb-journal'").exec()
+                    Timber.e(e, "BotService: failed to execute sqlite binary")
                 }
+
 
                 if (resolved.isNotEmpty()) {
                     dlrTracker.removeResolved(resolved)
@@ -278,41 +238,34 @@ class BotService : Service() {
                     try {
                         val pending = dlrTracker.getPendingDlrs().firstOrNull { it.correlationId == corrId }
                         if (pending != null && pending.bugleMessageId > 0) {
-                            val tmpDb = "${filesDir.absolutePath}/dlr_recheck.db"
                             val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
-                            val uid = android.os.Process.myUid()
-                            com.topjohnwu.superuser.Shell.cmd(
-                                "cp '$srcDb' '$tmpDb' && rm -f '$tmpDb-wal' '$tmpDb-shm' && chown $uid:$uid '$tmpDb' && chmod 600 '$tmpDb'"
-                            ).exec()
+                            val sqliteCmd = "/data/local/tmp/sqlite3 '$srcDb'"
 
                             var deliveryResult: String? = null
                             var errorDetail: String? = null
                             
-                            android.database.sqlite.SQLiteDatabase.openDatabase(
-                                tmpDb, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-                            ).use { db ->
-                                db.rawQuery("SELECT rcs_message_status, message_report_status, message_status FROM messages WHERE _id = ?", arrayOf(pending.bugleMessageId.toString())).use { cursor ->
-                                    if (cursor.moveToFirst()) {
-                                        val rms = cursor.getInt(0)
-                                        val mrs = cursor.getInt(1)
-                                        val ms = cursor.getInt(2)
-                                        
-                                        if (ms == 11) {
-                                            deliveryResult = "ERROR"
-                                            errorDetail = "Fallback Error Status=11"
-                                        } else if (rms == 2 || mrs == 2 || ms == 2) {
-                                            deliveryResult = "DELIVERED"
-                                            dlrTracker.removeResolved(listOf(pending))
-                                        } else {
-                                            deliveryResult = "SENT"
-                                        }
-                                    } else {
-                                        deliveryResult = "ERROR"
-                                        errorDetail = "Message _id ${pending.bugleMessageId} deleted/missing from SQL payload"
-                                    }
+                            val sql = "SELECT message_status FROM messages WHERE _id = ${pending.bugleMessageId};"
+                            val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
+                            val msStr = res.out.firstOrNull { it.trim().isNotEmpty() }?.trim()
+                            
+                            if (msStr != null) {
+                                val ms = msStr.toIntOrNull() ?: -1
+                                if (ms == 12 || ms == 11) {
+                                    deliveryResult = "DELIVERED"
+                                    dlrTracker.removeResolved(listOf(pending))
+                                } else if (ms == 8 || ms == 5 || ms == 9) {
+                                    deliveryResult = "ERROR"
+                                    errorDetail = "Failed Status=$ms"
+                                    dlrTracker.removeResolved(listOf(pending))
+                                } else if (ms == 2) {
+                                    deliveryResult = "SENT"
+                                } else {
+                                    deliveryResult = "SENT"
                                 }
+                            } else {
+                                deliveryResult = "ERROR"
+                                errorDetail = "Message _id ${pending.bugleMessageId} deleted/missing from SQL payload"
                             }
-                            com.topjohnwu.superuser.Shell.cmd("rm -f '$tmpDb' '$tmpDb-wal' '$tmpDb-shm'").exec()
 
                             if (deliveryResult != null) {
                                 val resultIntent = Intent("com.messagingagent.android.comm.ACTION_RECHECK_RESULT").apply {
@@ -330,6 +283,54 @@ class BotService : Service() {
                         }
                     } catch (e: Exception) {
                         Timber.e(e, "BotService: Exception during manual RECHECK_DLR SQLite execution")
+                    }
+                }
+            }
+            "com.messagingagent.android.bot.ACTION_TRACK_MATRIX_DLR" -> {
+                val corrId = intent.getStringExtra("correlationId") ?: return START_STICKY
+                val messageTextBase64 = intent.getStringExtra("messageTextBase64") ?: ""
+                val deviceToken = intent.getStringExtra("deviceToken") ?: return START_STICKY
+                
+                Timber.i("BotService: Received TRACK_MATRIX_DLR for $corrId")
+                
+                scope.launch {
+                    try {
+                        val decodedText = String(android.util.Base64.decode(messageTextBase64, android.util.Base64.DEFAULT))
+                        val safeText = decodedText.replace("\"", "\"\"").replace("'", "''")
+                        
+                        val srcDb = "/data/data/com.google.android.apps.messaging/databases/bugle_db"
+                        val sqliteCmd = "/data/local/tmp/sqlite3 '$srcDb'"
+
+                        // Query for text match on Parts table, and join to get Message Status
+                        val sql = "SELECT m.message_status FROM messages m INNER JOIN parts p ON p.message_id = m._id WHERE p.text LIKE '%$safeText%' ORDER BY m._id DESC LIMIT 1;"
+                        val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
+                        val msStr = res.out.firstOrNull { it.trim().isNotEmpty() }?.trim()
+                        
+                        var deliveryResult: String? = null
+                        var errorDetail: String? = null
+                        
+                        if (msStr != null) {
+                            val ms = msStr.toIntOrNull() ?: -1
+                            if (ms == 12 || ms == 11) {
+                                deliveryResult = "DELIVERED"
+                            } else if (ms == 8 || ms == 5 || ms == 9) {
+                                deliveryResult = "ERROR"
+                                errorDetail = "Failed Status=$ms"
+                            }
+                        }
+                        
+                        if (deliveryResult == "DELIVERED" || deliveryResult == "ERROR") {
+                            val resultIntent = Intent("com.messagingagent.android.comm.ACTION_RECHECK_RESULT").apply {
+                                setPackage(applicationContext.packageName)
+                                putExtra("correlationId", corrId)
+                                putExtra("deviceToken", deviceToken)
+                                putExtra("result", deliveryResult)
+                                putExtra("errorDetail", errorDetail)
+                            }
+                            sendBroadcast(resultIntent)
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "BotService: Exception during TRACK_MATRIX_DLR execution")
                     }
                 }
             }

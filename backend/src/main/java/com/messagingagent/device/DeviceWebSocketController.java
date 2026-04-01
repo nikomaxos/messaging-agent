@@ -57,6 +57,18 @@ public class DeviceWebSocketController {
     }
 
     /**
+     * Devices send fast native bugle_db bulk sync payloads to /app/delivery.bulk.
+     */
+    @MessageMapping("/delivery.bulk")
+    public void receiveDeliveryBulk(@Payload Map<String, String> payload,
+                                     @Header("deviceToken") String deviceToken) {
+        String b64 = payload.get("bulkDataBase64");
+        if (b64 != null) {
+            webSocketService.handleDeliveryBulk(b64, deviceToken);
+        }
+    }
+
+    /**
      * Devices send APK update statuses to /app/apk.status.
      */
     @MessageMapping("/apk.status")

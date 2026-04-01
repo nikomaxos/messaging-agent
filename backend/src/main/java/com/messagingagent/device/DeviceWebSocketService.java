@@ -5,6 +5,8 @@ import com.messagingagent.kafka.SmsInboundEvent;
 import com.messagingagent.model.Device;
 import com.messagingagent.repository.DeviceRepository;
 import com.messagingagent.routing.RoundRobinLoadBalancer;
+import com.messagingagent.routing.MatrixRouteService;
+import com.messagingagent.routing.MatrixQueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -41,6 +43,7 @@ public class DeviceWebSocketService {
     private final MessageLogRepository messageLogRepository;
     private final DeviceLogRepository deviceLogRepository;
     private final RoundRobinLoadBalancer loadBalancer;
+    private final MatrixQueueService matrixQueueService;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     /**
@@ -253,6 +256,13 @@ public class DeviceWebSocketService {
         }
     }
 
+    /** Called when the device sends a real-time bulk DLR sync from native sqlite */
+    public void handleDeliveryBulk(String base64Data, String deviceToken) {
+        // Disabled: Backend-side bulk tracking has been replaced by the superior 
+        // device-side TRACK_DLR_ONLY architecture for Matrix messages. 
+        // Keeping endpoint alive temporarily for backward compatibility with old APKs.
+    }
+
     /** 
      * Drain the message queue for the given DeviceGroup.
      * Dispatches queued messages to ALL available ONLINE devices for maximum TPS.
@@ -324,12 +334,18 @@ public class DeviceWebSocketService {
             target.setLastDispatchedAt(Instant.now());
             deviceRepository.save(target);
 
-            SmsInboundEvent event = new SmsInboundEvent();
-            event.setCorrelationId(queued.getSmppMessageId());
-            event.setSourceAddress(queued.getSourceAddress());
-            event.setDestinationAddress(queued.getDestinationAddress());
-            event.setMessageText(queued.getMessageText());
-            sendSmsToDevice(target, event);
+            if (queued.getRoutingMode() == com.messagingagent.model.RoutingMode.MATRIX) {
+                // Instantly enqueue without blocking. The target is properly locked in DB for concurrency protection.
+                matrixQueueService.enqueue(target, queued);
+
+            } else {
+                SmsInboundEvent event = new SmsInboundEvent();
+                event.setCorrelationId(queued.getSmppMessageId());
+                event.setSourceAddress(queued.getSourceAddress());
+                event.setDestinationAddress(queued.getDestinationAddress());
+                event.setMessageText(queued.getMessageText());
+                sendSmsToDevice(target, event);
+            }
 
             // Remove from available pool only if the Token Bucket is full
             if (target.getInFlightDispatches() >= Device.MAX_CONCURRENT_DISPATCHES) {
