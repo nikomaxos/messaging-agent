@@ -209,7 +209,7 @@ public class SmppServerService {
                 if (Boolean.TRUE.equals(redis.hasKey("smpp:ait:block:" + dstAddr))) {
                     log.warn("Blocked SUBMIT_SM for destination={} due to AIT auto-block policy", dstAddr);
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
-                    resp.setCommandStatus(SmppConstants.STATUS_INVBDSTADDR); // Invalid destination address
+                    resp.setCommandStatus(SmppConstants.STATUS_INVDSTADR); // Invalid destination address
                     return resp;
                 }
 
