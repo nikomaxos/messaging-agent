@@ -225,8 +225,8 @@ public class SmppServerService {
                                     com.cloudhopper.smpp.pdu.DeliverSm dlr = new com.cloudhopper.smpp.pdu.DeliverSm();
                                     dlr.setSourceAddress(sm.getDestAddress());
                                     dlr.setDestAddress(sm.getSourceAddress());
-                                    dlr.setEsmClass(com.cloudhopper.smpp.SmppConstants.ESM_CLASS_MT_SMSC_DLR);
-                                    dlr.setRegisteredDelivery(com.cloudhopper.smpp.SmppConstants.REGISTERED_DELIVERY_SME_DLR_NOT_REQUESTED);
+                                    dlr.setEsmClass((byte) 0x04); // Delivery Receipt
+                                    dlr.setRegisteredDelivery((byte) 0x00);
                                     
                                     String text = "id:" + fakeMessageId + " sub:001 dlvrd:001 submit date:" + 
                                             java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmm").format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)) + 
