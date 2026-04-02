@@ -78,7 +78,7 @@ export default function NotificationsPage() {
     setShowForm(false)
     setEditConfig(null)
     setForm({ 
-      name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true, autoBlock: false,
+      name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true, autoBlock: false, autoBlockAction: 'REJECT_INVDSTADR',
       channels: ['BROWSER_PUSH'], alertDeviceGroupId: null, alertSmppSupplierId: null
     })
   }
@@ -87,7 +87,7 @@ export default function NotificationsPage() {
     setEditConfig(c)
     setForm({ 
       name: c.name, type: c.type, threshold: c.threshold, 
-      cooldownMinutes: c.cooldownMinutes, enabled: c.enabled, autoBlock: c.autoBlock || false,
+      cooldownMinutes: c.cooldownMinutes, enabled: c.enabled, autoBlock: c.autoBlock || false, autoBlockAction: c.autoBlockAction || 'REJECT_INVDSTADR',
       channels: c.channels || [],
       alertDeviceGroupId: c.alertDeviceGroupId || null,
       alertSmppSupplierId: c.alertSmppSupplierId || null
@@ -256,12 +256,26 @@ export default function NotificationsPage() {
                     value={form.cooldownMinutes} onChange={e => setForm({ ...form, cooldownMinutes: Number(e.target.value) })} />
                 </div>
                 {form.type === 'POSSIBLE_AIT_TRAFFIC' && (
-                  <div className="col-span-2 mt-2 p-3 bg-red-900/10 border border-red-500/20 rounded-lg flex items-start gap-3">
-                    <input type="checkbox" checked={form.autoBlock} onChange={e => setForm({ ...form, autoBlock: e.target.checked })} className="mt-1 rounded border-slate-700 bg-slate-900 text-red-500" />
-                    <div>
-                      <div className="text-sm font-bold text-red-400">Enable Active Target Auto-Blocking</div>
-                      <div className="text-xs text-slate-400 mt-1">If enabled, any generated alert will actively push the destination phone numbers to the Edge Redis blocklist with a 24-hour TTL, mitigating further SMS pumping attacks.</div>
+                  <div className="col-span-2 mt-2 space-y-3 p-3 bg-red-900/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <input type="checkbox" checked={form.autoBlock} onChange={e => setForm({ ...form, autoBlock: e.target.checked })} className="mt-1 rounded border-slate-700 bg-slate-900 text-red-500" />
+                      <div>
+                        <div className="text-sm font-bold text-red-400">Enable Active Target Auto-Blocking</div>
+                        <div className="text-xs text-slate-400 mt-1">If enabled, any generated alert will actively push the destination phone numbers to the Edge Redis blocklist with a 24-hour TTL, mitigating further SMS pumping attacks.</div>
+                      </div>
                     </div>
+                    {form.autoBlock && (
+                      <div className="pl-7">
+                        <label className="block text-[10px] font-bold text-red-400/80 uppercase mb-1">Block Action strategy</label>
+                        <select className="w-full bg-black/40 text-sm text-red-200 border border-red-500/30 rounded px-3 py-1.5 focus:border-red-500 outline-none"
+                          value={form.autoBlockAction} onChange={e => setForm({ ...form, autoBlockAction: e.target.value })}>
+                          <option value="REJECT_INVDSTADR">Reject: Invalid Destination Address (0x0B)</option>
+                          <option value="REJECT_THROTTLED">Reject: Throttling Error (0x58)</option>
+                          <option value="FAKE_SUCCESS">Fake Positive Success (Drop quietly without DLR)</option>
+                          <option value="FAKE_DELIVERY">Fake Positive Success AND Fake Delivery Receipt (DLR)</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

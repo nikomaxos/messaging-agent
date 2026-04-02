@@ -64,6 +64,10 @@ public class NotificationConfig {
     @Builder.Default
     private boolean autoBlock = false;
 
+    @Column(name = "auto_block_action", length = 30)
+    @Builder.Default
+    private String autoBlockAction = "REJECT_INVDSTADR";
+
     @Column(name = "alert_device_group_id")
     private Long alertDeviceGroupId;
 

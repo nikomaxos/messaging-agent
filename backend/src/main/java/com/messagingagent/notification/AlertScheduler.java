@@ -136,7 +136,7 @@ public class AlertScheduler {
             }
             case POSSIBLE_AIT_TRAFFIC -> {
                 int trafficThreshold = (int) config.getThreshold();
-                long suspiciousNumbers = healthService.evaluateSuspiciousAitNumbers(60, trafficThreshold, config.isAutoBlock());
+                long suspiciousNumbers = healthService.evaluateSuspiciousAitNumbers(60, trafficThreshold, config.isAutoBlock(), config.getAutoBlockAction());
                 if (suspiciousNumbers > 0) {
                     yield new AlertResult(true, suspiciousNumbers,
                             String.format("%d numbers flagged for AIT (received >= %d messages in last hour)", suspiciousNumbers, trafficThreshold),

@@ -177,7 +177,7 @@ public class PlatformHealthService {
         return deviceRepository.countByStatus(com.messagingagent.model.Device.Status.ONLINE);
     }
 
-    public long evaluateSuspiciousAitNumbers(int windowMinutes, int trafficThreshold, boolean shouldBlock) {
+    public long evaluateSuspiciousAitNumbers(int windowMinutes, int trafficThreshold, boolean shouldBlock, String action) {
         Instant since = Instant.now().minus(windowMinutes, ChronoUnit.MINUTES);
         
         // 1. High volume to a single number
@@ -189,8 +189,9 @@ public class PlatformHealthService {
         suspiciousNumbers.addAll(sequentialSuspicious);
 
         if (shouldBlock && !suspiciousNumbers.isEmpty()) {
+            String blockAction = (action != null) ? action : "REJECT_INVDSTADR";
             for (String dest : suspiciousNumbers) {
-                redis.opsForValue().set("smpp:ait:block:" + dest, "true", java.time.Duration.ofHours(24));
+                redis.opsForValue().set("smpp:ait:block:" + dest, blockAction, java.time.Duration.ofHours(24));
             }
         }
         return suspiciousNumbers.size();

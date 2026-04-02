@@ -16,7 +16,7 @@ const statusClass = (s: MessageLog['status']) => ({
 export default function MessageTrackingPage() {
   const [page, setPage] = useState(0)
   const [filters, setFilters] = useState({
-    status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', clientMessageId: '', supplierMessageId: ''
+    status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', clientMessageId: '', supplierMessageId: '', startDate: '', endDate: ''
   })
   const [appliedFilters, setAppliedFilters] = useState(filters)
   
@@ -71,11 +71,14 @@ export default function MessageTrackingPage() {
 
   const applyFilters = () => {
     setPage(0)
-    setAppliedFilters({ ...filters })
+    const processedFilters = { ...filters }
+    if (processedFilters.startDate) processedFilters.startDate = new Date(processedFilters.startDate).toISOString()
+    if (processedFilters.endDate) processedFilters.endDate = new Date(processedFilters.endDate).toISOString()
+    setAppliedFilters(processedFilters)
   }
 
   const clearFilters = () => {
-    const empty = { status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', clientMessageId: '', supplierMessageId: '' }
+    const empty = { status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', clientMessageId: '', supplierMessageId: '', startDate: '', endDate: '' }
     setFilters(empty)
     setAppliedFilters(empty)
     setPage(0)
@@ -206,8 +209,8 @@ export default function MessageTrackingPage() {
       )}
 
       {/* Filters Toolbar */}
-      <form onSubmit={e => { e.preventDefault(); applyFilters() }} className="glass p-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
-        <div>
+      <form onSubmit={e => { e.preventDefault(); applyFilters() }} className="glass p-4 flex flex-wrap gap-3 items-end">
+        <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
           <select className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
                   value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
@@ -220,17 +223,29 @@ export default function MessageTrackingPage() {
             <option value="FAILED">FAILED</option>
           </select>
         </div>
-        <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From</label>
+        <div className="min-w-[210px] flex-1">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From Time</label>
+          <input type="datetime-local" className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
+                 style={{ colorScheme: 'dark' }}
+                 value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
+        </div>
+        <div className="min-w-[210px] flex-1">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">To Time</label>
+          <input type="datetime-local" className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
+                 style={{ colorScheme: 'dark' }}
+                 value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
+        </div>
+        <div className="min-w-[140px] flex-1">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From (Sender)</label>
           <input className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
                  placeholder="e.g. Info" value={filters.senderId} onChange={e => setFilters({ ...filters, senderId: e.target.value })} />
         </div>
-        <div>
+        <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Destination</label>
           <input className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
                  placeholder="e.g. +3069..." value={filters.destinationNumber} onChange={e => setFilters({ ...filters, destinationNumber: e.target.value })} />
         </div>
-        <div>
+        <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
           <select className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
                   value={filters.deviceGroupId} onChange={e => setFilters({ ...filters, deviceGroupId: e.target.value })}>

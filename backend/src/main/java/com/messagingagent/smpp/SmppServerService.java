@@ -151,7 +151,7 @@ public class SmppServerService {
         @Override
         public void sessionCreated(Long sessionId, SmppServerSession session,
                                     BaseBindResp preparedBindResponse) {
-            session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), session.getConfiguration().getSystemId()));
+            session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), session.getConfiguration().getSystemId(), session));
             sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now()));
             log.info("SMPP session created id={}", sessionId);
             systemLogService.logAndBroadcast("INFO", "SMPP Server", "Session Created",
@@ -177,11 +177,13 @@ public class SmppServerService {
 
         private final String smppSessionId;
         private final String systemId;
+        private final SmppServerSession session;
 
-        MessageReceiverHandlerImpl(String smppSessionId, String systemId) {
+        MessageReceiverHandlerImpl(String smppSessionId, String systemId, SmppServerSession session) {
             super(log);
             this.smppSessionId = smppSessionId;
             this.systemId = systemId;
+            this.session = session;
         }
 
         @Override
@@ -206,11 +208,44 @@ public class SmppServerService {
                 String srcAddr = sm.getSourceAddress() != null ? sm.getSourceAddress().getAddress() : "";
                 String dstAddr = sm.getDestAddress()   != null ? sm.getDestAddress().getAddress()   : "";
                 
-                if (Boolean.TRUE.equals(redis.hasKey("smpp:ait:block:" + dstAddr))) {
-                    log.warn("Blocked SUBMIT_SM for destination={} due to AIT auto-block policy", dstAddr);
+                String aitBlockAction = redis.opsForValue().get("smpp:ait:block:" + dstAddr);
+                if (aitBlockAction != null) {
+                    log.warn("Blocked SUBMIT_SM for destination={} due to AIT auto-block policy (Action: {})", dstAddr, aitBlockAction);
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
-                    resp.setCommandStatus(SmppConstants.STATUS_INVDSTADR); // Invalid destination address
-                    return resp;
+                    
+                    if ("FAKE_SUCCESS".equals(aitBlockAction) || "FAKE_DELIVERY".equals(aitBlockAction)) {
+                        resp.setCommandStatus(SmppConstants.STATUS_OK);
+                        String fakeMessageId = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+                        resp.setMessageId(fakeMessageId);
+                        
+                        if ("FAKE_DELIVERY".equals(aitBlockAction) && sm.getRegisteredDelivery() != 0) {
+                            Thread.startVirtualThread(() -> {
+                                try {
+                                    Thread.sleep(1500); // simulate slight process delay
+                                    com.cloudhopper.smpp.pdu.DeliverSm dlr = new com.cloudhopper.smpp.pdu.DeliverSm();
+                                    dlr.setSourceAddress(sm.getDestAddress());
+                                    dlr.setDestAddress(sm.getSourceAddress());
+                                    dlr.setEsmClass(com.cloudhopper.smpp.SmppConstants.ESM_CLASS_MT_SMSC_DLR);
+                                    dlr.setRegisteredDelivery(com.cloudhopper.smpp.SmppConstants.REGISTERED_DELIVERY_SME_DLR_NOT_REQUESTED);
+                                    
+                                    String text = "id:" + fakeMessageId + " sub:001 dlvrd:001 submit date:" + 
+                                            java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmm").format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)) + 
+                                            " done date:" + 
+                                            java.time.format.DateTimeFormatter.ofPattern("yyMMddHHmm").format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)) + 
+                                            " stat:DELIVRD err:000 text:";
+                                    dlr.setShortMessage(text.getBytes());
+                                    session.sendRequestPdu(dlr, 5000, false);
+                                } catch (Exception ignored) {}
+                            });
+                        }
+                        return resp;
+                    } else if ("REJECT_THROTTLED".equals(aitBlockAction)) {
+                        resp.setCommandStatus(SmppConstants.STATUS_THROTTLED);
+                        return resp;
+                    } else {
+                        resp.setCommandStatus(SmppConstants.STATUS_INVDSTADR); // default to invalid destination address
+                        return resp;
+                    }
                 }
 
                 byte[] shortMessage = sm.getShortMessage();
