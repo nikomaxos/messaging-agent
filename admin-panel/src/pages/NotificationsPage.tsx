@@ -30,10 +30,10 @@ export default function NotificationsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editConfig, setEditConfig] = useState<any>(null)
   const [form, setForm] = useState<{
-    name: string; type: string; threshold: number; cooldownMinutes: number; enabled: boolean; autoBlock: boolean;
+    name: string; type: string; threshold: number; cooldownMinutes: number; enabled: boolean; autoBlock: boolean; autoBlockAction: string;
     channels: string[]; alertDeviceGroupId: number | null; alertSmppSupplierId: number | null;
   }>({ 
-    name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true, autoBlock: false,
+    name: '', type: 'LOW_DELIVERY_RATE', threshold: 50, cooldownMinutes: 15, enabled: true, autoBlock: false, autoBlockAction: 'REJECT_INVDSTADR',
     channels: ['BROWSER_PUSH'], alertDeviceGroupId: null, alertSmppSupplierId: null
   })
 
