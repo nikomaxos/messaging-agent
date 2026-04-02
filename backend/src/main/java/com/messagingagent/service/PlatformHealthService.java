@@ -179,12 +179,73 @@ public class PlatformHealthService {
 
     public long evaluateSuspiciousAitNumbers(int windowMinutes, int trafficThreshold, boolean shouldBlock) {
         Instant since = Instant.now().minus(windowMinutes, ChronoUnit.MINUTES);
-        List<String> suspiciousNumbers = messageLogRepository.findSuspiciousAitNumbers(since, trafficThreshold);
-        if (shouldBlock) {
+        
+        // 1. High volume to a single number
+        Set<String> suspiciousNumbers = new HashSet<>(messageLogRepository.findSuspiciousAitNumbers(since, trafficThreshold));
+        
+        // 2. Sequential/Synthetic numbers hitting pattern (very low volume per number, e.g. <= 3)
+        List<String> lowVolumeDestinations = messageLogRepository.findLowVolumeDestinations(since, 3);
+        Set<String> sequentialSuspicious = findSequentialNumbers(lowVolumeDestinations, 10);
+        suspiciousNumbers.addAll(sequentialSuspicious);
+
+        if (shouldBlock && !suspiciousNumbers.isEmpty()) {
             for (String dest : suspiciousNumbers) {
                 redis.opsForValue().set("smpp:ait:block:" + dest, "true", java.time.Duration.ofHours(24));
             }
         }
         return suspiciousNumbers.size();
+    }
+
+    private Set<String> findSequentialNumbers(List<String> numbers, int minSequenceLength) {
+        if (numbers == null || numbers.isEmpty()) return Collections.emptySet();
+
+        Map<Long, String> parsedMap = new HashMap<>();
+        List<Long> parsedNumbers = new ArrayList<>();
+
+        for (String num : numbers) {
+            try {
+                String clean = num.replaceAll("\\D+", ""); // keep only digits
+                if (!clean.isEmpty()) {
+                    long val = Long.parseLong(clean);
+                    parsedMap.putIfAbsent(val, num);
+                    parsedNumbers.add(val);
+                }
+            } catch (NumberFormatException ignored) {
+                // Ignore parsing errors for excessively large numbers
+            }
+        }
+
+        Collections.sort(parsedNumbers);
+        Set<String> suspicious = new HashSet<>();
+        
+        if (parsedNumbers.size() < minSequenceLength) return suspicious;
+
+        int streak = 1;
+        for (int i = 1; i < parsedNumbers.size(); i++) {
+            long current = parsedNumbers.get(i);
+            long prev = parsedNumbers.get(i - 1);
+            
+            if (current == prev) {
+                continue; // duplicate, ignore
+            } else if (current == prev + 1) {
+                streak++;
+            } else {
+                if (streak >= minSequenceLength) {
+                    for (int j = 1; j <= streak; j++) {
+                        suspicious.add(parsedMap.get(parsedNumbers.get(i - j)));
+                    }
+                }
+                streak = 1;
+            }
+        }
+        
+        // check trailing sequence
+        if (streak >= minSequenceLength) {
+            for (int j = 1; j <= streak; j++) {
+                suspicious.add(parsedMap.get(parsedNumbers.get(parsedNumbers.size() - j)));
+            }
+        }
+        
+        return suspicious;
     }
 }

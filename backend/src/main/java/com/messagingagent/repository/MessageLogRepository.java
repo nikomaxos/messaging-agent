@@ -153,4 +153,14 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     java.util.List<String> findSuspiciousAitNumbers(
             @org.springframework.data.repository.query.Param("since") java.time.Instant since, 
             @org.springframework.data.repository.query.Param("trafficThreshold") int trafficThreshold);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT destination_address FROM message_log " +
+                "WHERE created_at >= :since " +
+                "GROUP BY destination_address " +
+                "HAVING COUNT(id) <= :maxVolume", 
+        nativeQuery = true)
+    java.util.List<String> findLowVolumeDestinations(
+            @org.springframework.data.repository.query.Param("since") java.time.Instant since,
+            @org.springframework.data.repository.query.Param("maxVolume") int maxVolume);
 }
