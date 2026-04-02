@@ -220,32 +220,44 @@ public class PlatformHealthService {
         
         if (parsedNumbers.size() < minSequenceLength) return suspicious;
 
-        int streak = 1;
+        List<Long> currentCluster = new ArrayList<>();
+        currentCluster.add(parsedNumbers.get(0));
+
         for (int i = 1; i < parsedNumbers.size(); i++) {
             long current = parsedNumbers.get(i);
             long prev = parsedNumbers.get(i - 1);
             
             if (current == prev) {
                 continue; // duplicate, ignore
-            } else if (current == prev + 1) {
-                streak++;
+            }
+            
+            // If the difference is small (e.g. <= 5 skips allowed within the same sequence block)
+            if (current - prev <= 5) {
+                currentCluster.add(current);
             } else {
-                if (streak >= minSequenceLength) {
-                    for (int j = 1; j <= streak; j++) {
-                        suspicious.add(parsedMap.get(parsedNumbers.get(i - j)));
-                    }
-                }
-                streak = 1;
+                evaluateCluster(currentCluster, minSequenceLength, suspicious, parsedMap);
+                currentCluster.clear();
+                currentCluster.add(current);
             }
         }
         
-        // check trailing sequence
-        if (streak >= minSequenceLength) {
-            for (int j = 1; j <= streak; j++) {
-                suspicious.add(parsedMap.get(parsedNumbers.get(parsedNumbers.size() - j)));
-            }
-        }
+        evaluateCluster(currentCluster, minSequenceLength, suspicious, parsedMap);
         
         return suspicious;
+    }
+
+    private void evaluateCluster(List<Long> cluster, int minSize, Set<String> suspicious, Map<Long, String> parsedMap) {
+        if (cluster.size() >= minSize) {
+            long min = cluster.get(0);
+            long max = cluster.get(cluster.size() - 1);
+            long range = (max - min) + 1;
+            
+            // "More than half the numbers should be consecutive" => Density >= 50%
+            if (cluster.size() >= (range / 2.0)) {
+                for (Long num : cluster) {
+                    suspicious.add(parsedMap.get(num));
+                }
+            }
+        }
     }
 }
