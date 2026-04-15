@@ -19,12 +19,20 @@ import javax.inject.Singleton
 data class GroupSummary(val id: Long, val name: String, val description: String?)
 
 @Serializable
+data class SimData(
+    val iccid: String?,
+    val phoneNumber: String?,
+    val carrierName: String?,
+    val slotIndex: Int,
+    val imei: String?
+)
+
+@Serializable
 data class RegistrationRequest(
     val deviceName: String,
-    val imei: String?,
+    val hardwareId: String,
     val groupId: Long,
-    val simIccid: String? = null,
-    val phoneNumber: String? = null
+    val simCards: List<SimData>
 )
 
 @Serializable
@@ -87,6 +95,7 @@ class RegistrationRepository @Inject constructor(
         manualPhoneNumbers: String = ""
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            val hardwareId = android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_${System.currentTimeMillis()}"
             val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as android.telephony.SubscriptionManager
             var activeSubs = emptyList<android.telephony.SubscriptionInfo>()
             
@@ -94,15 +103,15 @@ class RegistrationRepository @Inject constructor(
                 activeSubs = subscriptionManager.activeSubscriptionInfoList ?: emptyList()
             }
 
-            val sims = mutableListOf<SimRegistration>()
+            val simsData = mutableListOf<SimData>()
+            val simsLocal = mutableListOf<SimRegistration>()
+            val manualPhonesList = manualPhoneNumbers.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
             if (activeSubs.isEmpty()) {
-                // Fallback: no SIMs or permission denied
                 val override = manualPhoneNumbers.split(",").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-                val resp = performRegistrationRequest(backendUrl, deviceName, groupId, baseImei, null, override)
-                sims.add(SimRegistration(resp.deviceId, resp.token, baseImei, override, -1))
+                simsData.add(SimData(baseImei, override, null, 0, baseImei))
+                simsLocal.add(SimRegistration(baseImei, override, -1))
             } else {
-                val manualPhonesList = manualPhoneNumbers.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                 for ((index, sub) in activeSubs.withIndex()) {
                     val iccid = sub.iccId ?: "${baseImei}_$index"
                     var phone: String? = null
@@ -120,17 +129,16 @@ class RegistrationRepository @Inject constructor(
                     }
                     if (phone.isNullOrBlank()) phone = null
 
-                    val simDeviceName = if (phone.isNullOrBlank()) "$deviceName - SIM${index + 1}" else "$deviceName - SIM${index + 1} ($phone)"
-                    val uniqueImei = "${baseImei}_$iccid".take(100)
-                    
-                    val resp = performRegistrationRequest(backendUrl, simDeviceName, groupId, uniqueImei, iccid, phone)
-                    sims.add(SimRegistration(resp.deviceId, resp.token, iccid, phone, sub.subscriptionId))
+                    simsData.add(SimData(iccid, phone, sub.carrierName?.toString(), sub.simSlotIndex, baseImei))
+                    simsLocal.add(SimRegistration(iccid, phone, sub.subscriptionId))
                 }
             }
 
+            val resp = performRegistrationRequest(backendUrl, deviceName, groupId, hardwareId, simsData)
+            
             prefs.setBackendUrl(backendUrl.trimEnd('/'))
             prefs.setDeviceName(deviceName)
-            prefs.setRegistrationResult(sims, groupName, groupId)
+            prefs.setRegistrationResult(resp.deviceId, resp.token, simsLocal, groupName, groupId)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -143,14 +151,13 @@ class RegistrationRepository @Inject constructor(
         backendUrl: String,
         deviceName: String,
         groupId: Long,
-        imei: String,
-        simIccid: String?,
-        phoneNumber: String?
+        hardwareId: String,
+        simCards: List<SimData>
     ): RegistrationResponse {
         val url = "${backendUrl.trimEnd('/')}/api/devices/register"
         val reqBody = json.encodeToString(
             RegistrationRequest.serializer(),
-            RegistrationRequest(deviceName, imei, groupId, simIccid, phoneNumber)
+            RegistrationRequest(deviceName, hardwareId, groupId, simCards)
         ).toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder().url(url).post(reqBody).build()

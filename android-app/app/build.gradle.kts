@@ -15,8 +15,8 @@ android {
         applicationId = "com.messagingagent.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 22
-        versionName = "1.1.22"
+        versionCode = 30
+        versionName = "1.1.30"
     }
 
     signingConfigs {

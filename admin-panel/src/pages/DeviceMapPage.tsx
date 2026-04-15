@@ -32,18 +32,29 @@ export default function DeviceMapPage() {
 
   // Load Leaflet CSS + JS dynamically
   useEffect(() => {
-    if (document.getElementById('leaflet-css')) return
-    const link = document.createElement('link')
-    link.id = 'leaflet-css'
-    link.rel = 'stylesheet'
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(link)
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link')
+      link.id = 'leaflet-css'
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
 
-    const script = document.createElement('script')
-    script.id = 'leaflet-js'
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-    script.onload = () => initMap()
-    document.head.appendChild(script)
+    const L = (window as any).L;
+    if (L) {
+      initMap();
+      setTimeout(() => { if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize() }, 200);
+    } else {
+      if (!document.getElementById('leaflet-js')) {
+        const script = document.createElement('script')
+        script.id = 'leaflet-js'
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        script.onload = () => {
+          initMap();
+        }
+        document.head.appendChild(script)
+      }
+    }
 
     return () => {
       if (mapInstanceRef.current) {
@@ -116,6 +127,7 @@ export default function DeviceMapPage() {
         <div style="font-family:system-ui;font-size:12px;min-width:160px">
           <div style="font-weight:700;margin-bottom:4px">${d.name}</div>
           <div style="color:#888">Status: <span style="color:${color}">${d.status}</span></div>
+          ${d.group?.name ? `<div style="color:#888">Group: ${d.group.name}</div>` : ''}
           ${d.batteryPercent != null ? `<div style="color:#888">Battery: ${d.batteryPercent}%</div>` : ''}
           ${d.phoneNumber ? `<div style="color:#888">Phone: ${d.phoneNumber}</div>` : ''}
           ${d.apkVersion ? `<div style="color:#888">APK: v${d.apkVersion}</div>` : ''}

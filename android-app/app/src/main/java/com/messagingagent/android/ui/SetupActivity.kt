@@ -294,8 +294,8 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
     var isChecking  by remember { mutableStateOf(true) }   // only true on very first poll
     var liveDetail  by remember { mutableStateOf("") }
 
-    LaunchedEffect(state.sims) {
-        val token = state.sims.firstOrNull()?.deviceToken ?: return@LaunchedEffect
+    LaunchedEffect(state) {
+        val token = state.deviceToken ?: return@LaunchedEffect
         val url   = state.backendUrl ?: vm.pendingUrl
         if (url.isBlank()) return@LaunchedEffect
 
@@ -455,7 +455,7 @@ fun DoneStep(state: RegistrationState, onStart: () -> Unit, vm: SetupViewModel) 
                         Text("—", color = Color(0xFF6B7280), fontSize = 11.sp)
                     } else {
                         state.sims.forEachIndexed { index, sim ->
-                            val phoneInfo = if (!sim.phoneNumber.isNullOrBlank()) sim.phoneNumber else "#${sim.deviceId}"
+                            val phoneInfo = if (!sim.phoneNumber.isNullOrBlank()) sim.phoneNumber else "#${state.deviceId}"
                             Text("SIM${index + 1}: $phoneInfo", color = Color(0xFF6B7280), fontSize = 10.sp,
                                  fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }

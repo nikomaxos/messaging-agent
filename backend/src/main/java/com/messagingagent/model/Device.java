@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import java.time.Instant;
 
@@ -30,8 +34,8 @@ public class Device {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(unique = true, length = 20)
-    private String imei;
+    @Column(name = "hardware_id", unique = true, length = 100, updatable = false)
+    private String hardwareId;
 
     @Column(unique = true, length = 100)
     private String registrationToken;
@@ -45,7 +49,10 @@ public class Device {
     @JoinColumn(name = "group_id")
     private DeviceGroup group;
 
-
+    @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    @Builder.Default
+    private List<SimCard> simCards = new ArrayList<>();
 
     // Heartbeat data
     private Integer batteryPercent;
@@ -53,16 +60,14 @@ public class Device {
     @Column(name = "is_charging")
     private Boolean isCharging;
     
-    @Column(name = "sim_iccid", length = 50)
-    private String simIccid;
-    
-    @Column(name = "phone_number", length = 50)
-    private String phoneNumber;
     private Integer wifiSignalDbm;
     private Integer gsmSignalDbm;
     private Integer gsmSignalAsu;
     private String networkOperator;
     private Boolean rcsCapable;
+    @Builder.Default
+    @Column(name = "auto_update")
+    private Boolean autoUpdate = true;
     @Builder.Default
     private Boolean autoRebootEnabled = false;
     @Builder.Default
@@ -72,6 +77,7 @@ public class Device {
     private Instant lastPurgedAt;
     private String activeNetworkType;
     private String apkVersion;
+    private String guardianVersion;
     private String apkUpdateStatus;
     @Builder.Default
     @Column(name = "autostart_pinned")

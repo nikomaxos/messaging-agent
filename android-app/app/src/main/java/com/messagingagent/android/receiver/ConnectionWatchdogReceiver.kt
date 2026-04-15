@@ -41,7 +41,7 @@ class ConnectionWatchdogReceiver : BroadcastReceiver() {
                 val backendUrl = regState.backendUrl ?: return@launch
                 if (!regState.isRegistered) return@launch
 
-                wsClient.connect(backendUrl, regState.sims) { status ->
+                wsClient.connect(backendUrl, regState) { status ->
                     Timber.d("ConnectionWatchdog reconnect status: $status")
                 }
             } catch (e: Exception) {

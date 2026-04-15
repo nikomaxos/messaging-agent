@@ -11,13 +11,12 @@ export interface DeviceGroup {
 export interface Device {
   id: number
   name: string
-  imei?: string
+  hardwareId?: string
   status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'MAINTENANCE'
   group?: DeviceGroup
   batteryPercent?: number
   isCharging?: boolean
-  simIccid?: string
-  phoneNumber?: string
+  simCards?: SimCard[]
   wifiSignalDbm?: number
   gsmSignalDbm?: number
   gsmSignalAsu?: number
@@ -31,6 +30,7 @@ export interface Device {
   lastPurgedAt?: string
   activeNetworkType?: string
   apkVersion?: string
+  guardianVersion?: string
   apkUpdateStatus?: string
   autostartPinned?: boolean
   silentMode?: boolean
@@ -38,6 +38,20 @@ export interface Device {
   selfHealingEnabled?: boolean
   adbWifiAddress?: string
   sendIntervalSeconds?: number
+  autoUpdate?: boolean
+}
+
+export interface SimCard {
+  id: number;
+  iccid: string;
+  imsi?: string;
+  imei?: string;
+  phoneNumber?: string;
+  carrierName?: string;
+  slotIndex?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  device?: Pick<Device, 'id' | 'name' | 'hardwareId'>;
 }
 
 export interface SmppSession {
@@ -79,7 +93,7 @@ export interface MessageLog {
   messageText?: string
   status: 'RECEIVED' | 'DISPATCHED' | 'DELIVERED' | 'RCS_FAILED' | 'FAILED'
   routingMode?: 'WEBSOCKET' | 'MATRIX'
-  device?: Pick<Device, 'id' | 'name' | 'simIccid' | 'phoneNumber' | 'imei'>
+  device?: Pick<Device, 'id' | 'name' | 'hardwareId' | 'simCards'>
   errorDetail?: string
   fallbackSmsc?: any
   createdAt: string

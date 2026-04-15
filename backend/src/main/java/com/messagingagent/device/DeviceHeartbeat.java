@@ -16,6 +16,7 @@ public class DeviceHeartbeat {
     private Boolean rcsCapable;
     private String activeNetworkType;
     private String apkVersion;
+    private String guardianVersion;
     private String phoneNumber;
     private String adbWifiAddress;
     private Double latitude;

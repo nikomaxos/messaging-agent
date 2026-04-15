@@ -124,11 +124,38 @@ public class ApkUpdateController {
         try {
             Path path = Paths.get(APK_DIR, GUARDIAN_FILE_NAME);
             Files.write(path, file.getBytes());
-            log.info("New Guardian APK uploaded successfully");
+            String origName = file.getOriginalFilename();
+            Files.writeString(Paths.get(APK_DIR, "guardian-meta.txt"), origName != null ? origName : "unknown");
+            log.info("New Guardian APK uploaded successfully: {}", origName);
             return ResponseEntity.ok("Guardian APK uploaded successfully");
         } catch (IOException e) {
             log.error("Failed to upload Guardian APK", e);
             return ResponseEntity.internalServerError().body("Failed to save Guardian APK");
+        }
+    }
+
+    @GetMapping("/api/public/guardian/version")
+    public ResponseEntity<?> getGuardianVersion() {
+        try {
+            Path metaPath = Paths.get(APK_DIR, "guardian-meta.txt");
+            if (!metaPath.toFile().exists()) {
+                return ResponseEntity.ok(java.util.Map.of("available", false));
+            }
+            String filename = Files.readString(metaPath).trim();
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d+\\.\\d+\\.\\d+)")
+                .matcher(filename);
+            String version = m.find() ? m.group(1) : null;
+            if (version == null) {
+                return ResponseEntity.ok(java.util.Map.of("available", false));
+            }
+            return ResponseEntity.ok(java.util.Map.of(
+                "available", true,
+                "versionName", version,
+                "filename", filename
+            ));
+        } catch (IOException e) {
+            return ResponseEntity.ok(java.util.Map.of("available", false));
         }
     }
 

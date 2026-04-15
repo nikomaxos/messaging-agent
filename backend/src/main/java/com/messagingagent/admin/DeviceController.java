@@ -51,7 +51,7 @@ public class DeviceController {
         return groupRepository.findById(req.getGroupId()).map(group -> {
             Device device = Device.builder()
                     .name(req.getName())
-                    .imei(req.getImei())
+                    .hardwareId(req.getHardwareId())
                     .group(group)
                     .registrationToken(UUID.randomUUID().toString())
                     .status(Device.Status.OFFLINE)
@@ -64,10 +64,6 @@ public class DeviceController {
     public ResponseEntity<Device> update(@PathVariable Long id, @RequestBody @Valid DeviceRequest req) {
         return deviceRepository.findById(id).map(device -> {
             device.setName(req.getName());
-            device.setImei(req.getImei());
-            if (req.getPhoneNumber() != null) {
-                device.setPhoneNumber(req.getPhoneNumber().isBlank() ? null : req.getPhoneNumber().trim());
-            }
             if (req.getAutoRebootEnabled() != null) {
                 device.setAutoRebootEnabled(req.getAutoRebootEnabled());
                 messagingTemplate.convertAndSend("/queue/commands." + id, "SET_AUTO_REBOOT=" + req.getAutoRebootEnabled());
@@ -89,6 +85,9 @@ public class DeviceController {
             }
             if (req.getSelfHealingEnabled() != null) {
                 device.setSelfHealingEnabled(req.getSelfHealingEnabled());
+            }
+            if (req.getAutoUpdate() != null) {
+                device.setAutoUpdate(req.getAutoUpdate());
             }
             if (req.getGroupId() == null) {
                 device.setGroup(null);
@@ -164,11 +163,27 @@ public class DeviceController {
         return ResponseEntity.ok(Map.of("sent", sent, "command", command));
     }
 
+    @PutMapping("/{id}/auto-update")
+    public ResponseEntity<Device> toggleAutoUpdate(@PathVariable Long id, @RequestBody Map<String, Boolean> payload) {
+        return deviceRepository.findById(id).map(device -> {
+            Boolean autoUpdate = payload.get("autoUpdate");
+            if (autoUpdate != null) {
+                device.setAutoUpdate(autoUpdate);
+                deviceRepository.save(device);
+                // Broadcast state to UI
+                messagingTemplate.convertAndSend("/topic/devices", Map.of(
+                        "id", device.getId(),
+                        "autoUpdate", autoUpdate
+                ));
+            }
+            return ResponseEntity.ok(device);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     @Data
     public static class DeviceRequest {
         @NotBlank private String name;
-        private String imei;
-        private String phoneNumber;
+        private String hardwareId;
         private Long groupId;
         private Boolean autoRebootEnabled;
         private String autoPurge;
@@ -176,5 +191,6 @@ public class DeviceController {
         private Boolean silentMode;
         private Boolean callBlockEnabled;
         private Boolean selfHealingEnabled;
+        private Boolean autoUpdate;
     }
 }

@@ -42,6 +42,7 @@ data class HeartbeatPayload(
     val rcsCapable: Boolean,
     val activeNetworkType: String?,
     val apkVersion: String?,
+    val guardianVersion: String? = null,
     val phoneNumber: String? = null,
     val adbWifiAddress: String? = null,
     val latitude: Double? = null,
@@ -185,7 +186,7 @@ class MessagingAgentService : Service() {
                 Timber.w("No registered SIMs -- service idle")
                 return@launch
             }
-            wsClient.connect(backendUrl, regState.sims) { status ->
+            wsClient.connect(backendUrl, regState) { status ->
                 updateNotification(status)
             }
             // Fast ping loop -- lightweight, just triggers queue drain on backend (every 5s)
@@ -194,14 +195,88 @@ class MessagingAgentService : Service() {
                     delay(5_000)
                     try {
                         val isConnected = wsClient.connectionStartTime.value != null
-                        if (isConnected) {
-                            regState.sims.forEach { sim ->
-                                wsClient.sendPing(sim.deviceToken)
-                            }
+                        if (isConnected && regState.deviceToken != null) {
+                            wsClient.sendPing(regState.deviceToken)
                         }
                     } catch (e: Exception) {
                         Timber.e(e, "Ping loop failed")
                     }
+                }
+            }
+
+            // Autonomous Pull-Based Updater loop (every 15 minutes)
+            scope.launch(Dispatchers.IO) {
+                while (isActive) {
+                    try {
+                        val flowState = prefs.registrationFlow().first()
+                        val url = flowState.backendUrl
+                        if (url != null) {
+                            val client = okhttp3.OkHttpClient()
+                            
+                            // 1. Check Agent Update
+                            try {
+                                val req1 = okhttp3.Request.Builder().url("${url.trimEnd('/')}/api/public/apk/version").build()
+                                val res1 = client.newCall(req1).execute()
+                                if (res1.isSuccessful) {
+                                    val body = res1.body?.string() ?: ""
+                                    val remoteVersion = body.substringAfter("\"versionName\":\"").substringBefore("\"")
+                                    val localVersion = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0" } catch (e: Exception) { "0.0.0" }
+                                    
+                                    if (remoteVersion.isNotBlank() && remoteVersion != "unknown" && remoteVersion != localVersion) {
+                                        Timber.i("Autonomous Updater: Found $remoteVersion (Current: $localVersion). Handing over to Guardian...")
+                                        wsClient.addLog("INFO", "Discovered newer Agent firmware ($remoteVersion) via native polling. Starting autonomous update...")
+                                        
+                                        val intent = android.content.Intent("com.messagingagent.guardian.ACTION_TRIGGER_OTA").apply {
+                                            putExtra("url", "${url.trimEnd('/')}/api/public/apk/download")
+                                            addFlags(android.content.Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                                            setPackage("com.messagingagent.guardian")
+                                        }
+                                        sendBroadcast(intent)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Timber.w("Agent version query failed: ${e.message}")
+                            }
+                            
+                            // 2. Check Guardian Update
+                            try {
+                                val req2 = okhttp3.Request.Builder().url("${url.trimEnd('/')}/api/public/guardian/version").build()
+                                val res2 = client.newCall(req2).execute()
+                                if (res2.isSuccessful) {
+                                    val body = res2.body?.string() ?: ""
+                                    val remoteGuardian = body.substringAfter("\"versionName\":\"").substringBefore("\"")
+                                    val localGuardian = try { packageManager.getPackageInfo("com.messagingagent.guardian", 0).versionName ?: "0.0.0" } catch (e: Exception) { "0.0.0" }
+                                    
+                                    if (remoteGuardian.isNotBlank() && remoteGuardian != "unknown" && remoteGuardian != localGuardian) {
+                                        Timber.i("Autonomous Updater: Found Guardian $remoteGuardian (Current: $localGuardian). Healing via root...")
+                                        wsClient.addLog("INFO", "Discovered newer Guardian ($remoteGuardian) via native polling. Healing securely via root...")
+                                        
+                                        val reqDownload = okhttp3.Request.Builder().url("${url.trimEnd('/')}/api/public/guardian/download").build()
+                                        val resDownload = client.newCall(reqDownload).execute()
+                                        if (resDownload.isSuccessful) {
+                                            val apkBytes = resDownload.body?.bytes()
+                                            if (apkBytes != null) {
+                                                val apkFile = java.io.File(cacheDir, "guardian_update.apk")
+                                                java.io.FileOutputStream(apkFile).use { it.write(apkBytes) }
+                                                
+                                                val resHack = com.topjohnwu.superuser.Shell.cmd("pm install -r ${apkFile.absolutePath}").exec()
+                                                if (resHack.isSuccess || resHack.out.joinToString("\n").contains("Success")) {
+                                                    wsClient.addLog("INFO", "Autonomous Guardian Healing Completed!")
+                                                } else {
+                                                    wsClient.addLog("WARN", "Autonomous Guardian Healing Failed: ${resHack.err} | ${resHack.out}")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Timber.w("Guardian version query failed: ${e.message}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Autonomous updating loop failed")
+                    }
+                    delay(15 * 60 * 1000L) // 15 minutes
                 }
             }
 
@@ -243,6 +318,7 @@ class MessagingAgentService : Service() {
                             rcsCapable        = rcs,
                             activeNetworkType = netType,
                             apkVersion        = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "?" } catch (_: Exception) { "?" },
+                            guardianVersion   = try { packageManager.getPackageInfo("com.messagingagent.guardian", 0).versionName ?: "?" } catch (_: Exception) { "?" },
                             phoneNumber       = phoneNum,
                             adbWifiAddress    = adbAddr,
                             latitude          = location.first,
@@ -250,17 +326,15 @@ class MessagingAgentService : Service() {
                         )
                         val payloadJson = Json.encodeToString(HeartbeatPayload.serializer(), payload)
                         
-                        regState.sims.forEach { sim ->
-                            wsClient.sendHeartbeat(payloadJson, sim.deviceToken)
+                        if (regState.deviceToken != null) {
+                            wsClient.sendHeartbeat(payloadJson, regState.deviceToken)
                         }
-                        Timber.d("Heartbeat sent for ${regState.sims.size} SIMs: battery=${battery.first}% charging=${battery.second} network=$netType wifi=$wifiRssi gsm=${gsm.first}")
+                        Timber.d("Heartbeat sent for system device: battery=${battery.first}% charging=${battery.second} network=$netType wifi=$wifiRssi gsm=${gsm.first}")
 
                         // Drain and send new device logs to backend
                         val newLogs = wsClient.drainNewLogs()
-                        if (newLogs.isNotEmpty()) {
-                            regState.sims.firstOrNull()?.let { sim ->
-                                wsClient.sendDeviceLogs(newLogs, sim.deviceToken)
-                            }
+                        if (newLogs.isNotEmpty() && regState.deviceToken != null) {
+                            wsClient.sendDeviceLogs(newLogs, regState.deviceToken)
                         }
                     }
 
@@ -356,7 +430,7 @@ class MessagingAgentService : Service() {
                         override fun onProviderEnabled(provider: String) {}
                         override fun onProviderDisabled(provider: String) {}
                     }
-                    lm.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, android.os.Looper.getMainLooper())
+                    lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, android.os.Looper.getMainLooper())
                     
                     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
                         kotlinx.coroutines.delay(12000)

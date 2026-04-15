@@ -271,12 +271,12 @@ export default function MessageTrackingPage() {
           <input className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
                  placeholder="Provider ID" value={filters.supplierMessageId} onChange={e => setFilters({ ...filters, supplierMessageId: e.target.value })} />
         </div>
-        <div className="flex gap-2">
-          <button type="submit" className="bg-brand-600 hover:bg-brand-500 text-white flex-1 rounded text-sm py-1.5 font-medium transition flex justify-center items-center gap-2">
+        <div className="flex gap-2 min-w-[240px]">
+          <button type="submit" className="bg-brand-600 hover:bg-brand-500 text-white flex-1 rounded text-sm py-1.5 px-6 font-medium transition flex justify-center items-center gap-2">
             <Search size={14} /> Search
           </button>
-          <button type="button" onClick={clearFilters} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 rounded text-sm font-medium transition flex justify-center items-center" title="Clear Filters">
-            <X size={14} />
+          <button type="button" onClick={clearFilters} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 rounded text-sm font-medium transition flex justify-center items-center gap-2" title="Clear Filters">
+            <X size={14} /> Clear
           </button>
         </div>
       </form>
@@ -367,20 +367,33 @@ export default function MessageTrackingPage() {
                 <td className="px-4 py-3"><span className={`pill ${l.status === 'DELIVERED' && l.fallbackStartedAt ? 'pill-green border-amber-500/30 object-contained' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : statusClass(l.status)}`}>{l.status === 'DELIVERED' && l.fallbackStartedAt ? 'DELIVERED (FALLBACK)' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'DISPATCHED TO RCS' : l.status}</span></td>
                 <td className="px-4 py-3 text-xs text-slate-400">
                   {l.fallbackStartedAt && l.deviceGroup && l.fallbackSmsc ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-300">{l.deviceGroup.name}</span>
-                      <span className="text-slate-600">→</span>
-                      <span className="font-bold text-amber-500">{l.fallbackSmsc.name}</span>
+                    <div className="flex flex-col items-start gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-300">{l.deviceGroup.name}</span>
+                        <span className="text-slate-600">→</span>
+                        <span className="font-bold text-amber-500">{l.fallbackSmsc.name}</span>
+                      </div>
+                      <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">SMPP Fallback</span>
                     </div>
                   ) : l.device || l.deviceGroup ? (
-                    <>
+                    <div className="flex flex-col items-start gap-1">
                       <div className="font-medium text-slate-300">{l.device?.name || l.deviceGroup?.name}</div>
-                      {l.device && <div className="text-[10px] text-slate-500 mt-0.5">
-                        {l.device.phoneNumber ? l.device.phoneNumber : (l.device.simIccid ? `ICCID: ${l.device.simIccid.slice(0, 8)}...` : (l.device.imei ?? ''))}
+                      {l.device && <div className="text-[10px] text-slate-500 leading-none">
+                        {l.device.simCards && l.device.simCards.length > 0 ? (l.device.simCards[0].phoneNumber || `SIM: ${l.device.simCards[0].iccid?.slice(0,8)}`) : (l.device.hardwareId ?? 'No ID')}
                       </div>}
-                    </>
+                      <span className={`text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded uppercase border ${l.routingMode === 'MATRIX' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' : 'bg-brand-500/20 text-brand-400 border-brand-500/30'}`}>
+                        {l.routingMode || 'WEBSOCKET'}
+                        {l.routingMode !== 'MATRIX' && l.device?.simCards && l.device.simCards.length > 0 ? (
+                           l.device.simCards[0].slotIndex !== undefined && l.device.simCards[0].slotIndex !== -1 
+                           ? ` (SIM ${l.device.simCards[0].slotIndex + 1})` : ` (eSIM)`
+                        ) : ''}
+                      </span>
+                    </div>
                   ) : l.fallbackSmsc ? (
-                    <div className="font-bold text-amber-500">{l.fallbackSmsc.name} (Direct)</div>
+                    <div className="flex flex-col items-start gap-1">
+                      <div className="font-bold text-amber-500">{l.fallbackSmsc.name} (Direct)</div>
+                      <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">DIRECT SMPP</span>
+                    </div>
                   ) : (
                     <span className="text-slate-600">Pending</span>
                   )}

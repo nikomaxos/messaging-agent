@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import GuardianDownloadPage from './pages/GuardianDownloadPage'
 import DashboardPage from './pages/DashboardPage'
 import DevicesPage from './pages/DevicesPage'
+import SimCardsPage from './pages/SimCardsPage'
 import SmppServerPage from './pages/SmppServerPage'
 import SmppClientsPage from './pages/SmppClientsPage'
 import SmppRoutingPage from './pages/SmppRoutingPage'
@@ -39,6 +40,7 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="devices" element={<DevicesPage />} />
+            <Route path="sim-cards" element={<SimCardsPage />} />
             <Route path="smpp/server" element={<SmppServerPage />} />
             <Route path="smscs" element={<SmscsPage />} />
             <Route path="smpp/clients" element={<SmppClientsPage />} />

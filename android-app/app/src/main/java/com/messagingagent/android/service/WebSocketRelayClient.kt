@@ -66,8 +66,8 @@ class WebSocketRelayClient @Inject constructor(
     @Volatile private var generation = 0
     private var matrixTrackerJob: Job? = null
 
-    /** The active list of SIM sessions to route commands and SMS payloads. */
-    private var activeSims: List<com.messagingagent.android.data.SimRegistration> = emptyList()
+    /** The active registration state */
+    private var activeState: com.messagingagent.android.data.RegistrationState? = null
     private var activeBackendUrl: String? = null
 
     /** Pending retry job (cancel on new connect). */
@@ -107,13 +107,13 @@ class WebSocketRelayClient @Inject constructor(
      * Connect (or reconnect) to the backend WebSocket.
      * Safe to call multiple times — closes any active connection first.
      */
-    fun connect(backendUrl: String, sims: List<com.messagingagent.android.data.SimRegistration>, onStatus: (String) -> Unit) {
+    fun connect(backendUrl: String, regState: com.messagingagent.android.data.RegistrationState, onStatus: (String) -> Unit) {
         statusCallback = onStatus
-        activeSims = sims
+        activeState = regState
         activeBackendUrl = backendUrl
 
-        if (sims.isEmpty()) {
-            addLog("WARN", "No registered SIMs to connect")
+        if (regState.deviceToken == null || regState.deviceId == null) {
+            addLog("WARN", "No registered device Token to connect")
             return
         }
 
@@ -135,17 +135,19 @@ class WebSocketRelayClient @Inject constructor(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Pre-flight check to prevent "Zombie" state where the backend has forgotten the device token
-                val statusUrl = "${backendUrl.trimEnd('/')}/api/devices/register/status/${sims.first().deviceToken}"
+                val statusUrl = "${backendUrl.trimEnd('/')}/api/devices/register/status/${regState.deviceToken}"
                 val statusReq = Request.Builder().url(statusUrl).build()
                 val response = client.newCall(statusReq).execute()
                 
                 if (response.code == 404) {
                     addLog("ERROR", "Token orphaned (HTTP 404)! Attempting headless auto-recovery...")
-                    val regState = prefs.registrationFlow().first()
                     
                     if (regState.groupId != null) {
                         val regUrl = "${backendUrl.trimEnd('/')}/api/devices/register"
-                        val reqBodyStr = """{"deviceName":"${regState.deviceName}","groupId":${regState.groupId},"simIccid":"${sims.first().simIccid}","phoneNumber":"${sims.first().phoneNumber ?: ""}"}"""
+                        val hardwareId = android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "UNKNOWN_${System.currentTimeMillis()}"
+                        
+                        // We do not submit new sims during blind recovery. RegistrationController will respect hardwareId without sims payload.
+                        val reqBodyStr = """{"deviceName":"${regState.deviceName}","hardwareId":"$hardwareId","groupId":${regState.groupId},"simCards":[]}"""
                         val regReq = Request.Builder().url(regUrl)
                             .post(reqBodyStr.toRequestBody("application/json".toMediaType()))
                             .build()
@@ -157,12 +159,12 @@ class WebSocketRelayClient @Inject constructor(
                             val newToken = jsonObj.getString("token")
                             val newDeviceId = jsonObj.getLong("deviceId")
                             
-                            val newSims = sims.map { it.copy(deviceToken = newToken, deviceId = newDeviceId, simIccid = sims.first().simIccid) }
-                            prefs.setRegistrationResult(newSims, regState.groupName ?: "", regState.groupId)
+                            prefs.setRegistrationResult(newDeviceId, newToken, regState.sims, regState.groupName ?: "", regState.groupId)
                             
                             addLog("INFO", "Auto-recovered! Reconnecting with fresh token...")
                             withContext(Dispatchers.Main) {
-                                connect(backendUrl, newSims, onStatus)
+                                val newState = prefs.registrationFlow().first()
+                                connect(backendUrl, newState, onStatus)
                             }
                             return@launch
                         } else {
@@ -180,7 +182,7 @@ class WebSocketRelayClient @Inject constructor(
 
             val request = Request.Builder()
                 .url(wsUrl)
-                .addHeader("deviceToken", sims.first().deviceToken)
+                .addHeader("deviceToken", regState.deviceToken!!)
                 .build()
             
             ws = client.newWebSocket(request, object : WebSocketListener() {
@@ -192,14 +194,13 @@ class WebSocketRelayClient @Inject constructor(
                     onStatus("Connected to backend")
                 // Allow OkHttp's underlying `pingInterval(25, SECONDS)` to keep the network layer alive
                 // Tell server: STOMP heartbeats are disabled (0,0) so it doesn't drop us due to missing STOMP frames
-                val baseToken = activeSims.first().deviceToken
+                val baseToken = regState.deviceToken!!
                 webSocket.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\ndeviceToken:$baseToken\n\n\u0000")
                 
-
-                activeSims.forEachIndexed { i, sim ->
-                    webSocket.send("SUBSCRIBE\nid:sub-sms-$i\ndestination:/queue/sms.${sim.deviceId}\n\n\u0000")
-                    webSocket.send("SUBSCRIBE\nid:sub-cmd-$i\ndestination:/queue/commands.${sim.deviceId}\n\n\u0000")
-                }
+                // We subscribe exactly ONE TIME to the queues for the device entity.
+                val devId = regState.deviceId!!
+                webSocket.send("SUBSCRIBE\nid:sub-sms-0\ndestination:/queue/sms.$devId\n\n\u0000")
+                webSocket.send("SUBSCRIBE\nid:sub-cmd-0\ndestination:/queue/commands.$devId\n\n\u0000")
                 
                 pingJob = CoroutineScope(Dispatchers.IO).launch {
                     while (isActive) {
@@ -211,7 +212,7 @@ class WebSocketRelayClient @Inject constructor(
                 }
                 
                 matrixTrackerJob = CoroutineScope(Dispatchers.IO).launch {
-                    val baseToken = activeSims.first().deviceToken
+                    val baseToken = regState.deviceToken!!
                     var lastExecutionFailed = false
                     while (isActive) {
                         delay(2_000) // Poll every 2 seconds for faster DLR failover
@@ -302,7 +303,7 @@ class WebSocketRelayClient @Inject constructor(
                 connectionStartTime.value = null
                 addLog("WARN", "WebSocket closed: code=$code reason=$reason")
                 onStatus("Offline")
-                scheduleRetry(backendUrl, sims, onStatus, myGen)
+                scheduleRetry(backendUrl, regState, onStatus, myGen)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -321,13 +322,13 @@ class WebSocketRelayClient @Inject constructor(
         }
     }
 
-    private fun scheduleRetry(backendUrl: String, sims: List<com.messagingagent.android.data.SimRegistration>, onStatus: (String) -> Unit, myGen: Int) {
+    private fun scheduleRetry(backendUrl: String, regState: com.messagingagent.android.data.RegistrationState, onStatus: (String) -> Unit, myGen: Int) {
         retryJob = CoroutineScope(Dispatchers.IO).launch {
             addLog("INFO", "Will retry in 8s…")
             delay(8_000)
             if (generation == myGen) {          // still the active generation
                 addLog("INFO", "Retrying connection…")
-                connect(backendUrl, sims, onStatus)
+                connect(backendUrl, regState, onStatus)
             } else {
                 addLog("DEBUG", "Retry cancelled — superseded by newer connect()")
             }
@@ -340,25 +341,24 @@ class WebSocketRelayClient @Inject constructor(
         val bodyMatch = Regex("""\r?\n\r?\n([\s\S]*)""").find(text)
         val body = (bodyMatch?.groupValues?.get(1) ?: text).trimEnd('\u0000').trim()
         if (destMatch?.startsWith("/queue/commands.") == true) {
-            val deviceIdStr = destMatch.substringAfterLast(".")
-            val sim = activeSims.find { it.deviceId.toString() == deviceIdStr }
-            handleSysCommand(body, sim?.deviceToken)
+            handleSysCommand(body, activeState?.deviceToken)
             return
         }
 
         try {
-            val deviceIdStr = destMatch?.substringAfterLast(".")
-            val sim = activeSims.find { it.deviceId.toString() == deviceIdStr } ?: return
-
             val dispatch = json.decodeFromString<SmsDispatch>(body)
             // Fire robust Intent to the isolated :bot execution process
             val botIntent = android.content.Intent(context, com.messagingagent.android.bot.BotService::class.java).apply {
                 action = "com.messagingagent.android.bot.ACTION_SEND"
                 putExtra("correlationId", dispatch.correlationId)
-                putExtra("deviceToken", sim.deviceToken)
+                putExtra("deviceToken", activeState?.deviceToken)
                 putExtra("to", dispatch.destinationAddress)
                 putExtra("text", dispatch.messageText)
-                putExtra("subscriptionId", sim.subscriptionId)
+                
+                // Which subId to route to depends on the backend finding out during route phase via SimCard settings.
+                // We default to -1 (default SMS sim) unless specified. Future improvement: pass slot from backend payload.
+                putExtra("subscriptionId", -1)
+                
                 putExtra("dlrDelayMinSec", dispatch.dlrDelayMinSec)
                 putExtra("dlrDelayMaxSec", dispatch.dlrDelayMaxSec)
             }
@@ -400,6 +400,39 @@ class WebSocketRelayClient @Inject constructor(
                         addLog("INFO", "Update Broadcast successfully queued to Guardian")
                     } catch (e: Exception) {
                         addLog("ERROR", "Guardian handover failed: ${e.message}")
+                    }
+                }
+            }
+            body == "UPDATE_GUARDIAN" -> {
+                val urlPrefix = activeBackendUrl ?: return
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        addLog("INFO", "Self-Healing: Downloading latest Guardian App...")
+                        
+                        val client = okhttp3.OkHttpClient()
+                        val request = okhttp3.Request.Builder().url("${urlPrefix.trimEnd('/')}/api/public/guardian/download").build()
+                        val response = client.newCall(request).execute()
+                        
+                        if (response.isSuccessful) {
+                            val apkBytes = response.body?.bytes()
+                            if (apkBytes != null) {
+                                val apkFile = java.io.File(context.cacheDir, "guardian_update.apk")
+                                java.io.FileOutputStream(apkFile).use { it.write(apkBytes) }
+                                
+                                addLog("INFO", "Installing Guardian securely via su...")
+                                val res = com.topjohnwu.superuser.Shell.cmd("pm install -r ${apkFile.absolutePath}").exec()
+                                
+                                if (res.isSuccess || res.out.joinToString("\n").contains("Success")) {
+                                    addLog("INFO", "Guardian App Successfully Updated!")
+                                } else {
+                                    addLog("ERROR", "Guardian App Install Failed: ${res.err} | ${res.out}")
+                                }
+                            }
+                        } else {
+                            addLog("ERROR", "Failed to download Guardian: HTTP ${response.code}")
+                        }
+                    } catch (e: Exception) {
+                        addLog("ERROR", "Self-Healing Exception: ${e.message}")
                     }
                 }
             }

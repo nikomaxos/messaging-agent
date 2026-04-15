@@ -14,7 +14,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findByStatus(Device.Status status);
     List<Device> findByGroup(DeviceGroup group);
     Optional<Device> findByRegistrationToken(String token);
-    Optional<Device> findByImei(String imei);
+    Optional<Device> findByHardwareId(String hardwareId);
     long countByStatus(Device.Status status);
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional

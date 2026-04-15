@@ -31,7 +31,7 @@ function DeviceCard({ d }: { d: Device }) {
           </div>
           <div>
             <div className="text-sm font-medium text-slate-200">{d.name}</div>
-            <div className="text-[10px] text-slate-500">{d.imei ?? 'No IMEI'}</div>
+            <div className="text-[10px] text-slate-500">{d.hardwareId ?? 'No ID'}</div>
           </div>
         </div>
         {statusPill(d.status)}

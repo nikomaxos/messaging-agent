@@ -87,7 +87,7 @@ public class SelfHealingScheduler {
                         // ESCALATION: 3+ reboots in 1 hour — create critical alert
                         String escalationMsg = String.format(
                                 "Self-healing ESCALATION: Device %s (%s) rebooted %d times in 1h without improvement. Last reason: %s",
-                                device.getName(), device.getImei(), tracker.count, reason);
+                                device.getName(), device.getHardwareId(), tracker.count, reason);
                         log.error(escalationMsg);
 
                         alertRepository.save(NotificationAlert.builder()

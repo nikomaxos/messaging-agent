@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Smartphone, FileText, LogOut, Users, Route as RouteIcon,
   Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart,
-  PanelLeftClose, PanelLeftOpen, Rocket
+  PanelLeftClose, PanelLeftOpen, Rocket, Cpu
 } from 'lucide-react'
 import PushSubscriptionPrompt from './PushSubscriptionPrompt'
 

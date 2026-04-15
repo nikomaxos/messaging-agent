@@ -123,12 +123,7 @@ public class DeviceWebSocketService {
             device.setRcsCapable(heartbeat.getRcsCapable());
             device.setActiveNetworkType(heartbeat.getActiveNetworkType());
             device.setApkVersion(heartbeat.getApkVersion());
-            // Sync phoneNumber from heartbeat only if device doesn't already have one
-            // (admin-panel edits take priority over auto-detection)
-            if (heartbeat.getPhoneNumber() != null && !heartbeat.getPhoneNumber().isBlank()
-                    && (device.getPhoneNumber() == null || device.getPhoneNumber().isBlank())) {
-                device.setPhoneNumber(heartbeat.getPhoneNumber().trim());
-            }
+            device.setGuardianVersion(heartbeat.getGuardianVersion());
             device.setApkUpdateStatus(null);
             if (heartbeat.getAdbWifiAddress() != null && !heartbeat.getAdbWifiAddress().isBlank()) {
                 device.setAdbWifiAddress(heartbeat.getAdbWifiAddress().trim());
@@ -163,16 +158,20 @@ public class DeviceWebSocketService {
 
             // Auto-OTA: if device reports an outdated APK version, push update (rate-limited per device)
             try {
-                String latestVersion = getLatestOtaVersion();
-                if (latestVersion != null && heartbeat.getApkVersion() != null
-                        && !latestVersion.equals(heartbeat.getApkVersion())) {
-                    Instant lastPush = lastOtaPushTime.get(device.getId());
-                    if (lastPush == null || Duration.between(lastPush, Instant.now()).toMinutes() >= 10) {
-                        log.info("AUTO-OTA: device {} reports v{} but server has v{} — sending UPDATE_APK",
-                                device.getName(), heartbeat.getApkVersion(), latestVersion);
-                        messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "UPDATE_APK");
-                        lastOtaPushTime.put(device.getId(), Instant.now());
+                if (Boolean.TRUE.equals(device.getAutoUpdate())) {
+                    String latestVersion = getLatestOtaVersion();
+                    if (latestVersion != null && heartbeat.getApkVersion() != null
+                            && !latestVersion.equals(heartbeat.getApkVersion())) {
+                        Instant lastPush = lastOtaPushTime.get(device.getId());
+                        if (lastPush == null || Duration.between(lastPush, Instant.now()).toMinutes() >= 10) {
+                            log.info("AUTO-OTA: device {} reports v{} but server has v{} — sending UPDATE_APK",
+                                    device.getName(), heartbeat.getApkVersion(), latestVersion);
+                            messagingTemplate.convertAndSend("/queue/commands." + device.getId(), "UPDATE_APK");
+                            lastOtaPushTime.put(device.getId(), Instant.now());
+                        }
                     }
+                } else {
+                    log.debug("Auto-OTA disabled for device {}, skipping update check", device.getName());
                 }
             } catch (Exception e) {
                 log.debug("Auto-OTA version check failed: {}", e.getMessage());
@@ -200,7 +199,7 @@ public class DeviceWebSocketService {
             statusMap.put("gsmSignalDbm", heartbeat.getGsmSignalDbm() != null ? heartbeat.getGsmSignalDbm() : "");
             statusMap.put("activeNetworkType", heartbeat.getActiveNetworkType() != null ? heartbeat.getActiveNetworkType() : "");
             statusMap.put("apkVersion", heartbeat.getApkVersion() != null ? heartbeat.getApkVersion() : "");
-            statusMap.put("phoneNumber", device.getPhoneNumber()); // use device entity to retain even if hb null
+            // phoneNumber is now in simCards, skip it here
             statusMap.put("adbWifiAddress", device.getAdbWifiAddress());
             statusMap.put("latitude", device.getLatitude());
             statusMap.put("longitude", device.getLongitude());

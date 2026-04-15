@@ -53,6 +53,12 @@ export const updateDevice   = (id: number, d: any) => api.put(`/devices/${id}`, 
 export const deleteDevice   = (id: number) => api.delete(`/devices/${id}`)
 export const getDevicePerformance = () => api.get('/devices/performance').then((r: any) => r.data)
 
+// ── Sim Cards ───────────────────────────────────────────────────────────
+export const getSimCards      = () => api.get('/sim-cards').then((r: any) => r.data)
+export const createSimCard    = (d: any) => api.post('/sim-cards', d).then((r: any) => r.data)
+export const assignSimCard    = (simId: number, deviceId: number | null) => api.put(`/sim-cards/${simId}/assign`, { deviceId }).then((r: any) => r.data)
+export const updateSimCard    = (id: number, d: any) => api.put(`/sim-cards/${id}`, d).then((r: any) => r.data)
+
 // ── SMPP Server, Clients & Routing ──────────────────────────────────────────
 export const getServerConfig  = () => api.get('/admin/smpp/server').then((r: any) => r.data)
 export const updateServerConfig = (d: any) => api.put('/admin/smpp/server', d).then((r: any) => r.data)

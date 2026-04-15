@@ -20,8 +20,6 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 @Serializable
 data class SimRegistration(
-    val deviceId: Long,
-    val deviceToken: String,
     val simIccid: String,
     val phoneNumber: String?,
     val subscriptionId: Int
@@ -32,9 +30,11 @@ data class RegistrationState(
     val deviceName: String?,
     val groupName: String?,
     val groupId: Long?,
+    val deviceId: Long?,
+    val deviceToken: String?,
     val sims: List<SimRegistration>
 ) {
-    val isRegistered: Boolean get() = sims.isNotEmpty()
+    val isRegistered: Boolean get() = deviceToken != null && deviceId != null
 }
 
 @Singleton
@@ -50,6 +50,8 @@ class PreferencesRepository @Inject constructor(
         val KEY_AUTO_PURGE = stringPreferencesKey("auto_purge_mode")
         val KEY_LAST_PURGED_AT = longPreferencesKey("last_purged_at")
         val KEY_SELF_HEALING_ENABLED = booleanPreferencesKey("self_healing_enabled")
+        val KEY_DEVICE_ID = longPreferencesKey("device_id")
+        val KEY_DEVICE_TOKEN = stringPreferencesKey("device_token")
         val KEY_SIM_REGISTRATIONS = stringPreferencesKey("sim_registrations")
         val KEY_LAST_CONNECTED_TIME = longPreferencesKey("last_connected_time")
     }
@@ -90,12 +92,17 @@ class PreferencesRepository @Inject constructor(
     suspend fun setSelfHealingEnabled(enabled: Boolean) =
         context.dataStore.edit { it[KEY_SELF_HEALING_ENABLED] = enabled }
 
-    suspend fun setRegistrationResult(sims: List<SimRegistration>, groupName: String, groupId: Long) =
+    suspend fun setRegistrationResult(deviceId: Long, token: String, sims: List<SimRegistration>, groupName: String, groupId: Long) =
         context.dataStore.edit {
+            it[KEY_DEVICE_ID] = deviceId
+            it[KEY_DEVICE_TOKEN] = token
             it[KEY_SIM_REGISTRATIONS] = Json.encodeToString(sims)
             it[KEY_GROUP_NAME]   = groupName
             it[KEY_GROUP_ID]     = groupId
         }
+
+    suspend fun getDeviceToken(): String? =
+        context.dataStore.data.map { it[KEY_DEVICE_TOKEN] }.first()
 
     suspend fun getGroupName(): String? =
         context.dataStore.data.map { it[KEY_GROUP_NAME] }.first()
@@ -114,6 +121,8 @@ class PreferencesRepository @Inject constructor(
             deviceName  = it[KEY_DEVICE_NAME],
             groupName   = it[KEY_GROUP_NAME],
             groupId     = it[KEY_GROUP_ID],
+            deviceId    = it[KEY_DEVICE_ID],
+            deviceToken = it[KEY_DEVICE_TOKEN],
             sims        = sims
         )
     }

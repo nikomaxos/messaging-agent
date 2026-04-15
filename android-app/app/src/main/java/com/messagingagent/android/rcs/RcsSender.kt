@@ -47,7 +47,6 @@ class RcsSender @Inject constructor(
             val cleanTo = to.replace("[^0-9+]".toRegex(), "")
 
             val now = System.currentTimeMillis()
-            val recentlySent = (now - lastSendTimeMs) < 60_000
             lastSendTimeMs = now
 
             var initialMaxId = 0L
@@ -72,44 +71,46 @@ class RcsSender @Inject constructor(
                 }
             } catch (e: Exception) { Timber.e(e, "Failed to capture initial bugle MAX(_id)") }
 
-            if (!recentlySent) {
-                // Wake up screen — MIUI-compatible 3-tier wake (KEYCODE_WAKEUP is ignored by MIUI in Doze)
-                var pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
-                if (!pwrState.contains("Awake")) {
-                    Timber.i("Waking up screen with MIUI-compatible strategy")
-                    com.topjohnwu.superuser.Shell.cmd(
-                        "svc power stayon true",
-                        "input keyevent 26"
-                    ).exec()
-                    kotlinx.coroutines.delay(1000)
-                    // Check if actually awake
-                    pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
-                    if (!pwrState.contains("Awake")) {
-                        com.topjohnwu.superuser.Shell.cmd("input keyevent 26").exec()
-                        kotlinx.coroutines.delay(1000)
-                    }
-                } else {
-                    com.topjohnwu.superuser.Shell.cmd("svc power stayon true").exec()
-                }
-                // Dismiss lock screen
-                com.topjohnwu.superuser.Shell.cmd("wm dismiss-keyguard").exec()
-                kotlinx.coroutines.delay(300)
-                val wmRes = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
-                val wmL = wmRes.out.lastOrNull { it.contains("x") } ?: "1080x2400"
-                val rp = wmL.substringAfter(":").trim().split("x")
-                val dW = rp[0].trim().toInt(); val dH = rp[1].trim().toInt()
-                com.topjohnwu.superuser.Shell.cmd("input swipe ${dW/2} ${(dH*0.85).toInt()} ${dW/2} ${(dH*0.25).toInt()} 300").exec()
-                kotlinx.coroutines.delay(800)
-                
-                // MIUI workaround: Ensure Google Messages has background activity launch permission
-                Shell.cmd(
-                    "appops set $MESSAGES_PKG AUTO_START allow 2>/dev/null",
-                    "appops set $MESSAGES_PKG MIUI_BACKGROUND_START allow 2>/dev/null",
-                    "cmd appops set $MESSAGES_PKG RUN_IN_BACKGROUND allow 2>/dev/null",
-                    "cmd appops set $MESSAGES_PKG RUN_ANY_IN_BACKGROUND allow 2>/dev/null",
-                    "settings put global hidden_api_policy 1 2>/dev/null"
+            // Wake up screen — MIUI-compatible 3-tier wake (Always execute block to avoid lock-screen stalls)
+            var pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep -E 'mWakefulness|mDisplayReady'").exec().out.joinToString("")
+            // Some devices report 'Awake' but 'mDisplayReady=false', or report 'Asleep'. We tap power if it isn't fully ready.
+            if (pwrState.contains("Asleep") || pwrState.contains("mDisplayReady=false")) {
+                Timber.i("Waking up screen with explicit keyevent 224 (KEYCODE_WAKEUP)")
+                com.topjohnwu.superuser.Shell.cmd(
+                    "svc power stayon true",
+                    "input keyevent 224"
                 ).exec()
+                kotlinx.coroutines.delay(1000)
+                // Re-check state, some devices bounce back
+                pwrState = com.topjohnwu.superuser.Shell.cmd("dumpsys power | grep mWakefulness").exec().out.joinToString("")
+                if (pwrState.contains("Asleep")) {
+                    com.topjohnwu.superuser.Shell.cmd("input keyevent 224").exec()
+                    kotlinx.coroutines.delay(1000)
+                }
+            } else {
+                // Already awake, just secure stayon
+                com.topjohnwu.superuser.Shell.cmd("svc power stayon true").exec()
             }
+            // Dismiss lock screen explicitly every single time
+            com.topjohnwu.superuser.Shell.cmd("wm dismiss-keyguard").exec()
+            kotlinx.coroutines.delay(600)
+            val wmRes = com.topjohnwu.superuser.Shell.cmd("wm size").exec()
+            val wmL = wmRes.out.lastOrNull { it.contains("x") } ?: "1080x2400"
+            val rp = wmL.substringAfter(":").trim().split("x")
+            val dW = rp[0].trim().toInt(); val dH = rp[1].trim().toInt()
+            com.topjohnwu.superuser.Shell.cmd("input swipe ${dW/2} ${(dH*0.85).toInt()} ${dW/2} ${(dH*0.25).toInt()} 300").exec()
+            
+            // Allow more time for MIUI lock screen dismissal animation before we throw the Intent
+            kotlinx.coroutines.delay(1500)
+            
+            // MIUI workaround: Ensure Google Messages has background activity launch permission
+            Shell.cmd(
+                "appops set $MESSAGES_PKG AUTO_START allow 2>/dev/null",
+                "appops set $MESSAGES_PKG MIUI_BACKGROUND_START allow 2>/dev/null",
+                "cmd appops set $MESSAGES_PKG RUN_IN_BACKGROUND allow 2>/dev/null",
+                "cmd appops set $MESSAGES_PKG RUN_ANY_IN_BACKGROUND allow 2>/dev/null",
+                "settings put global hidden_api_policy 1 2>/dev/null"
+            ).exec()
 
             // [PHASE 8 NATIVE ACCESSIBILITY INJECTION]: Ultra-low latency UI bypass.
             // Dispatch standard Intent to open the chat window, and use the in-memory Accessibility tree to blindly click the physical Send button.
@@ -122,7 +123,7 @@ class RcsSender @Inject constructor(
             // Verify Google Messages actually launched — retry up to 2 times if it didn't
             var messagesLaunched = false
             for (attempt in 1..3) {
-                kotlinx.coroutines.delay(if (recentlySent) 300L else 800L)
+                kotlinx.coroutines.delay(800L)
                 val focusedApp = Shell.cmd("dumpsys window | grep mCurrentFocus").exec().out.joinToString("")
                 if (focusedApp.contains(MESSAGES_PKG)) {
                     messagesLaunched = true
@@ -131,6 +132,7 @@ class RcsSender @Inject constructor(
                 }
                 Timber.w("Google Messages NOT in foreground (attempt $attempt): $focusedApp — retrying intent...")
                 Shell.cmd(startCmd.toString()).exec()
+                kotlinx.coroutines.delay(500L) // small delay after retry
             }
             
             if (!messagesLaunched) {
@@ -139,18 +141,25 @@ class RcsSender @Inject constructor(
             
             // Attempt 0-latency native memory-mapped tap
             com.messagingagent.android.service.MessagingUiAutomatorService.lastFoundSendButtonRect = null
-            var clicked = com.messagingagent.android.service.MessagingUiAutomatorService.clickSendButton()
+            var clicked = false
             
-            // Jetpack Compose Accessibility click bug fallback:
-            val rect = com.messagingagent.android.service.MessagingUiAutomatorService.lastFoundSendButtonRect
-            if (rect != null) {
-                // Delay slightly to ensure UI is ready for raw click
-                kotlinx.coroutines.delay(200)
-                val cx = rect.centerX()
-                val cy = rect.centerY()
-                Timber.w("Guaranteed Fallback: Executing raw system tap at bounding box ($cx, $cy) to bypass Compose click filters")
-                Shell.cmd("input tap $cx $cy").exec()
-                clicked = true
+            for (clickAttempt in 1..4) {
+                kotlinx.coroutines.delay(500L)
+                clicked = com.messagingagent.android.service.MessagingUiAutomatorService.clickSendButton()
+                
+                // Jetpack Compose Accessibility click bug fallback:
+                if (!clicked) {
+                    val rect = com.messagingagent.android.service.MessagingUiAutomatorService.lastFoundSendButtonRect
+                    if (rect != null) {
+                        val cx = rect.centerX()
+                        val cy = rect.centerY()
+                        Timber.w("Guaranteed Fallback: Executing raw system tap at bounding box ($cx, $cy) to bypass Compose click filters")
+                        Shell.cmd("input tap $cx $cy").exec()
+                        clicked = true
+                    }
+                }
+                if (clicked) break
+                Timber.i("Send button not found natively yet (attempt $clickAttempt). Waiting...")
             }
             
             if (!clicked && cachedSendButtonX != -1 && cachedSendButtonY != -1) {

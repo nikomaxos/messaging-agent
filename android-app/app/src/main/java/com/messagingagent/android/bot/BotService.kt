@@ -103,13 +103,9 @@ class BotService : Service() {
                     val alreadyDelivered = deliveredAt.containsKey(p.correlationId)
 
                     when (status) {
-                        11 -> {
-                            sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", "SEEN/READ")
-                            resolved.add(p)
-                            deliveredAt.remove(p.correlationId)
-                        }
-                        12 -> {
-                            sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", "SEEN/READ")
+                        11, 12, 13, 14 -> {
+                            val detail = if (status == 11 || status == 14) "SEEN/READ" else null
+                            sendCommResult(p.correlationId, p.deviceToken, "DELIVERED", detail)
                             resolved.add(p)
                             deliveredAt.remove(p.correlationId)
                         }
@@ -250,8 +246,9 @@ class BotService : Service() {
                             
                             if (msStr != null) {
                                 val ms = msStr.toIntOrNull() ?: -1
-                                if (ms == 12 || ms == 11) {
+                                if (ms in listOf(11, 12, 13, 14)) {
                                     deliveryResult = "DELIVERED"
+                                    if (ms == 11 || ms == 14) errorDetail = "SEEN/READ"
                                     dlrTracker.removeResolved(listOf(pending))
                                 } else if (ms == 8 || ms == 5 || ms == 9) {
                                     deliveryResult = "ERROR"
@@ -311,8 +308,9 @@ class BotService : Service() {
                         
                         if (msStr != null) {
                             val ms = msStr.toIntOrNull() ?: -1
-                            if (ms == 12 || ms == 11) {
+                            if (ms in listOf(11, 12, 13, 14)) {
                                 deliveryResult = "DELIVERED"
+                                if (ms == 11 || ms == 14) errorDetail = "SEEN/READ"
                             } else if (ms == 8 || ms == 5 || ms == 9) {
                                 deliveryResult = "ERROR"
                                 errorDetail = "Failed Status=$ms"
