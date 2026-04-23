@@ -110,10 +110,19 @@ export const getAiAgentConfig = () => api.get('/ai-agent/config').then((r: any) 
 export const updateAiAgentConfig = (d: any) => api.put('/ai-agent/config', d).then((r: any) => r.data)
 export const getAiAgentContext = () => api.get('/ai-agent/context').then((r: any) => r.data)
 export const testAiAgent = () => api.post('/ai-agent/test').then((r: any) => r.data)
-export const chatWithAiAgent = (messages: { role: string; content: string }[]) =>
-  api.post('/ai-agent/chat', { messages }).then((r: any) => r.data)
-export const getAiChatHistory = () => api.get('/ai-agent/history').then((r: any) => r.data)
-export const clearAiChatHistory = () => api.delete('/ai-agent/history')
+
+export const createAiSession = () => api.post('/ai-agent/sessions').then((r: any) => r.data)
+export const getAiSessions = () => api.get('/ai-agent/sessions').then((r: any) => r.data)
+export const deleteAiSession = (sessionId: number) => api.delete(`/ai-agent/sessions/${sessionId}`)
+
+export const chatWithAiAgent = (sessionId: number, messages: { role: string; content: string }[]) =>
+  api.post(`/ai-agent/chat/${sessionId}`, { messages }).then((r: any) => r.data)
+
+export const getAiChatHistory = (sessionId: number) => api.get(`/ai-agent/history/${sessionId}`).then((r: any) => r.data)
+
+export const getAiMemories = () => api.get('/ai-agent/memories').then((r: any) => r.data)
+export const deleteAiMemory = (id: number) => api.delete(`/ai-agent/memories/${id}`)
+export const clearAllAiMemories = () => api.delete('/ai-agent/memories')
 
 // Dead-Letter Queue
 export const getDeadLetters = (page = 0, size = 50) => api.get('/dlq', { params: { page, size } }).then((r: any) => r.data)

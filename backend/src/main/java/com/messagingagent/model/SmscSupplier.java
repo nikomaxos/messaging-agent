@@ -71,6 +71,10 @@ public class SmscSupplier {
     @Builder.Default
     private int enquireLinkInterval = 30000;
 
+    @Column
+    @Builder.Default
+    private Integer maxSessionLifetime = 5; // Default 5 minutes
+
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getAiAgentConfig, updateAiAgentConfig, testAiAgent, chatWithAiAgent, getAiChatHistory, clearAiChatHistory } from '../api/client'
-import { Bot, Save, Zap, Key, Eye, EyeOff, Send, Settings, MessageSquare, Loader2, Trash2, AlertCircle } from 'lucide-react'
+import { getAiAgentConfig, updateAiAgentConfig, testAiAgent, chatWithAiAgent, getAiChatHistory, getAiSessions, createAiSession, deleteAiSession, getAiMemories, deleteAiMemory, clearAllAiMemories } from '../api/client'
+import { Bot, Save, Zap, Key, Eye, EyeOff, Send, Settings, MessageSquare, Loader2, Trash2, AlertCircle, Database, X, Plus } from 'lucide-react'
 
 const PROVIDERS = [
   { value: 'GEMINI', label: 'Google Gemini', models: ['gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'] },
@@ -44,9 +44,11 @@ export default function AiAgentPage() {
   const [showKey, setShowKey] = useState(false)
   const [form, setForm] = useState<any>(null)
   const [testResult, setTestResult] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<'chat' | 'settings'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'memories' | 'settings'>('chat')
 
-  // Chat state
+  // Session and Chat state
+  const [sessions, setSessions] = useState<any[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isThinking, setIsThinking] = useState(false)
@@ -56,6 +58,11 @@ export default function AiAgentPage() {
   const { data: config, isLoading } = useQuery({
     queryKey: ['ai-config'],
     queryFn: getAiAgentConfig,
+  })
+
+  const { data: memories = [], refetch: refetchMemories } = useQuery({
+    queryKey: ['ai-memories'],
+    queryFn: getAiMemories,
   })
 
   if (config && !form) {
@@ -72,18 +79,58 @@ export default function AiAgentPage() {
     onSuccess: (d: any) => setTestResult(d),
   })
 
-  // Load persisted chat history on mount
+  // Load sessions on mount
   useEffect(() => {
-    getAiChatHistory().then((history: any[]) => {
-      if (history && history.length > 0) {
-        setMessages(history.map((m: any) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-          timestamp: new Date(m.createdAt),
-        })))
+    getAiSessions().then((data: any[]) => {
+      setSessions(data)
+      if (data && data.length > 0) {
+        setActiveSessionId(data[0].id)
+      } else if (config?.enabled) {
+        // Auto-create initial session if none exist
+        createAiSession().then(s => {
+          setSessions([s])
+          setActiveSessionId(s.id)
+        })
       }
-    }).catch(() => { /* first load, no history */ })
-  }, [])
+    }).catch(console.error)
+  }, [config?.enabled])
+
+  // Load persisted chat history when active session changes
+  useEffect(() => {
+    if (activeSessionId) {
+      getAiChatHistory(activeSessionId).then((history: any[]) => {
+        if (history && history.length > 0) {
+          setMessages(history.map((m: any) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.createdAt),
+          })))
+        } else {
+          setMessages([])
+        }
+      }).catch(() => setMessages([]))
+    } else {
+      setMessages([])
+    }
+  }, [activeSessionId])
+
+  const handleNewChat = () => {
+    createAiSession().then(s => {
+      setSessions(prev => [s, ...prev])
+      setActiveSessionId(s.id)
+    })
+  }
+
+  const handleDeleteSession = (id: number) => {
+    if (!confirm('Permanently delete this chat session?')) return
+    deleteAiSession(id).then(() => {
+      setSessions(prev => prev.filter(s => s.id !== id))
+      if (activeSessionId === id) {
+        setActiveSessionId(null)
+        setMessages([])
+      }
+    })
+  }
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -100,12 +147,11 @@ export default function AiAgentPage() {
     setInput('')
     setIsThinking(true)
 
-    // Resize textarea back
     if (inputRef.current) inputRef.current.style.height = '44px'
 
     try {
       const history = updatedMessages.map(m => ({ role: m.role, content: m.content }))
-      const data = await chatWithAiAgent(history)
+      const data = await chatWithAiAgent(activeSessionId!, history)
 
       if (data.error) {
         setMessages([...updatedMessages, {
@@ -113,12 +159,14 @@ export default function AiAgentPage() {
           content: `⚠️ **Error:** ${data.error}`,
           timestamp: new Date()
         }])
-      } else {
         setMessages([...updatedMessages, {
           role: 'assistant',
           content: data.reply,
           timestamp: new Date()
         }])
+        
+        // Refresh sessions to get updated title
+        getAiSessions().then(setSessions)
       }
     } catch (err: any) {
       setMessages([...updatedMessages, {
@@ -172,9 +220,29 @@ export default function AiAgentPage() {
               <MessageSquare size={13} /> Chat
             </button>
             <button
+              className={`px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition ${activeTab === 'memories' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+              onClick={() => setActiveTab('memories')}>
+              <Database size={13} /> Memories
+            </button>
+            <button
               className={`px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition ${activeTab === 'settings' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
               onClick={() => setActiveTab('settings')}>
               <Settings size={13} /> Settings
+            </button>
+            <div className="w-px h-6 bg-white/10 mx-1"></div>
+            {activeTab === 'chat' && (
+              <button
+                className="px-3 py-1.5 rounded text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20 hover:bg-brand-500/20 transition flex items-center gap-1.5"
+                onClick={handleNewChat}>
+                <Plus size={13} /> New Chat
+              </button>
+            )}
+            <button
+              className="px-2 py-1.5 rounded text-slate-500 hover:bg-white/5 hover:text-white transition flex items-center"
+              title="Close Page"
+              onClick={() => window.history.back()}
+            >
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -182,9 +250,34 @@ export default function AiAgentPage() {
 
       {/* ─── Chat Tab ─── */}
       {activeTab === 'chat' && (
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 flex min-h-0">
+          
+          {/* Chat Sidebar */}
+          <div className="w-56 shrink-0 bg-black/20 border-r border-white/5 flex flex-col p-3 overflow-y-auto hidden md:flex">
+             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-1 mt-1">Previous Chats</div>
+             <div className="flex-1 space-y-1">
+               {sessions.map(s => (
+                 <div key={s.id} className="group relative flex items-center">
+                   <button
+                     className={`flex-1 text-left px-3 py-2 rounded-lg text-[13px] truncate transition ${activeSessionId === s.id ? 'bg-white/10 text-white font-medium' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+                     onClick={() => setActiveSessionId(s.id)}
+                     title={s.title}>
+                     {s.title}
+                   </button>
+                   <button
+                     className={`absolute right-1 p-1.5 rounded-md text-slate-500 hover:bg-red-500/20 hover:text-red-400 transition opacity-0 group-hover:opacity-100 ${activeSessionId === s.id ? 'opacity-100' : ''}`}
+                     onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id) }}
+                     title="Delete this chat">
+                     <Trash2 size={12} />
+                   </button>
+                 </div>
+               ))}
+             </div>
+          </div>
+
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {messages.length === 0 && !isThinking && (
               <div className="flex-1 flex items-center justify-center py-20">
                 <div className="text-center max-w-md">
@@ -265,14 +358,6 @@ export default function AiAgentPage() {
           {/* Input area */}
           <div className="shrink-0 px-6 pb-4 pt-2 border-t border-white/5">
             <div className="flex gap-2 items-end">
-              {messages.length > 0 && (
-                <button
-                  className="shrink-0 p-2.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-900/10 transition"
-                  title="Clear chat"
-                  onClick={() => setMessages([])}>
-                  <Trash2 size={16} />
-                </button>
-              )}
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
@@ -282,16 +367,16 @@ export default function AiAgentPage() {
                   value={input}
                   onChange={handleTextareaInput}
                   onKeyDown={handleKeyDown}
-                  disabled={!isConfigured || isThinking}
+                  disabled={!isConfigured || isThinking || !activeSessionId}
                 />
                 <button
                   className={`absolute right-2 bottom-2 p-1.5 rounded-lg transition ${
-                    input.trim() && isConfigured && !isThinking
+                    input.trim() && isConfigured && !isThinking && activeSessionId
                       ? 'bg-brand-600 text-white hover:bg-brand-500'
                       : 'text-slate-700 cursor-not-allowed'
                   }`}
                   onClick={sendMessage}
-                  disabled={!input.trim() || !isConfigured || isThinking}>
+                  disabled={!input.trim() || !isConfigured || isThinking || !activeSessionId}>
                   <Send size={16} />
                 </button>
               </div>
@@ -300,6 +385,7 @@ export default function AiAgentPage() {
               AI has access to real-time metrics. Responses may take a few seconds.
             </div>
           </div>
+        </div>
         </div>
       )}
 
@@ -417,6 +503,57 @@ export default function AiAgentPage() {
                 <p className="text-slate-500">When enabled, the agent can diagnose issues, suggest fixes, and provide system maintenance recommendations.</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Memories Tab ─── */}
+      {activeTab === 'memories' && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Database size={20} className="text-brand-400" /> AI Long-Term Memory
+                </h2>
+                <p className="text-slate-500 text-sm">Key insights autonomously extracted from your conversations.</p>
+              </div>
+              {memories.length > 0 && (
+                <button
+                  className="px-4 py-2 bg-red-900/20 text-red-400 hover:bg-red-900/40 rounded text-sm transition flex gap-2 items-center"
+                  onClick={async () => {
+                    await clearAllAiMemories();
+                    refetchMemories();
+                  }}>
+                  <Trash2 size={14} /> Clear All
+                </button>
+              )}
+            </div>
+
+            {memories.length === 0 ? (
+              <div className="text-center py-20 text-slate-500 border border-dashed border-white/10 rounded-xl">
+                <Database size={32} className="mx-auto mb-3 opacity-20" />
+                <p>No memories yet. Have a meaningful conversation with the AI to extract insights!</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 mt-6">
+                {memories.map((mem: any) => (
+                  <div key={mem.id} className="glass p-5 relative group">
+                    <button
+                      className="absolute top-4 right-4 p-2 text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
+                      onClick={async () => {
+                        await deleteAiMemory(mem.id);
+                        refetchMemories();
+                      }}>
+                      <Trash2 size={16} />
+                    </button>
+                    <h3 className="text-brand-400 font-bold text-base pr-8 mb-2">{mem.topic}</h3>
+                    <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{mem.keyPoints}</div>
+                    <div className="text-[10px] text-slate-600 mt-4">Stored: {new Date(mem.createdAt).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

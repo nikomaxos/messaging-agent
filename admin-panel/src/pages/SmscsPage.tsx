@@ -54,7 +54,7 @@ export default function SmscsPage() {
       name: '', host: '', port: 2775, systemId: '', password: '',
       systemType: '', bindType: 'TRANSCEIVER', addressRange: '',
       sourceTon: 0, sourceNpi: 0, destTon: 0, destNpi: 0,
-      throughput: 0, enquireLinkInterval: 30000, active: true
+      throughput: 0, enquireLinkInterval: 30000, maxSessionLifetime: 5, active: true
     })
     setModalOpen(true)
   }
@@ -312,6 +312,12 @@ export default function SmscsPage() {
                   <label className="block text-xs font-medium text-slate-400 mb-1">Enquire Link Interval (ms)</label>
                   <input type="number" step="1000" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm font-mono"
                      value={formData.enquireLinkInterval || 30000} onChange={e => setFormData({ ...formData, enquireLinkInterval: parseInt(e.target.value) || 30000 })} />
+                </div>
+                <div className="col-span-4">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Max Session Lifetime (minutes)</label>
+                  <input type="number" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm font-mono"
+                     value={formData.maxSessionLifetime ?? 5} onChange={e => setFormData({ ...formData, maxSessionLifetime: parseInt(e.target.value) || 0 })} />
+                  <p className="text-[10px] text-slate-500 mt-1">0 = Unlimited. Unbinds and reconnects periodically to verify upstream authentication.</p>
                 </div>
               </div>
             </div>

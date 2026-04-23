@@ -3,6 +3,8 @@ package com.messagingagent.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.messagingagent.model.AiAgentConfig;
+import com.messagingagent.model.AiMemory;
+import com.messagingagent.repository.AiMemoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,16 +29,64 @@ public class AiChatService {
 
     private final PlatformHealthService healthService;
     private final ObjectMapper objectMapper;
+    private final AiMemoryRepository memoryRepository;
+    private final AiToolService aiToolService;
+
+    private static final int MAX_TOOL_RECURSION = 5;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
 
     /**
-     * Sends a user message to the configured AI provider, prepending system context.
-     * Returns the assistant's reply as a string.
+     * Recursive chat loop to handle tool calls.
      */
     public String chat(AiAgentConfig config, List<Map<String, String>> conversationHistory) throws Exception {
+        return handleToolLoop(config, new ArrayList<>(conversationHistory), 0);
+    }
+
+    private String handleToolLoop(AiAgentConfig config, List<Map<String, String>> history, int iteration) throws Exception {
+        if (iteration >= MAX_TOOL_RECURSION) {
+            return "Internal Error: Max tool execution recursion limit reached.";
+        }
+
+        String reply = chatInternal(config, history);
+
+        // Check if the reply contains a tool call
+        if (reply.contains("```tool_call")) {
+            int startIndex = reply.indexOf("```tool_call");
+            int endIndex = reply.indexOf("```", startIndex + 12);
+            
+            if (endIndex != -1) {
+                String jsonBody = reply.substring(startIndex + 12, endIndex).trim();
+                String action = "";
+                String toolResult = "";
+                
+                try {
+                    JsonNode toolReq = objectMapper.readTree(jsonBody);
+                    action = toolReq.path("action").asText("");
+                    String path = toolReq.path("path").asText("");
+                    String content = toolReq.path("content").asText("");
+                    
+                    log.info("🤖 AI requested tool execution: {} on {}", action, path);
+                    toolResult = aiToolService.executeTool(action, path, content);
+                } catch (Exception e) {
+                    toolResult = "Error parsing tool JSON: " + e.getMessage();
+                }
+
+                // Remove the tool_call block from the assistant's reply so we can persist clean history if needed
+                // Actually, Claude/OpenAI needs the context of what it just generated.
+                history.add(Map.of("role", "assistant", "content", reply));
+                history.add(Map.of("role", "user", "content", "Tool Output:\n```\n" + toolResult + "\n```"));
+                
+                return handleToolLoop(config, history, iteration + 1);
+            }
+        }
+
+        return reply;
+    }
+
+    private String chatInternal(AiAgentConfig config, List<Map<String, String>> conversationHistory) throws Exception {
         if (config.getApiKey() == null || config.getApiKey().isBlank()) {
             throw new IllegalStateException("API key is not configured");
         }
@@ -171,6 +221,16 @@ public class AiChatService {
             long queued = healthService.getQueuedCount();
             long offline = healthService.getOfflineDeviceCount();
 
+            List<AiMemory> memories = memoryRepository.findAll();
+            StringBuilder memoryContext = new StringBuilder();
+            if (!memories.isEmpty()) {
+                memoryContext.append("\nPREVIOUS SYSTEM MEMORIES AND TAKEAWAYS:\n");
+                memoryContext.append("Below are key insights, solutions, and notes you extracted from past conversations. Refer to these to solve repeating problems:\n");
+                for (AiMemory mem : memories) {
+                    memoryContext.append("- [").append(mem.getTopic()).append("]: ").append(mem.getKeyPoints()).append("\n");
+                }
+            }
+
             return """
                     You are an AI system administrator assistant for a messaging platform called "Messaging Agent".
                     The platform is an SMPP-to-RCS gateway that receives SMS messages via SMPP protocol and delivers them as RCS messages through Android devices.
@@ -199,9 +259,23 @@ public class AiChatService {
                     - Mobile Devices: Android phones running a custom APK that receives commands via WebSocket/STOMP
                     - Admin Panel: React (Vite) served via Nginx
                     
+                    LOCAL FILE CAPABILITIES:
+                    You have full access to view, edit, and delete files on the target machine under the codebase directory `/repo`. 
+                    If the user asks you to diagnose a problem or edit code/config, YOU MUST ACTUALLY VIEW and EDIT the files!
+                    To execute a tool, output a single JSON block wrapped exactly in ```tool_call ... ``` like this:
+                    
+                    ```tool_call
+                    {
+                      "action": "view_file",
+                      "path": "/repo/docker-compose.yml"
+                    }
+                    ```
+                    Available actions: `view_file` (requires `path`), `edit_file` (requires `path` and `content`), `delete_file` (requires `path`), `list_dir` (requires `path`).
+                    Once you output a `tool_call`, STOP WRITING. The system will automatically execute it and reply back to you with the tool's output. You can then analyze the output and execute another tool, or formulate your final response to the user.
+                    
                     Answer questions about the system accurately. If metrics look concerning, proactively warn the user.
                     Use markdown formatting for readability. Keep responses focused and practical.
-                    """;
+                    """ + memoryContext.toString();
         } catch (Exception e) {
             log.warn("Failed to build system context: {}", e.getMessage());
             return "You are an AI assistant for a messaging platform. System metrics are temporarily unavailable.";

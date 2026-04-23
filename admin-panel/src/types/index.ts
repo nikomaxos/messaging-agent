@@ -137,6 +137,7 @@ export interface SmscSupplierConfig {
   destNpi: number
   throughput: number
   enquireLinkInterval: number
+  maxSessionLifetime?: number
   active: boolean
   createdAt: string
   updatedAt?: string

@@ -103,6 +103,7 @@ services:
     volumes:
       - ${USERPROFILE:-.}/.android:/home/msgagent/.android:ro
       - ./android-app/apk-updates:/tmp/updates
+      - .:/repo
     ports:
       - "9090:9090"   # REST API + WebSocket
       - "2775:2775"   # SMPP server port

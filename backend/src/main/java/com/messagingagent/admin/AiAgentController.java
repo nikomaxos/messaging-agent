@@ -2,9 +2,14 @@ package com.messagingagent.admin;
 
 import com.messagingagent.model.AiAgentConfig;
 import com.messagingagent.model.AiChatMessage;
+import com.messagingagent.model.AiChatSession;
+import com.messagingagent.model.AiMemory;
 import com.messagingagent.repository.AiAgentConfigRepository;
 import com.messagingagent.repository.AiChatMessageRepository;
+import com.messagingagent.repository.AiChatSessionRepository;
+import com.messagingagent.repository.AiMemoryRepository;
 import com.messagingagent.service.AiChatService;
+import com.messagingagent.service.AiMemoryService;
 import com.messagingagent.service.PlatformHealthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +34,10 @@ public class AiAgentController {
     private final AiAgentConfigRepository configRepository;
     private final PlatformHealthService healthService;
     private final AiChatService chatService;
+    private final AiMemoryService memoryService;
     private final AiChatMessageRepository chatMessageRepository;
+    private final AiMemoryRepository memoryRepository;
+    private final AiChatSessionRepository chatSessionRepository;
 
     @GetMapping("/config")
     public AiAgentConfig getConfig() {
@@ -66,11 +74,32 @@ public class AiAgentController {
         return ctx;
     }
 
+    /** Create a new blank session */
+    @PostMapping("/sessions")
+    public AiChatSession createSession() {
+        return chatSessionRepository.save(AiChatSession.builder()
+                .title("New Chat Instance " + java.time.LocalDate.now())
+                .build());
+    }
+
+    /** Load persisted chat sessions */
+    @GetMapping("/sessions")
+    public List<AiChatSession> getSessions() {
+        return chatSessionRepository.findAllByOrderByUpdatedAtDesc();
+    }
+
+    /** Delete a session */
+    @DeleteMapping("/sessions/{sessionId}")
+    public ResponseEntity<Void> deleteSession(@PathVariable Long sessionId) {
+        chatSessionRepository.deleteById(sessionId);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * Chat with the AI agent. Accepts conversation history and returns the assistant's reply.
      */
-    @PostMapping("/chat")
-    public ResponseEntity<Map<String, String>> chat(@RequestBody Map<String, Object> request) {
+    @PostMapping("/chat/{sessionId}")
+    public ResponseEntity<Map<String, String>> chat(@PathVariable Long sessionId, @RequestBody Map<String, Object> request) {
         AiAgentConfig config = configRepository.findAll().stream().findFirst().orElse(null);
         if (config == null || !config.isEnabled()) {
             return ResponseEntity.badRequest().body(Map.of("error", "AI Agent is not enabled"));
@@ -84,6 +113,9 @@ public class AiAgentController {
         if (messages == null || messages.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "No messages provided"));
         }
+        
+        AiChatSession session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
 
         try {
             String reply = chatService.chat(config, messages);
@@ -91,9 +123,29 @@ public class AiAgentController {
             // Persist the user message and assistant reply
             Map<String, String> lastUserMsg = messages.get(messages.size() - 1);
             chatMessageRepository.save(AiChatMessage.builder()
+                    .sessionId(sessionId)
                     .role(lastUserMsg.get("role")).content(lastUserMsg.get("content")).build());
             chatMessageRepository.save(AiChatMessage.builder()
+                    .sessionId(sessionId)
                     .role("assistant").content(reply).build());
+            
+            // Update session timestamp
+            session.setUpdatedAt(java.time.Instant.now());
+            
+            // Auto-title if it's the first real message
+            if (session.getTitle().startsWith("New Chat Instance") && lastUserMsg.get("content").length() > 5) {
+                String snippet = lastUserMsg.get("content");
+                if (snippet.length() > 30) snippet = snippet.substring(0, 30) + "...";
+                session.setTitle("Chat: " + snippet);
+            }
+            chatSessionRepository.save(session);
+
+            // Build full history to send to memory extraction
+            List<Map<String, String>> fullHistoryForMemory = new java.util.ArrayList<>(messages);
+            fullHistoryForMemory.add(Map.of("role", "assistant", "content", reply));
+            
+            // Asynchronously extract and save memories
+            memoryService.extractAndStoreMemories(config, fullHistoryForMemory);
 
             return ResponseEntity.ok(Map.of("reply", reply));
         } catch (Exception e) {
@@ -133,16 +185,29 @@ public class AiAgentController {
         }
     }
 
-    /** Load persisted chat history */
-    @GetMapping("/history")
-    public List<AiChatMessage> getHistory() {
-        return chatMessageRepository.findAllByOrderByCreatedAtAsc();
+    /** Load persisted chat history for a session */
+    @GetMapping("/history/{sessionId}")
+    public List<AiChatMessage> getHistory(@PathVariable Long sessionId) {
+        return chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(sessionId);
     }
 
-    /** Clear chat history */
-    @DeleteMapping("/history")
-    public ResponseEntity<Void> clearHistory() {
-        chatMessageRepository.deleteAll();
+    /** Load persisted memories */
+    @GetMapping("/memories")
+    public List<AiMemory> getMemories() {
+        return memoryRepository.findAll();
+    }
+
+    /** Clear a specific memory */
+    @DeleteMapping("/memories/{id}")
+    public ResponseEntity<Void> deleteMemory(@PathVariable Long id) {
+        memoryRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Clear all memories */
+    @DeleteMapping("/memories")
+    public ResponseEntity<Void> clearMemories() {
+        memoryRepository.deleteAll();
         return ResponseEntity.noContent().build();
     }
 }

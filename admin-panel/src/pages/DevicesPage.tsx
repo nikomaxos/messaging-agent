@@ -633,7 +633,7 @@ export default function DevicesPage() {
 
                 <td className="px-3 py-2 text-[10px] text-slate-500 whitespace-nowrap align-top">
                   <div className="flex flex-col gap-2">
-                    <div className="h-4 flex items-center">{d.lastHeartbeat ? format(new Date(d.lastHeartbeat), 'h:mm a').toLowerCase() : 'never'}</div>
+                    <div className="h-4 flex items-center">{d.lastHeartbeat ? format(new Date(d.lastHeartbeat), 'MMM d, h:mm a') : 'never'}</div>
                   </div>
                 </td>
                 

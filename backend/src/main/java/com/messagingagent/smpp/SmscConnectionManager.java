@@ -49,6 +49,7 @@ public class SmscConnectionManager {
     private DefaultSmppClient smppClient;
     private final Map<Long, UpstreamSessionInfo> activeSessions = new ConcurrentHashMap<>();
     private final Map<Long, Instant> disconnectedAt = new ConcurrentHashMap<>();
+    private final java.util.Set<Long> connectingSuppliers = ConcurrentHashMap.newKeySet();
     
     public Instant getDisconnectedAt(Long supplierId) {
         return disconnectedAt.get(supplierId);
@@ -95,7 +96,7 @@ public class SmscConnectionManager {
         loadAndConnectAll();
         
         // Setup a monitor task to keep links alive and reconnect disconnected ones
-        monitorExecutor.scheduleAtFixedRate(this::monitorSessions, 5, 5, TimeUnit.SECONDS);
+        monitorExecutor.scheduleAtFixedRate(this::monitorSessions, 2, 2, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -114,6 +115,7 @@ public class SmscConnectionManager {
         });
         activeSessions.clear();
         disconnectedAt.clear();
+        connectingSuppliers.clear();
         
         if (smppClient != null) {
             smppClient.destroy();
@@ -131,7 +133,9 @@ public class SmscConnectionManager {
         log.info("Found {} active SMSC suppliers to connect.", suppliers.size());
         
         for (SmscSupplier supplier : suppliers) {
-            connectAsync(supplier);
+            if (connectingSuppliers.add(supplier.getId())) {
+                connectAsync(supplier);
+            }
         }
     }
 
@@ -143,6 +147,8 @@ public class SmscConnectionManager {
                 log.error("Failed initial connect for Supplier [{}] (id={}): {}", 
                         supplier.getName(), supplier.getId(), e.getMessage());
                 systemLogService.logAndBroadcast("ERROR", "UPSTREAM: " + supplier.getName(), "Bind Failed", e.getMessage());
+            } finally {
+                connectingSuppliers.remove(supplier.getId());
             }
         });
     }
@@ -163,7 +169,7 @@ public class SmscConnectionManager {
         config.setType(type);
         config.setHost(supplier.getHost());
         config.setPort(supplier.getPort());
-        config.setConnectTimeout(10000);
+        config.setConnectTimeout(5000);
         config.setSystemId(supplier.getSystemId());
         config.setPassword(supplier.getPassword());
         
@@ -173,6 +179,13 @@ public class SmscConnectionManager {
 
         config.getLoggingOptions().setLogBytes(false);
         config.getLoggingOptions().setLogPdu(true);
+        
+        long enquireLinkInterval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 50000;
+
+        // Precaution measures for ghost connections:
+        config.setWindowMonitorInterval(2000);
+        config.setRequestExpiryTimeout(enquireLinkInterval);
+        config.setWindowWaitTimeout(enquireLinkInterval);
 
         log.info("Connecting to SMSC [{}] at {}:{} as {}...", 
                 supplier.getName(), supplier.getHost(), supplier.getPort(), type);
@@ -200,28 +213,65 @@ public class SmscConnectionManager {
                 if (session != null) {
                     activeSessions.remove(supplier.getId());
                     disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
-                    session.destroy();
+                    try { session.destroy(); } catch(Exception ignored) {}
                 }
-                log.warn("SMSC [{}] disconnected. Attempting reconnect...", supplier.getName());
-                systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "Disconnected", "Attempting reconnect...");
-                connectAsync(supplier);
+                
+                if (connectingSuppliers.add(supplier.getId())) {
+                    log.warn("SMSC [{}] disconnected. Attempting reconnect...", supplier.getName());
+                    systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "Disconnected", "Attempting reconnect...");
+                    connectAsync(supplier);
+                }
             } else {
+                // Rebind periodically to force authentication check against proxy
+                Integer lifetimeMin = supplier.getMaxSessionLifetime();
+                if (lifetimeMin != null && lifetimeMin > 0) {
+                    long sessionAge = java.time.Duration.between(info.boundAt(), Instant.now()).toMillis();
+                    long maxLifetimeMs = lifetimeMin * 60000L;
+                    if (sessionAge >= maxLifetimeMs) {
+                        log.warn("Session for SMSC [{}] reached max lifetime ({} minutes). Forcing rebind to verify authentication.", supplier.getName(), lifetimeMin);
+                        systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "Forced Rebind",
+                            "Session reached max lifetime. Reconnecting to verify authentication.");
+                        
+                        CompletableFuture.runAsync(() -> {
+                            try {
+                                session.unbind(5000);
+                                session.destroy();
+                            } catch (Exception ignored) {}
+                            activeSessions.remove(supplier.getId());
+                            disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                        });
+                        continue;
+                    }
+                }
+
                 // EnquireLink to keep alive based on EnquireLinkInterval
                 try {
-                    long interval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 30000;
+                    long interval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 50000;
                     if (java.time.Duration.between(info.lastEnquireLink(), Instant.now()).toMillis() >= interval) {
                         info.setLastEnquireLink(Instant.now());
-                        log.info("Sending EnquireLink to SMSC [{}]", supplier.getName());
-                        EnquireLinkResp resp = session.enquireLink(new EnquireLink(), 5000);
-                        log.info("SMSC [{}] responded to EnquireLink with status: {}", supplier.getName(), resp.getCommandStatus());
+                        
+                        CompletableFuture.runAsync(() -> {
+                            try {
+                                log.info("Sending EnquireLink to SMSC [{}] with timeout {}ms", supplier.getName(), interval);
+                                EnquireLinkResp resp = session.enquireLink(new EnquireLink(), interval);
+                                log.info("SMSC [{}] responded to EnquireLink with status: {}", supplier.getName(), resp.getCommandStatus());
+                            } catch (SmppTimeoutException | SmppChannelException e) {
+                                log.warn("EnquireLink failed for SMSC [{}]. Connection might be dead.", supplier.getName());
+                                systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "EnquireLink Failed",
+                                    "Connection dead. Reason: " + e.getMessage());
+                                try { session.destroy(); } catch(Exception ignored) {}
+                                activeSessions.remove(supplier.getId());
+                                disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                            } catch (Exception e) {
+                                log.error("Unknown error during EnquireLink for SMSC [{}]: {}", supplier.getName(), e.getMessage());
+                                systemLogService.logAndBroadcast("ERROR", "UPSTREAM: " + supplier.getName(), "EnquireLink Error",
+                                    "Unexpected error, marking dead. Reason: " + e.getMessage());
+                                try { session.destroy(); } catch(Exception ignored) {}
+                                activeSessions.remove(supplier.getId());
+                                disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                            }
+                        });
                     }
-                } catch (SmppTimeoutException | SmppChannelException e) {
-                    log.warn("EnquireLink failed for SMSC [{}]. Connection might be dead.", supplier.getName());
-                    systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "EnquireLink Failed",
-                        "Connection might be dead. Reason: " + e.getMessage());
-                    session.destroy();
-                    activeSessions.remove(supplier.getId());
-                    disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
                 } catch (Exception ignored) {}
             }
         }
@@ -235,8 +285,18 @@ public class SmscConnectionManager {
         @lombok.NonNull Long finalSupplierId = supplierId; // Fix lint warning
         UpstreamSessionInfo info = activeSessions.get(finalSupplierId);
         if (info == null || info.session() == null || !info.session().isBound()) {
-            log.error("Cannot route. SMSC Session not active for supplierId={}", finalSupplierId);
-            return null;
+            // Queue mechanism: wait up to 5 seconds for the connection to re-bind (e.g. during max lifetime reconnects)
+            for (int i = 0; i < 50; i++) {
+                try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                info = activeSessions.get(finalSupplierId);
+                if (info != null && info.session() != null && info.session().isBound()) {
+                    break;
+                }
+            }
+            if (info == null || info.session() == null || !info.session().isBound()) {
+                log.error("Cannot route. SMSC Session not active for supplierId={} after waiting", finalSupplierId);
+                return null;
+            }
         }
         
         SmppSession session = info.session();
@@ -340,6 +400,26 @@ public class SmscConnectionManager {
             } else if (pduRequest instanceof EnquireLink) {
                 EnquireLinkResp resp = (EnquireLinkResp) pduRequest.createResponse();
                 resp.setCommandStatus(SmppConstants.STATUS_OK);
+                return resp;
+            } else if (pduRequest instanceof com.cloudhopper.smpp.pdu.Unbind) {
+                log.warn("Received Unbind request from SMSC [{}]. The server is actively dropping the connection.", supplier.getName());
+                systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "Unbind Received",
+                    "The SMSC requested to unbind the connection.");
+                    
+                com.cloudhopper.smpp.pdu.UnbindResp resp = (com.cloudhopper.smpp.pdu.UnbindResp) pduRequest.createResponse();
+                resp.setCommandStatus(SmppConstants.STATUS_OK);
+                
+                // Asynchronously clean up our session to allow the response to go out first
+                CompletableFuture.runAsync(() -> {
+                    try { Thread.sleep(200); } catch (Exception ignored) {}
+                    UpstreamSessionInfo info = activeSessions.get(supplier.getId());
+                    if (info != null && info.session() != null) {
+                        try { info.session().destroy(); } catch(Exception ignored) {}
+                    }
+                    activeSessions.remove(supplier.getId());
+                    disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                });
+                
                 return resp;
             }
             

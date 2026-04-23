@@ -50,6 +50,7 @@ public class AlertScheduler {
     private final DeviceGroupRepository deviceGroupRepository;
     private final DeviceWebSocketService deviceWebSocketService;
     private final SmscConnectionManager smscConnectionManager;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void evaluateAlerts() {
@@ -218,12 +219,13 @@ public class AlertScheduler {
                     });
                 }
                 if (sendSmpp) {
-                    smscConnectionManager.submitMessage(
-                            config.getAlertSmppSupplierId(),
-                            "SYSTEM",
-                            admin.getAlertPhoneNumber(),
-                            alertBody
-                    );
+                    com.messagingagent.kafka.SmppOutboundEvent event = com.messagingagent.kafka.SmppOutboundEvent.builder()
+                            .supplierId(config.getAlertSmppSupplierId())
+                            .sourceAddress("SYSTEM")
+                            .destinationAddress(admin.getAlertPhoneNumber())
+                            .messageText(alertBody)
+                            .build();
+                    kafkaTemplate.send("smpp.outbound", event);
                 }
             }
         }

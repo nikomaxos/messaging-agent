@@ -29,6 +29,14 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic smsOutboundTopic() {
+        return TopicBuilder.name("smpp.outbound")
+                .partitions(6)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public RecordMessageConverter messageConverter() {
         return new StringJsonMessageConverter();
     }

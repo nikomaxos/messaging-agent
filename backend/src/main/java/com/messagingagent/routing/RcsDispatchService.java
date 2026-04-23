@@ -51,6 +51,7 @@ public class RcsDispatchService {
     private final SmppClientRepository smppClientRepository;
     private final SmppRoutingRepository smppRoutingRepository;
     private final SmscConnectionManager smscConnectionManager;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     /**
      * Delay failure DELIVER_SM by 10s to allow a late DELIVERED result to cancel it.
@@ -248,17 +249,19 @@ public class RcsDispatchService {
                         deviceWebSocketService.sendSysCommand(logEntry.getDevice(), "CANCEL_RCS=" + logEntry.getDestinationAddress());
                     }
 
-                    String supplierMsgId = smscConnectionManager.submitMessage(
-                            logEntry.getFallbackSmsc().getId(), 
-                            logEntry.getSourceAddress(), 
-                            logEntry.getDestinationAddress(), 
-                            logEntry.getMessageText());
-                            
-                    if (supplierMsgId != null) {
-                        logEntry.setStatus(MessageLog.Status.DELIVERED); // Mark delivered since it's offloaded 
-                        logEntry.setFallbackMessageId(supplierMsgId);
-                        smppResponseService.sendDeliverySm(result.getCorrelationId());
-                    }
+                    com.messagingagent.kafka.SmppOutboundEvent event = com.messagingagent.kafka.SmppOutboundEvent.builder()
+                            .messageLogId(logEntry.getId())
+                            .supplierId(logEntry.getFallbackSmsc().getId())
+                            .sourceAddress(logEntry.getSourceAddress())
+                            .destinationAddress(logEntry.getDestinationAddress())
+                            .messageText(logEntry.getMessageText())
+                            .smppMessageId(result.getCorrelationId())
+                            .build();
+
+                    kafkaTemplate.send("smpp.outbound", event);
+                    logEntry.setStatus(MessageLog.Status.QUEUED); // SMPP Queued
+                    // DLR and FallbackMessageId will be set by the SmppOutboundConsumer when processed
+
                 }
             }
 
