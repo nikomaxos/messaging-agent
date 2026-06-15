@@ -1,1 +1,7 @@
-git clone -b main https://github.com/nikomaxos/messaging-agent.git && cd messaging-agent/linux_migration && chmod +x deploy_linux.sh && ./deploy_linux.sh
+Hello! You are my Antigravity coding assistant, and we are migrating our environment to a new Linux Mint (12 GB RAM) PC.
+
+To get started, please use your terminal tools to run the following command. This will clone our repository, install all necessary dependencies (Java 21, Node, Docker), and automatically extract and restore our PostgreSQL database and configuration backups:
+
+`git clone -b main https://github.com/nikomaxos/messaging-agent.git && cd messaging-agent/linux_migration && chmod +x deploy_linux.sh && ./deploy_linux.sh`
+
+After the script finishes successfully, please use your file reading tools to carefully read the file located at `messaging-agent/linux_migration/init_prompt.md`. That file contains all of your memory regarding our recent architectural changes, resolved bugs, and system context. Read it, and then let me know when you are fully initialized and ready to continue coding!
