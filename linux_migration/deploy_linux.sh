@@ -53,7 +53,8 @@ cd "$(dirname "$0")/.." # Go to project root
 
 # Check if docker-compose.yml exists, if so try to start infrastructure
 if [ -f "docker-compose.yml" ]; then
-    echo ">>> Starting backend infrastructure (Postgres, Redis, Kafka)..."
+    echo ">>> Pulling docker images and starting backend infrastructure (Postgres, Redis, Kafka)..."
+    sudo docker compose pull
     sudo docker compose up -d
 fi
 

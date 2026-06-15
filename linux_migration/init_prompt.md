@@ -41,5 +41,10 @@ When encountering similar code paths, refer to these recently solved challenges:
 3. **WSL & Docker Integration:** Solved local "Permission denied" errors on Ubuntu/WSL involving `systemd=true` conflicts with Docker's proxy. If Docker fails on this Linux host, verify proxy and socket permissions.
 
 ## 3. Getting Started
-You are now fully contextually aware. A deployment script (`deploy_linux.sh`) has been executed on this machine to install the required tools (Docker, Java 21, Node.js). 
-Please run `docker-compose ps` to ensure the core infrastructure is running, and ask the user what the next task is.
+You are now fully contextually aware. A one-paste deployment script (`deploy_linux.sh`) was executed on this machine which automatically:
+- Cloned the repository (`experimental/apk-direct-hooks` branch).
+- Installed the required tools (Docker, Java 21, Node.js).
+- Pulled the docker images and started the infrastructure (`docker compose up -d`).
+- Extracted the Windows data backup and restored the PostgreSQL database, Matrix configs, and ADB keys.
+
+Please run `docker compose ps` to ensure the core infrastructure is running, and ask the user what the next task is.
