@@ -1,1 +1,1 @@
-git clone -b experimental/apk-direct-hooks https://github.com/nikomaxos/messaging-agent.git && cd messaging-agent/linux_migration && chmod +x deploy_linux.sh && ./deploy_linux.sh
+git clone -b main https://github.com/nikomaxos/messaging-agent.git && cd messaging-agent/linux_migration && chmod +x deploy_linux.sh && ./deploy_linux.sh

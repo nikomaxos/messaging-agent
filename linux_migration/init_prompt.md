@@ -42,7 +42,7 @@ When encountering similar code paths, refer to these recently solved challenges:
 
 ## 3. Getting Started
 You are now fully contextually aware. A one-paste deployment script (`deploy_linux.sh`) was executed on this machine which automatically:
-- Cloned the repository (`experimental/apk-direct-hooks` branch).
+- Cloned the repository (`main` branch).
 - Installed the required tools (Docker, Java 21, Node.js).
 - Pulled the docker images and started the infrastructure (`docker compose up -d`).
 - Extracted the Windows data backup and restored the PostgreSQL database, Matrix configs, and ADB keys.
