@@ -1,0 +1,1 @@
+cd linux_migration && chmod +x deploy_linux.sh && ./deploy_linux.sh
