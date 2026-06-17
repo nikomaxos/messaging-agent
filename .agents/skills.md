@@ -23,3 +23,12 @@ This document tracks learned skills, architecture patterns, and domain-specific 
 ## 4. Diagnostic Workarounds
 *   When executing commands in the backend container that rely on `.env` variables, it's safer to `docker exec -it ma-backend bash` and source the environment, or natively map `application.yml` correctly.
 *   The `scratch_logs.py` script is an excellent way to grep and trace specific `correlationId` message lifecycles across the asynchronous rate-limiters, websockets, and expiration schedulers.
+
+## 5. Linux Migration & Deployment Methodology
+*   **State Preservation**: When migrating the environment, we must preserve state to prevent disruptive reconnections. The `migration_backup.zip` archives the Postgres database dump (`messagingagent_dump.sql`), the Matrix configuration state (`matrix/*`), and the Android ADB authorization keys (`adbkey*`).
+*   **Automated Restore Flow**: The `deploy_linux.sh` script handles end-to-end environment recreation:
+    1. Installs base dependencies (Java 21, Node v20, Docker, Android SDK CLI Tools).
+    2. Pulls and starts the backend infrastructure (Postgres, Redis, Kafka, Zookeeper) via `docker-compose`.
+    3. Blocks until the Postgres container is healthy using `pg_isready`.
+    4. Automatically unpacks the migration zip and executes a `psql` restore into the database.
+    5. Restores the Matrix configs and ADB keys so existing device bridges immediately reconnect upon the `backend` container start.
