@@ -35,9 +35,9 @@ This document tracks learned skills, architecture patterns, and domain-specific 
 
 ## 6. Antigravity Subagents Architecture
 *   To handle complex projects, the messaging agent project employs a specialized multi-agent hierarchy within the Antigravity ecosystem.
-*   **The Team Lead (Coder)**: The `coder` subagent acts as the orchestrator. It is equipped with subagent tools to automatically invoke, delegate tasks, and collect results from the rest of the team.
+*   **The Team Lead (Lead Architect)**: The `lead_architect` subagent acts as the orchestrator. It holds the "big picture", designs the architecture, and is equipped with subagent tools to automatically delegate tasks and collect results from the rest of the team.
 *   **The Team**:
-    1.  **`architect`**: Handles high-level system design, DB schemas, and structural changes.
-    2.  **`web_developer`**: Specializes in frontend UI/UX, styling, and web components.
-    3.  **`qa_tester`**: Executes test scenarios, hunts for bugs, and verifies the application's stability.
-*   **Workflow**: The `coder` subagent receives the main prompt, breaks it down, and invokes the `architect`, `web_developer`, and `qa_tester` as needed. All subagents are instructed to report back directly to the `coder`.
+    1.  **`backend_coder`**: Implements core backend logic and API integrations.
+    2.  **`ui_dev`**: Specializes in frontend UI/UX, styling, and web components.
+    3.  **`qa_analyst`**: Executes test scenarios, hunts for bugs, and verifies the application's stability.
+*   **Workflow**: The `lead_architect` subagent receives the main prompt, breaks it down, and invokes the `backend_coder`, `ui_dev`, and `qa_analyst` as needed. All subagents are instructed to report back directly to the `lead_architect`.
