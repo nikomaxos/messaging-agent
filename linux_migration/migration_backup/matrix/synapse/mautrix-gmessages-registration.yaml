@@ -1,0 +1,16 @@
+id: gmessages
+url: http://mautrix-gmessages:29336
+as_token: pRsqHyaFEqmFDeQy6yHGynoeegtTBrwGsUcdL93f09Tx6FMcc7o1QJue5lVvUuYT
+hs_token: qhksZUHzB3b4T55iqRxbYXms175FKUshfX4kLyWTkti7Yew93G2n3xQtVADV1oXp
+sender_localpart: 8J37asDkfI1Jt4tHzclTo6gQmQLAZ1st
+rate_limited: false
+namespaces:
+    users:
+        - regex: ^@gmessagesbot:synapse$
+          exclusive: true
+        - regex: ^@gmessages_.*:synapse$
+          exclusive: true
+        - regex: ^@device_.*:synapse$
+          exclusive: false
+de.sorunome.msc2409.push_ephemeral: true
+receive_ephemeral: true

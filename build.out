@@ -1,0 +1,284 @@
+--progress is a global compose flag, better use `docker compose --progress xx build ...
+ Image messaging-agent-backend Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 564B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.61kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/maven:3.9-eclipse-temurin-21
+#3 DONE 0.9s
+
+#4 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre-jammy
+#4 DONE 0.9s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 DONE 0.0s
+
+#7 [runtime 1/5] FROM docker.io/library/eclipse-temurin:21-jre-jammy@sha256:199aebeb3adcde4910695cdebfe782ada38dadb6cc8013159b58d3724451befd
+#7 resolve docker.io/library/eclipse-temurin:21-jre-jammy@sha256:199aebeb3adcde4910695cdebfe782ada38dadb6cc8013159b58d3724451befd 0.1s done
+#7 DONE 0.1s
+
+#8 [builder 1/6] FROM docker.io/library/maven:3.9-eclipse-temurin-21@sha256:d7e7f57407437c014571f1ad5a9955f03fc3edcb1d964067ef351fa38e798665
+#8 resolve docker.io/library/maven:3.9-eclipse-temurin-21@sha256:d7e7f57407437c014571f1ad5a9955f03fc3edcb1d964067ef351fa38e798665 0.1s done
+#8 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 498.38kB 0.0s done
+#6 DONE 0.1s
+
+#9 [builder 3/6] COPY pom.xml .
+#9 CACHED
+
+#10 [builder 2/6] WORKDIR /app
+#10 CACHED
+
+#11 [builder 4/6] RUN mvn -B dependency:go-offline -q
+#11 CACHED
+
+#12 [builder 5/6] COPY src ./src
+#12 DONE 0.1s
+
+#13 [builder 6/6] RUN mvn -B package -DskipTests
+#13 2.709 [INFO] Scanning for projects...
+#13 3.277 [INFO] 
+#13 3.277 [INFO] -------------< com.messagingagent:messaging-agent-backend >-------------
+#13 3.277 [INFO] Building messaging-agent-backend 1.0.0-SNAPSHOT
+#13 3.277 [INFO]   from pom.xml
+#13 3.277 [INFO] --------------------------------[ jar ]---------------------------------
+#13 4.044 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jboss/logging/jboss-logging/3.5.3.Final/jboss-logging-3.5.3.Final.pom
+#13 5.010 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jboss/logging/jboss-logging/3.5.3.Final/jboss-logging-3.5.3.Final.pom (19 kB at 19 kB/s)
+#13 5.039 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jboss/logging/logging-parent/1.0.1.Final/logging-parent-1.0.1.Final.pom
+#13 5.090 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jboss/logging/logging-parent/1.0.1.Final/logging-parent-1.0.1.Final.pom (6.0 kB at 114 kB/s)
+#13 5.126 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/classmate/1.6.0/classmate-1.6.0.pom
+#13 5.187 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/classmate/1.6.0/classmate-1.6.0.pom (6.6 kB at 109 kB/s)
+#13 5.193 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/oss-parent/55/oss-parent-55.pom
+#13 5.250 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/oss-parent/55/oss-parent-55.pom (24 kB at 421 kB/s)
+#13 5.260 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.14.12/byte-buddy-1.14.12.pom
+#13 5.370 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.14.12/byte-buddy-1.14.12.pom (16 kB at 143 kB/s)
+#13 5.379 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-parent/1.14.12/byte-buddy-parent-1.14.12.pom
+#13 5.431 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-parent/1.14.12/byte-buddy-parent-1.14.12.pom (63 kB at 1.3 MB/s)
+#13 5.461 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.5/jaxb-runtime-4.0.5.pom
+#13 5.519 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.5/jaxb-runtime-4.0.5.pom (11 kB at 204 kB/s)
+#13 5.521 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-runtime-parent/4.0.5/jaxb-runtime-parent-4.0.5.pom
+#13 5.585 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-runtime-parent/4.0.5/jaxb-runtime-parent-4.0.5.pom (1.2 kB at 18 kB/s)
+#13 5.589 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-parent/4.0.5/jaxb-parent-4.0.5.pom
+#13 5.636 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-parent/4.0.5/jaxb-parent-4.0.5.pom (35 kB at 729 kB/s)
+#13 5.644 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/jaxb-bom-ext/4.0.5/jaxb-bom-ext-4.0.5.pom
+#13 5.688 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/jaxb-bom-ext/4.0.5/jaxb-bom-ext-4.0.5.pom (3.5 kB at 79 kB/s)
+#13 5.697 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-core/4.0.5/jaxb-core-4.0.5.pom
+#13 5.745 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-core/4.0.5/jaxb-core-4.0.5.pom (3.7 kB at 78 kB/s)
+#13 5.760 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-activation/2.0.2/angus-activation-2.0.2.pom
+#13 5.815 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-activation/2.0.2/angus-activation-2.0.2.pom (4.0 kB at 74 kB/s)
+#13 5.827 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-activation-project/2.0.2/angus-activation-project-2.0.2.pom
+#13 5.880 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-activation-project/2.0.2/angus-activation-project-2.0.2.pom (21 kB at 373 kB/s)
+#13 5.897 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/4.0.5/txw2-4.0.5.pom
+#13 5.945 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/4.0.5/txw2-4.0.5.pom (1.8 kB at 37 kB/s)
+#13 5.952 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-txw-parent/4.0.5/jaxb-txw-parent-4.0.5.pom
+#13 5.998 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-txw-parent/4.0.5/jaxb-txw-parent-4.0.5.pom (1.2 kB at 26 kB/s)
+#13 6.009 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/4.1.2/istack-commons-runtime-4.1.2.pom
+#13 6.055 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/4.1.2/istack-commons-runtime-4.1.2.pom (1.6 kB at 34 kB/s)
+#13 6.060 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons/4.1.2/istack-commons-4.1.2.pom
+#13 6.104 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons/4.1.2/istack-commons-4.1.2.pom (26 kB at 598 kB/s)
+#13 6.426 [INFO] Downloading from sonatype-releases: https://oss.sonatype.org/content/repositories/releases/joda-time/joda-time/maven-metadata.xml
+#13 6.426 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/maven-metadata.xml
+#13 6.520 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/maven-metadata.xml (2.3 kB at 24 kB/s)
+#13 8.590 [INFO] Downloaded from sonatype-releases: https://oss.sonatype.org/content/repositories/releases/joda-time/joda-time/maven-metadata.xml (2.3 kB at 1.1 kB/s)
+#13 8.904 [INFO] Downloading from sonatype-releases: https://oss.sonatype.org/content/repositories/releases/com/cloudhopper/ch-commons-util/maven-metadata.xml
+#13 8.906 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/cloudhopper/ch-commons-util/maven-metadata.xml
+#13 9.005 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/cloudhopper/ch-commons-util/maven-metadata.xml (461 B at 4.6 kB/s)
+#13 9.283 [INFO] Downloaded from sonatype-releases: https://oss.sonatype.org/content/repositories/releases/com/cloudhopper/ch-commons-util/maven-metadata.xml (461 B at 1.2 kB/s)
+#13 9.382 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-toml/2.15.4/jackson-dataformat-toml-2.15.4.pom
+#13 9.436 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-toml/2.15.4/jackson-dataformat-toml-2.15.4.pom (3.5 kB at 62 kB/s)
+#13 9.439 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.15.4/jackson-dataformats-text-2.15.4.pom
+#13 9.486 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.15.4/jackson-dataformats-text-2.15.4.pom (3.5 kB at 76 kB/s)
+#13 9.529 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpasyncclient/4.1.5/httpasyncclient-4.1.5.pom
+#13 9.577 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpasyncclient/4.1.5/httpasyncclient-4.1.5.pom (5.9 kB at 123 kB/s)
+#13 9.580 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-asyncclient/4.1.5/httpcomponents-asyncclient-4.1.5.pom
+#13 9.624 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-asyncclient/4.1.5/httpcomponents-asyncclient-4.1.5.pom (10 kB at 232 kB/s)
+#13 9.634 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom
+#13 9.675 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom (5.0 kB at 121 kB/s)
+#13 9.681 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-core/4.4.16/httpcomponents-core-4.4.16.pom
+#13 9.721 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-core/4.4.16/httpcomponents-core-4.4.16.pom (12 kB at 299 kB/s)
+#13 9.728 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore-nio/4.4.16/httpcore-nio-4.4.16.pom
+#13 9.774 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore-nio/4.4.16/httpcore-nio-4.4.16.pom (5.5 kB at 120 kB/s)
+#13 9.797 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.16.1/commons-codec-1.16.1.pom
+#13 9.845 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.16.1/commons-codec-1.16.1.pom (16 kB at 334 kB/s)
+#13 9.848 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/66/commons-parent-66.pom
+#13 9.901 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/66/commons-parent-66.pom (77 kB at 1.5 MB/s)
+#13 9.907 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/apache/31/apache-31.pom
+#13 9.951 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/apache/31/apache-31.pom (24 kB at 523 kB/s)
+#13 9.974 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.107.Final/netty-codec-http-4.1.107.Final.pom
+#13 10.03 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.107.Final/netty-codec-http-4.1.107.Final.pom (4.4 kB at 72 kB/s)
+#13 10.05 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.107.Final/netty-codec-socks-4.1.107.Final.pom
+#13 10.10 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.107.Final/netty-codec-socks-4.1.107.Final.pom (2.5 kB at 50 kB/s)
+#13 10.11 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.107.Final/netty-handler-proxy-4.1.107.Final.pom
+#13 10.15 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.107.Final/netty-handler-proxy-4.1.107.Final.pom (3.6 kB at 81 kB/s)
+#13 10.16 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.107.Final/netty-transport-native-epoll-4.1.107.Final.pom
+#13 10.20 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.107.Final/netty-transport-native-epoll-4.1.107.Final.pom (27 kB at 568 kB/s)
+#13 10.21 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.107.Final/netty-transport-classes-epoll-4.1.107.Final.pom
+#13 10.25 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.107.Final/netty-transport-classes-epoll-4.1.107.Final.pom (2.1 kB at 50 kB/s)
+#13 10.26 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.107.Final/netty-transport-native-kqueue-4.1.107.Final.pom
+#13 10.30 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.107.Final/netty-transport-native-kqueue-4.1.107.Final.pom (31 kB at 715 kB/s)
+#13 10.31 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.107.Final/netty-transport-classes-kqueue-4.1.107.Final.pom
+#13 10.35 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.107.Final/netty-transport-classes-kqueue-4.1.107.Final.pom (2.1 kB at 53 kB/s)
+#13 10.36 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.1.107.Final/netty-resolver-dns-4.1.107.Final.pom
+#13 10.40 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.1.107.Final/netty-resolver-dns-4.1.107.Final.pom (3.7 kB at 78 kB/s)
+#13 10.41 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.1.107.Final/netty-codec-dns-4.1.107.Final.pom
+#13 10.46 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.1.107.Final/netty-codec-dns-4.1.107.Final.pom (2.7 kB at 61 kB/s)
+#13 10.53 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.14.12/byte-buddy-agent-1.14.12.pom
+#13 10.58 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.14.12/byte-buddy-agent-1.14.12.pom (10 kB at 238 kB/s)
+#13 10.71 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/ben-manes/caffeine/caffeine/3.1.8/caffeine-3.1.8.pom
+#13 10.77 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/ben-manes/caffeine/caffeine/3.1.8/caffeine-3.1.8.pom (2.1 kB at 34 kB/s)
+#13 10.78 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.37.0/checker-qual-3.37.0.pom
+#13 10.83 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.37.0/checker-qual-3.37.0.pom (2.1 kB at 42 kB/s)
+#13 10.85 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.21.1/error_prone_annotations-2.21.1.pom
+#13 10.90 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.21.1/error_prone_annotations-2.21.1.pom (1.8 kB at 35 kB/s)
+#13 10.91 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.21.1/error_prone_parent-2.21.1.pom
+#13 10.96 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.21.1/error_prone_parent-2.21.1.pom (13 kB at 285 kB/s)
+#13 11.04 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.13/2.15.4/jackson-module-scala_2.13-2.15.4.pom
+#13 11.09 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.13/2.15.4/jackson-module-scala_2.13-2.15.4.pom (5.1 kB at 106 kB/s)
+#13 11.11 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/2.15.4/jackson-dataformat-csv-2.15.4.pom
+#13 11.16 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/2.15.4/jackson-dataformat-csv-2.15.4.pom (3.0 kB at 59 kB/s)
+#13 11.21 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/dropwizard/metrics/metrics-core/4.2.25/metrics-core-4.2.25.pom
+#13 11.27 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/dropwizard/metrics/metrics-core/4.2.25/metrics-core-4.2.25.pom (2.6 kB at 45 kB/s)
+#13 11.52 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jboss/logging/jboss-logging/3.5.3.Final/jboss-logging-3.5.3.Final.jar
+#13 11.56 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jboss/logging/jboss-logging/3.5.3.Final/jboss-logging-3.5.3.Final.jar (59 kB at 1.5 MB/s)
+#13 11.56 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/classmate/1.6.0/classmate-1.6.0.jar
+#13 11.56 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.14.12/byte-buddy-1.14.12.jar
+#13 11.56 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.5/jaxb-runtime-4.0.5.jar
+#13 11.56 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-core/4.0.5/jaxb-core-4.0.5.jar
+#13 11.56 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-activation/2.0.2/angus-activation-2.0.2.jar
+#13 11.60 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/classmate/1.6.0/classmate-1.6.0.jar (69 kB at 1.6 MB/s)
+#13 11.60 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/4.0.5/txw2-4.0.5.jar
+#13 11.65 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/4.0.5/txw2-4.0.5.jar (73 kB at 872 kB/s)
+#13 11.65 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/4.1.2/istack-commons-runtime-4.1.2.jar
+#13 11.67 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-activation/2.0.2/angus-activation-2.0.2.jar (27 kB at 260 kB/s)
+#13 11.67 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.12/slf4j-api-2.0.12.jar
+#13 11.69 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/4.1.2/istack-commons-runtime-4.1.2.jar (26 kB at 203 kB/s)
+#13 11.69 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-toml/2.15.4/jackson-dataformat-toml-2.15.4.jar
+#13 11.77 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.12/slf4j-api-2.0.12.jar (68 kB at 326 kB/s)
+#13 11.77 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpasyncclient/4.1.5/httpasyncclient-4.1.5.jar
+#13 11.78 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-toml/2.15.4/jackson-dataformat-toml-2.15.4.jar (56 kB at 255 kB/s)
+#13 11.79 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.jar
+#13 11.79 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-core/4.0.5/jaxb-core-4.0.5.jar (139 kB at 608 kB/s)
+#13 11.79 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore-nio/4.4.16/httpcore-nio-4.4.16.jar
+#13 11.94 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpasyncclient/4.1.5/httpasyncclient-4.1.5.jar (182 kB at 481 kB/s)
+#13 11.94 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.16.1/commons-codec-1.16.1.jar
+#13 11.96 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.jar (328 kB at 843 kB/s)
+#13 11.96 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.107.Final/netty-codec-http-4.1.107.Final.jar
+#13 11.96 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.5/jaxb-runtime-4.0.5.jar (920 kB at 2.3 MB/s)
+#13 11.96 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.107.Final/netty-codec-socks-4.1.107.Final.jar
+#13 11.97 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore-nio/4.4.16/httpcore-nio-4.4.16.jar (369 kB at 913 kB/s)
+#13 11.97 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.107.Final/netty-handler-proxy-4.1.107.Final.jar
+#13 12.08 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.107.Final/netty-codec-socks-4.1.107.Final.jar (121 kB at 237 kB/s)
+#13 12.08 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.107.Final/netty-transport-native-epoll-4.1.107.Final-linux-x86_64.jar
+#13 12.09 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.107.Final/netty-handler-proxy-4.1.107.Final.jar (26 kB at 48 kB/s)
+#13 12.10 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.107.Final/netty-transport-classes-epoll-4.1.107.Final.jar
+#13 12.12 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.16.1/commons-codec-1.16.1.jar (365 kB at 654 kB/s)
+#13 12.13 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.107.Final/netty-transport-native-kqueue-4.1.107.Final-osx-x86_64.jar
+#13 12.16 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.107.Final/netty-transport-classes-epoll-4.1.107.Final.jar (147 kB at 247 kB/s)
+#13 12.16 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.107.Final/netty-transport-classes-kqueue-4.1.107.Final.jar
+#13 12.16 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.107.Final/netty-codec-http-4.1.107.Final.jar (666 kB at 1.1 MB/s)
+#13 12.17 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.1.107.Final/netty-resolver-dns-4.1.107.Final.jar
+#13 12.17 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.107.Final/netty-transport-native-epoll-4.1.107.Final-linux-x86_64.jar (40 kB at 66 kB/s)
+#13 12.17 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.1.107.Final/netty-codec-dns-4.1.107.Final.jar
+#13 12.17 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.107.Final/netty-transport-native-kqueue-4.1.107.Final-osx-x86_64.jar (25 kB at 41 kB/s)
+#13 12.17 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.14.12/byte-buddy-agent-1.14.12.jar
+#13 12.22 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.1.107.Final/netty-codec-dns-4.1.107.Final.jar (67 kB at 102 kB/s)
+#13 12.22 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.107.Final/netty-transport-classes-kqueue-4.1.107.Final.jar (109 kB at 165 kB/s)
+#13 12.22 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.107.Final/netty-transport-native-epoll-4.1.107.Final.jar
+#13 12.22 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/ben-manes/caffeine/caffeine/3.1.8/caffeine-3.1.8.jar
+#13 12.28 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.107.Final/netty-transport-native-epoll-4.1.107.Final.jar (6.1 kB at 8.5 kB/s)
+#13 12.28 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.13/2.15.4/jackson-module-scala_2.13-2.15.4.jar
+#13 12.29 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.1.107.Final/netty-resolver-dns-4.1.107.Final.jar (177 kB at 244 kB/s)
+#13 12.29 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/2.15.4/jackson-dataformat-csv-2.15.4.jar
+#13 12.50 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/ben-manes/caffeine/caffeine/3.1.8/caffeine-3.1.8.jar (889 kB at 954 kB/s)
+#13 12.50 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/dropwizard/metrics/metrics-core/4.2.25/metrics-core-4.2.25.jar
+#13 12.51 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.13/2.15.4/jackson-module-scala_2.13-2.15.4.jar (519 kB at 548 kB/s)
+#13 12.52 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.14.12/byte-buddy-1.14.12.jar (4.2 MB at 4.4 MB/s)
+#13 12.55 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/dropwizard/metrics/metrics-core/4.2.25/metrics-core-4.2.25.jar (131 kB at 133 kB/s)
+#13 12.56 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.14.12/byte-buddy-agent-1.14.12.jar (257 kB at 260 kB/s)
+#13 12.69 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/2.15.4/jackson-dataformat-csv-2.15.4.jar (100 kB at 89 kB/s)
+#13 12.75 [INFO] 
+#13 12.75 [INFO] --- resources:3.3.1:resources (default-resources) @ messaging-agent-backend ---
+#13 12.93 [INFO] Copying 1 resource from src/main/resources to target/classes
+#13 12.96 [INFO] Copying 24 resources from src/main/resources to target/classes
+#13 12.97 [INFO] 
+#13 12.97 [INFO] --- compiler:3.11.0:compile (default-compile) @ messaging-agent-backend ---
+#13 13.19 [INFO] Changes detected - recompiling the module! :source
+#13 13.19 [INFO] Compiling 129 source files with javac [debug release 21] to target/classes
+#13 25.37 [INFO] /app/src/main/java/com/messagingagent/routing/MatrixRouteService.java: /app/src/main/java/com/messagingagent/routing/MatrixRouteService.java uses unchecked or unsafe operations.
+#13 25.37 [INFO] /app/src/main/java/com/messagingagent/routing/MatrixRouteService.java: Recompile with -Xlint:unchecked for details.
+#13 25.37 [INFO] 
+#13 25.37 [INFO] --- resources:3.3.1:testResources (default-testResources) @ messaging-agent-backend ---
+#13 25.38 [INFO] skip non existing resourceDirectory /app/src/test/resources
+#13 25.38 [INFO] 
+#13 25.38 [INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ messaging-agent-backend ---
+#13 25.40 [INFO] No sources to compile
+#13 25.40 [INFO] 
+#13 25.40 [INFO] --- surefire:3.1.2:test (default-test) @ messaging-agent-backend ---
+#13 25.77 [INFO] Tests are skipped.
+#13 25.77 [INFO] 
+#13 25.77 [INFO] --- jar:3.3.0:jar (default-jar) @ messaging-agent-backend ---
+#13 26.13 [INFO] Building jar: /app/target/messaging-agent-backend-1.0.0-SNAPSHOT.jar
+#13 26.32 [INFO] 
+#13 26.32 [INFO] --- spring-boot:3.2.4:repackage (repackage) @ messaging-agent-backend ---
+#13 27.63 [INFO] Replacing main artifact /app/target/messaging-agent-backend-1.0.0-SNAPSHOT.jar with repackaged archive, adding nested dependencies in BOOT-INF/.
+#13 27.63 [INFO] The original artifact has been renamed to /app/target/messaging-agent-backend-1.0.0-SNAPSHOT.jar.original
+#13 27.63 [INFO] ------------------------------------------------------------------------
+#13 27.63 [INFO] BUILD SUCCESS
+#13 27.63 [INFO] ------------------------------------------------------------------------
+#13 27.64 [INFO] Total time:  24.999 s
+#13 27.64 [INFO] Finished at: 2026-06-16T07:00:42Z
+#13 27.64 [INFO] ------------------------------------------------------------------------
+#13 DONE 28.0s
+
+#14 [runtime 2/5] RUN apt-get update -q && apt-get install -y --no-install-recommends curl android-tools-adb     && rm -rf /var/lib/apt/lists/*
+#14 CACHED
+
+#15 [runtime 3/5] RUN groupadd -r msgagent && useradd -r -g msgagent -m msgagent
+#15 CACHED
+
+#16 [runtime 4/5] WORKDIR /app
+#16 CACHED
+
+#17 [runtime 5/5] COPY --from=builder /app/target/*.jar app.jar
+#17 DONE 0.3s
+
+#18 exporting to image
+#18 exporting layers
+#18 exporting layers 6.8s done
+#18 exporting manifest sha256:91613c77539836d21712fd34cd84c58b5bd854c01c13abef5417127afee589d7 0.0s done
+#18 exporting config sha256:4d09549722c1d8a8a66c0ccbc3078dd707ef8b9c69b1505c1afdb0e59609e1fd 0.0s done
+#18 exporting attestation manifest sha256:5deb5c5b75619304120b1523f417a13dd28e43804c09e0e1b0284434ef70906a 0.0s done
+#18 exporting manifest list sha256:3d331367d50e033734d33e7057f0a3e76ca4960e86aac2fbae28ec70a0d959c8
+#18 exporting manifest list sha256:3d331367d50e033734d33e7057f0a3e76ca4960e86aac2fbae28ec70a0d959c8 0.0s done
+#18 naming to docker.io/library/messaging-agent-backend:latest done
+#18 unpacking to docker.io/library/messaging-agent-backend:latest
+#18 unpacking to docker.io/library/messaging-agent-backend:latest 1.8s done
+#18 DONE 8.8s
+
+#19 resolving provenance for metadata file
+#19 DONE 0.0s
+ Image messaging-agent-backend Built 
+ Container ma-zookeeper Running 
+ Container ma-redis Running 
+ Container ma-postgres Running 
+ Container ma-kafka Running 
+ Container ma-backend Recreate 
+ Container ma-backend Recreated 
+ Container ma-redis Waiting 
+ Container ma-postgres Waiting 
+ Container ma-kafka Waiting 
+ Container ma-postgres Healthy 
+ Container ma-redis Healthy 
+ Container ma-kafka Healthy 
+ Container ma-backend Starting 
+ Container ma-backend Started 
