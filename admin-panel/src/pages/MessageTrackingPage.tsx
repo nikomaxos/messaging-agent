@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLogs, getLogIds, getGroups, getDevices, resubmitMessages, getSmscSuppliers } from '../api/client'
+import { getLogs, getLogIds, getGroups, getDevices, resubmitMessages, getSmscSuppliers, cancelQueuedMessages } from '../api/client'
 import { MessageLog, DeviceGroup, Device, SmscSupplier } from '../types'
 import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare, Layers } from 'lucide-react'
 import { format } from 'date-fns'
 
 const statusClass = (s: MessageLog['status']) => ({
   RECEIVED:  'pill-gray',
+  QUEUED:    'pill-purple',
   DISPATCHED:'pill-yellow',
   DELIVERED: 'pill-green',
   RCS_FAILED:'pill-red',
@@ -140,6 +141,14 @@ export default function MessageTrackingPage() {
     resubmitMutation.mutate({ messageIds: Array.from(selectedIds), fallbackSmscId: resubmitSmscId })
   }
 
+  const cancelQueuedMutation = useMutation({
+    mutationFn: cancelQueuedMessages,
+    onSuccess: (data: any) => {
+      alert(`Emptied ${data.cancelled} queued messages.`)
+      queryClient.invalidateQueries({ queryKey: ['logs'] })
+    }
+  })
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -165,6 +174,17 @@ export default function MessageTrackingPage() {
           <span className="text-xs text-slate-500">s</span>
           <button className="btn-secondary" onClick={() => refetch()}>
             <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button 
+            className="btn-secondary text-red-400 hover:text-red-300 border-red-500/20 hover:bg-red-500/10" 
+            onClick={() => {
+              if (window.confirm("Are you sure you want to cancel all queued messages? They will be marked as FAILED.")) {
+                cancelQueuedMutation.mutate()
+              }
+            }}
+            disabled={cancelQueuedMutation.isPending}
+          >
+            <X size={14} /> {cancelQueuedMutation.isPending ? 'Emptying...' : 'Empty Queue'}
           </button>
         </div>
       </div>
@@ -216,6 +236,7 @@ export default function MessageTrackingPage() {
                   value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
             <option value="">All</option>
             <option value="RECEIVED">RECEIVED</option>
+            <option value="QUEUED">QUEUED</option>
             <option value="DISPATCHED">DISPATCHED</option>
             <option value="DISPATCHED_TO_RCS">DISPATCHED TO RCS</option>
             <option value="DELIVERED">DELIVERED</option>

@@ -93,6 +93,9 @@ export const getLogIds = (filters?: Record<string, any>) =>
 export const resubmitMessages = (messageIds: number[], fallbackSmscId: number) =>
   api.post('/logs/resubmit', { messageIds, fallbackSmscId }).then((r: any) => r.data)
 
+export const cancelQueuedMessages = () =>
+  api.post('/logs/cancel-queued').then((r: any) => r.data)
+
 export const getSystemHealth = () => api.get('/system/health').then((r: any) => r.data)
 export const getPlatformHealth = () => api.get('/platform/health').then((r: any) => r.data)
 

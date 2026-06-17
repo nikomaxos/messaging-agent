@@ -98,6 +98,8 @@ services:
       ADMIN_USER: admin
       ADMIN_PASS: changeme
       SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
+      SPRING_FLYWAY_IGNORE_MISSING_MIGRATIONS: "true"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "false"
       ADB_VENDOR_KEYS: /home/msgagent/.android/adbkey
       HOME: /home/msgagent
     volumes:

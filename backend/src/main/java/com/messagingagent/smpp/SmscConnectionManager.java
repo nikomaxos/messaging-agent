@@ -180,12 +180,12 @@ public class SmscConnectionManager {
         config.getLoggingOptions().setLogBytes(false);
         config.getLoggingOptions().setLogPdu(true);
         
-        long enquireLinkInterval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 50000;
+        long enquireLinkInterval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 15000;
 
-        // Precaution measures for ghost connections:
-        config.setWindowMonitorInterval(2000);
-        config.setRequestExpiryTimeout(enquireLinkInterval);
-        config.setWindowWaitTimeout(enquireLinkInterval);
+        // Use standard Cloudhopper defaults to prevent ghost connection instability
+        config.setWindowMonitorInterval(15000); // Check window every 15s
+        config.setRequestExpiryTimeout(30000);  // 30s before unacknowledged requests expire
+        config.setWindowWaitTimeout(60000);     // 60s max wait for window to clear
 
         log.info("Connecting to SMSC [{}] at {}:{} as {}...", 
                 supplier.getName(), supplier.getHost(), supplier.getPort(), type);
@@ -246,15 +246,15 @@ public class SmscConnectionManager {
 
                 // EnquireLink to keep alive based on EnquireLinkInterval
                 try {
-                    long interval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 50000;
+                    long interval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 15000;
                     if (java.time.Duration.between(info.lastEnquireLink(), Instant.now()).toMillis() >= interval) {
                         info.setLastEnquireLink(Instant.now());
                         
                         CompletableFuture.runAsync(() -> {
                             try {
-                                log.info("Sending EnquireLink to SMSC [{}] with timeout {}ms", supplier.getName(), interval);
-                                EnquireLinkResp resp = session.enquireLink(new EnquireLink(), interval);
-                                log.info("SMSC [{}] responded to EnquireLink with status: {}", supplier.getName(), resp.getCommandStatus());
+                                log.info("Sending EnquireLink to SMSC [{}] with timeout {}ms", supplier.getName(), 10000);
+                                EnquireLinkResp resp = session.enquireLink(new EnquireLink(), 10000);
+                                log.debug("SMSC [{}] responded to EnquireLink with status: {}", supplier.getName(), resp.getCommandStatus());
                             } catch (SmppTimeoutException | SmppChannelException e) {
                                 log.warn("EnquireLink failed for SMSC [{}]. Connection might be dead.", supplier.getName());
                                 systemLogService.logAndBroadcast("WARN", "UPSTREAM: " + supplier.getName(), "EnquireLink Failed",

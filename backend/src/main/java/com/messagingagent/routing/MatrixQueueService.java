@@ -128,6 +128,7 @@ public class MatrixQueueService {
             } else {
                 // Save Matrix Event ID into supplierMessageId for the Sync Task
                 queued.setSupplierMessageId(eventId);
+                queued.setRcsSentAt(java.time.Instant.now());
                 messageLogRepository.save(queued);
                 
                 // Emit TRACK_DLR_ONLY to the Android agent for FastTrack native polling

@@ -74,6 +74,9 @@ public class NotificationConfig {
     @Column(name = "alert_smpp_supplier_id")
     private Long alertSmppSupplierId;
 
+    @Column(name = "alert_matrix_room_id")
+    private String alertMatrixRoomId;
+
     @CreationTimestamp
     private Instant createdAt;
 }

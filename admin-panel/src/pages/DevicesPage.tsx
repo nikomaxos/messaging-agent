@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance, bulkDeviceCommand, getSimCards, assignSimCard } from '../api/client'
+import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance, bulkDeviceCommand, getSimCards, assignSimCard, getSmppRoutings } from '../api/client'
 import { Device, DeviceGroup, SimCard } from '../types'
 import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse, Layers, MapPin, FileText, Smartphone, Monitor, QrCode, Settings, ChevronDown, Cpu } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -100,6 +100,7 @@ export default function DevicesPage() {
     refetchInterval: 30_000,
   })
   const { data: allSims = [] } = useQuery({ queryKey: ['sim-cards'], queryFn: getSimCards })
+  const { data: routings = [] } = useQuery({ queryKey: ['smppRoutings'], queryFn: getSmppRoutings })
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
   const [form, setForm] = useState({ name: '', hardwareId: '', groupId: '', sim1Id: '', sim2Id: '' })
@@ -591,6 +592,7 @@ export default function DevicesPage() {
             <th className="px-4">Uptime</th>
             <th className="px-4">Last Seen</th>
             <th className="px-4">Device Group</th>
+            <th className="px-4">Strategy</th>
             <th className="px-4">Battery</th>
             <th className="px-4">Interface</th>
             <th className="px-4">Wi-Fi</th>
@@ -641,6 +643,24 @@ export default function DevicesPage() {
                   <div className="flex flex-col gap-2">
                     <div className="h-4 flex items-center">{d.group?.name ? <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap text-[10px]">{d.group.name}</span> : <span className="text-slate-500 italic">—</span>}</div>
 
+                  </div>
+                </td>
+                
+                <td className="px-3 py-2 text-xs align-top">
+                  <div className="flex flex-col gap-2">
+                    <div className="h-4 flex items-center">
+                      {(() => {
+                        if (!d.group) return <span className="text-slate-500 italic">—</span>;
+                        const route = routings.find((r: any) => r.deviceGroup?.id === d.group?.id);
+                        if (!route) return <span className="text-slate-500 font-medium text-[10px]">WEBSOCKET <span className="text-slate-600">(Default)</span></span>;
+                        const mode = route.routingMode || 'WEBSOCKET';
+                        return (
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest leading-none border ${mode === 'MATRIX' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
+                            {mode}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </td>
                 
@@ -832,7 +852,7 @@ export default function DevicesPage() {
 
               {showForm && editing?.id === d.id && (
                 <tr className="border-b-[3px] border-indigo-500/10 bg-[#0a0a14] shadow-inner">
-                  <td colSpan={15} className="p-4">
+                  <td colSpan={16} className="p-4">
                     <div className="p-4 bg-slate-800/60 rounded-xl border border-indigo-500/30 w-full relative">
                       <h2 className="text-sm font-semibold text-slate-200 mb-4 pb-2 border-b border-slate-700/50">Edit Device: {d.name}</h2>
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
@@ -887,7 +907,7 @@ export default function DevicesPage() {
               </Fragment>
             ))}
             {filteredDevices.length === 0 && (
-              <tr><td colSpan={15} className="px-4 py-8 text-center text-slate-500">{devices.length === 0 ? 'No devices registered' : 'No devices match the current filters'}</td></tr>
+              <tr><td colSpan={16} className="px-4 py-8 text-center text-slate-500">{devices.length === 0 ? 'No devices registered' : 'No devices match the current filters'}</td></tr>
             )}
           </tbody>
           </table>

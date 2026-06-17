@@ -27,9 +27,22 @@ public class RcsExpirationService {
     private final SmppResponseService smppResponseService;
     private final com.messagingagent.device.DeviceWebSocketService deviceWebSocketService;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private RcsExpirationService self;
+    
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.scheduling.TaskScheduler taskScheduler;
 
-    // Run every 10 seconds
-    @Scheduled(fixedDelay = 10000)
+    public void scheduleExpiration(Long messageId, Instant triggerTime) {
+        if (triggerTime != null) {
+            taskScheduler.schedule(() -> self.processSingleMessage(messageId), triggerTime);
+        }
+    }
+
+    // Safety net: Run every 30 seconds
+    @Scheduled(fixedDelay = 30000)
     @Transactional
     public void processExpiredMessages() {
         Instant now = Instant.now();
@@ -42,57 +55,68 @@ public class RcsExpirationService {
         log.info("Found {} expired RCS messages to process for fallback", expiredLogs.size());
 
         for (MessageLog logEntry : expiredLogs) {
-            // Do NOT set a final status (FAILED/RCS_FAILED) — only real DLRs from the network can do that.
-            // The message stays DISPATCHED until the DLR watchdog reports DELIVERED/ERROR.
+            self.processSingleMessage(logEntry.getId());
+        }
+    }
 
-            boolean handledByFallback = false;
+    @Transactional
+    public void processSingleMessage(Long messageId) {
+        MessageLog logEntry = messageLogRepository.findById(messageId).orElse(null);
+        // Ensure it's still DISPATCHED and actually expired
+        if (logEntry != null && logEntry.getStatus() == MessageLog.Status.DISPATCHED && logEntry.getRcsExpiresAt() != null) {
+            if (!Instant.now().isBefore(logEntry.getRcsExpiresAt())) {
+                executeFallback(logEntry);
+            }
+        }
+    }
 
-            if (logEntry.getFallbackSmsc() != null && logEntry.getResendTrigger() != null) {
-                boolean shouldResend = "ALL_FAILURES".equalsIgnoreCase(logEntry.getResendTrigger());
+    private void executeFallback(MessageLog logEntry) {
+        boolean handledByFallback = false;
+        com.messagingagent.model.Device oldDevice = logEntry.getDevice();
+        com.messagingagent.model.DeviceGroup oldGroup = logEntry.getDeviceGroup();
 
-                if (shouldResend) {
-                    log.info("Expiration triggered Fallback SMSC (id={}) for correlationId={}",
-                            logEntry.getFallbackSmsc().getId(), logEntry.getSmppMessageId());
-                    
-                    logEntry.setFallbackStartedAt(Instant.now());
+        if (logEntry.getFallbackSmsc() != null && logEntry.getResendTrigger() != null) {
+            boolean shouldResend = "ALL_FAILURES".equalsIgnoreCase(logEntry.getResendTrigger());
 
-                    if (logEntry.getDevice() != null) {
-                        deviceWebSocketService.sendSysCommand(logEntry.getDevice(), "CANCEL_RCS=" + logEntry.getDestinationAddress());
-                    }
+            if (shouldResend) {
+                log.info("Expiration triggered Fallback SMSC (id={}) for correlationId={}",
+                        logEntry.getFallbackSmsc().getId(), logEntry.getSmppMessageId());
+                
+                logEntry.setFallbackStartedAt(Instant.now());
 
-                    com.messagingagent.kafka.SmppOutboundEvent event = com.messagingagent.kafka.SmppOutboundEvent.builder()
-                            .messageLogId(logEntry.getId())
-                            .supplierId(logEntry.getFallbackSmsc().getId())
-                            .sourceAddress(logEntry.getSourceAddress())
-                            .destinationAddress(logEntry.getDestinationAddress())
-                            .messageText(logEntry.getMessageText())
-                            .smppMessageId(logEntry.getSmppMessageId())
-                            .build();
-
-                    kafkaTemplate.send("smpp.outbound", event);
-                    logEntry.setStatus(MessageLog.Status.QUEUED);
-                    handledByFallback = true;
-                    // DLR and FallbackMessageId will be set by the SmppOutboundConsumer when processed
-
+                if (logEntry.getDevice() != null) {
+                    deviceWebSocketService.sendSysCommand(logEntry.getDevice(), "CANCEL_RCS=" + logEntry.getDestinationAddress());
                 }
-            }
 
-            if (!handledByFallback) {
-                // No fallback — do NOT send failure DELIVER_SM, do NOT set FAILED.
-                // Just mark that expiration happened (set errorDetail for audit) and
-                // clear rcsExpiresAt to prevent re-processing. Status stays DISPATCHED.
-                log.info("RCS expiration for correlationId={} — no fallback, awaiting DLR from network",
-                        logEntry.getSmppMessageId());
-                logEntry.setErrorDetail("RCS delivery receipt timed out — awaiting network DLR");
-                logEntry.setRcsExpiresAt(null); // Prevent re-processing by next sweep
-            }
+                com.messagingagent.kafka.SmppOutboundEvent event = com.messagingagent.kafka.SmppOutboundEvent.builder()
+                        .messageLogId(logEntry.getId())
+                        .supplierId(logEntry.getFallbackSmsc().getId())
+                        .sourceAddress(logEntry.getSourceAddress())
+                        .destinationAddress(logEntry.getDestinationAddress())
+                        .messageText(logEntry.getMessageText())
+                        .smppMessageId(logEntry.getSmppMessageId())
+                        .build();
 
-            messageLogRepository.save(logEntry);
-            
-            // Unlock the device and trigger queue drain so the next message can be dispatched
-            if (logEntry.getDevice() != null && logEntry.getDeviceGroup() != null) {
-                deviceWebSocketService.unlockDeviceAndDrainQueue(logEntry.getDevice(), logEntry.getDeviceGroup(), logEntry.getSmppMessageId());
+                kafkaTemplate.send("smpp.outbound", event);
+                logEntry.setStatus(MessageLog.Status.QUEUED);
+                logEntry.setDeviceGroup(null);
+                logEntry.setDevice(null);
+                logEntry.setRoutingMode(null);
+                handledByFallback = true;
             }
+        }
+
+        if (!handledByFallback) {
+            log.info("RCS expiration for correlationId={} — no fallback, awaiting DLR from network",
+                    logEntry.getSmppMessageId());
+            logEntry.setErrorDetail("RCS delivery receipt timed out — awaiting network DLR");
+            logEntry.setRcsExpiresAt(null); // Prevent re-processing by next sweep
+        }
+
+        messageLogRepository.save(logEntry);
+        
+        if (oldDevice != null && oldGroup != null) {
+            deviceWebSocketService.unlockDeviceAndDrainQueue(oldDevice, oldGroup, logEntry.getSmppMessageId());
         }
     }
 }

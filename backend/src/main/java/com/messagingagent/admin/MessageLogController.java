@@ -59,6 +59,13 @@ public class MessageLogController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /** POST /api/logs/cancel-queued */
+    @PostMapping("/cancel-queued")
+    public ResponseEntity<java.util.Map<String, Object>> cancelQueued() {
+        int cancelled = logRepository.cancelAllQueued();
+        return ResponseEntity.ok(java.util.Map.of("cancelled", cancelled));
+    }
+
     /**
      * GET /api/logs/ids?status=...&senderId=...
      * Returns ALL message IDs matching the given filters (no pagination).

@@ -27,6 +27,11 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     @org.springframework.data.jpa.repository.Query("UPDATE MessageLog m SET m.device = null WHERE m.device.id = :deviceId")
     void clearDeviceReferences(@org.springframework.data.repository.query.Param("deviceId") Long deviceId);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query("UPDATE MessageLog m SET m.status = 'FAILED', m.errorDetail = 'Cancelled by admin' WHERE m.status = 'QUEUED'")
+    int cancelAllQueued();
+
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE m.createdAt >= :startDate")
     long countTotalSince(@org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
 

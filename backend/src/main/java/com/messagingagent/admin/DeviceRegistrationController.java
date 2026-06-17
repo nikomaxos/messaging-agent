@@ -62,9 +62,13 @@ public class DeviceRegistrationController {
         }
 
         if (device == null) {
+            String hwId = (req.getHardwareId() != null && !req.getHardwareId().isBlank()) 
+                    ? req.getHardwareId().trim() 
+                    : UUID.randomUUID().toString();
+                    
             device = Device.builder()
                     .name(req.getDeviceName().trim())
-                    .hardwareId(req.getHardwareId().trim())
+                    .hardwareId(hwId)
                     .group(group)
                     .registrationToken(UUID.randomUUID().toString())
                     .status(Device.Status.OFFLINE)
@@ -152,7 +156,7 @@ public class DeviceRegistrationController {
     @Data
     public static class RegistrationRequest {
         @NotBlank private String deviceName;
-        @NotBlank private String hardwareId;
+        private String hardwareId;
         private Long groupId;
         private List<SimData> simCards;
     }

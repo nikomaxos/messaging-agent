@@ -51,6 +51,7 @@ public class AlertScheduler {
     private final DeviceWebSocketService deviceWebSocketService;
     private final SmscConnectionManager smscConnectionManager;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    private final com.messagingagent.routing.MatrixRouteService matrixRouteService;
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void evaluateAlerts() {
@@ -194,6 +195,11 @@ public class AlertScheduler {
 
         boolean sendRcs = config.getChannels().contains(NotificationChannel.RCS_VIRTUAL_SMSC) && config.getAlertDeviceGroupId() != null;
         boolean sendSmpp = config.getChannels().contains(NotificationChannel.SMPP_SUPPLIER) && config.getAlertSmppSupplierId() != null;
+        boolean sendMatrix = config.getChannels().contains(NotificationChannel.MATRIX_ROOM) && config.getAlertMatrixRoomId() != null;
+
+        if (sendMatrix) {
+            matrixRouteService.sendSystemMessage(config.getAlertMatrixRoomId(), alertBody);
+        }
 
         if (sendRcs || sendSmpp) {
             List<AppUser> admins = appUserRepository.findAll().stream()

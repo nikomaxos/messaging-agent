@@ -290,7 +290,9 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
         {/* Footer */}
         <div className="p-5 border-t border-white/10 bg-black/20 flex justify-end gap-3 shrink-0 rounded-b-xl items-center">
           { (createMut.isError || updateMut.isError) && (
-            <span className="text-red-400 text-sm flex-1 ml-2">Failed to save configuration. Please check the network log.</span>
+            <span className="text-red-400 text-sm flex-1 ml-2">
+              {(createMut.error as any)?.response?.data?.message || (updateMut.error as any)?.response?.data?.message || "Failed to save configuration. Please check the network log."}
+            </span>
           )}
           <button onClick={onClose} className="px-4 py-2 rounded text-sm text-slate-400 hover:text-white hover:bg-white/5 transition">Cancel</button>
           <button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} className="bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white px-6 py-2 rounded text-sm font-medium transition shadow-lg shadow-brand-500/20">

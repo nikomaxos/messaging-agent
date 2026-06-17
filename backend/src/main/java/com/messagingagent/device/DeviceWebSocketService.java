@@ -44,6 +44,10 @@ public class DeviceWebSocketService {
     private final DeviceLogRepository deviceLogRepository;
     private final RoundRobinLoadBalancer loadBalancer;
     private final MatrixQueueService matrixQueueService;
+
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.messagingagent.routing.RcsExpirationService rcsExpirationService;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     /**
@@ -328,6 +332,10 @@ public class DeviceWebSocketService {
             queued.setDevice(target);
             queued.setDispatchedAt(Instant.now());
             messageLogRepository.save(queued);
+
+            if (queued.getRcsExpiresAt() != null) {
+                rcsExpirationService.scheduleExpiration(queued.getId(), queued.getRcsExpiresAt());
+            }
 
             // Track dispatch time for rate limiting
             target.setLastDispatchedAt(Instant.now());

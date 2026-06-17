@@ -33,7 +33,7 @@ public class SmppRoutingController {
     }
 
     @PostMapping
-    public ResponseEntity<SmppRoutingDto> create(@RequestBody SmppRoutingDto payload) {
+    public ResponseEntity<?> create(@RequestBody SmppRoutingDto payload) {
         var client = smppClientRepository.findById(payload.getSmppClientId());
         if (client.isEmpty()) {
             return ResponseEntity.badRequest().build();
@@ -68,9 +68,20 @@ public class SmppRoutingController {
         }
 
         if (payload.getDestinations() != null) {
+            List<SmppRouting> allRoutings = repository.findAll();
             for (SmppRoutingDto.DestinationDto dto : payload.getDestinations()) {
                 var group = deviceGroupRepository.findById(dto.getDeviceGroupId());
                 if (group.isPresent()) {
+                    // Fail-safe: permit only one routing strategy per device (via its group)
+                    for (SmppRouting existing : allRoutings) {
+                        if (existing.getId().equals(routing.getId())) continue;
+                        boolean hasGroup = existing.getDestinations().stream()
+                            .anyMatch(d -> d.getDeviceGroup().getId().equals(group.get().getId()));
+                        if (hasGroup && existing.getRoutingMode() != routing.getRoutingMode()) {
+                            return ResponseEntity.badRequest().body(java.util.Map.of("message", "Device Group '" + group.get().getName() + "' is already assigned to a route with " + existing.getRoutingMode() + " strategy. A device can only have one routing strategy at a time."));
+                        }
+                    }
+                    
                     SmppRoutingDestination dest = new SmppRoutingDestination();
                     dest.setSmppRouting(routing);
                     dest.setDeviceGroup(group.get());
@@ -88,7 +99,7 @@ public class SmppRoutingController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SmppRoutingDto> update(@PathVariable Long id, @RequestBody SmppRoutingDto payload) {
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody SmppRoutingDto payload) {
         payload.setId(id);
         return create(payload);
     }

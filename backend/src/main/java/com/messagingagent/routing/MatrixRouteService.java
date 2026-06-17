@@ -35,16 +35,20 @@ public class MatrixRouteService {
 
     private final Map<Long, String> realTokens = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, String> portalCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, String> botRoomCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public String getRealToken(Device device) {
         if (realTokens.containsKey(device.getId())) {
             return realTokens.get(device.getId());
         }
+        String username = "device_" + device.getId();
+        String password = "msgagent-device-" + device.getId();
+        
         String url = synapseUrl + "/_matrix/client/v3/login";
         Map<String, String> body = Map.of(
             "type", "m.login.password",
-            "user", "device_" + device.getId(),
-            "password", "msgagent-device-" + device.getId()
+            "user", username,
+            "password", password
         );
         try {
             Map<String, Object> response = restTemplate.postForObject(url, body, Map.class);
@@ -53,16 +57,49 @@ public class MatrixRouteService {
                 realTokens.put(device.getId(), token);
                 return token;
             }
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            if (e.getStatusCode().value() == 403) {
+                log.info("User {} forbidden/not found, attempting auto-registration...", username);
+                try {
+                    String regUrl = synapseUrl + "/_matrix/client/v3/register";
+                    Map<String, Object> regBody = Map.of(
+                        "username", username,
+                        "password", password,
+                        "auth", Map.of("type", "m.login.dummy")
+                    );
+                    Map<String, Object> regResp = restTemplate.postForObject(regUrl, regBody, Map.class);
+                    if (regResp != null && regResp.containsKey("access_token")) {
+                        String token = (String) regResp.get("access_token");
+                        realTokens.put(device.getId(), token);
+                        return token;
+                    }
+                } catch (Exception ex) {
+                    log.error("Auto-registration failed for {}: {}", username, ex.getMessage());
+                }
+            } else if (e.getStatusCode().value() == 429) {
+                log.warn("Login rate limited for {}: {}", username, e.getResponseBodyAsString());
+            } else {
+                log.error("Failed to login real user {}: {}", username, e.getMessage());
+            }
         } catch (Exception e) {
-            log.error("Failed to login real user device_{}: {}", device.getId(), e.getMessage());
+            log.error("Failed to login real user {}: {}", username, e.getMessage());
         }
         return asToken;
     }
 
     public String sendMessage(Device device, String destinationAddress, String text) {
+        if (destinationAddress == null || destinationAddress.trim().isEmpty()) {
+            log.warn("Cannot send Matrix message with empty destination address for device {}", device.getId());
+            return null;
+        }
         try {
             String deviceUserId = String.format("@device_%d:%s", device.getId(), matrixDomain);
-            String formattedAddress = destinationAddress.startsWith("+") ? destinationAddress : "+" + destinationAddress;
+            String digitsOnly = destinationAddress.replaceAll("[^\\d]", "");
+            if (digitsOnly.isEmpty()) {
+                log.warn("Cannot send Matrix message: destination address contains no digits '{}'", destinationAddress);
+                return null;
+            }
+            String formattedAddress = "+" + digitsOnly;
             String cacheKey = device.getId() + "_" + formattedAddress;
             String roomId = portalCache.get(cacheKey);
 
@@ -71,7 +108,15 @@ public class MatrixRouteService {
             if (roomId == null) {
                 // Determine Portal Room using the bot
                 String botUserId = "@gmessagesbot:" + matrixDomain;
-                String botRoomId = createDirectRoom(deviceUserId, botUserId, token);
+                String botRoomId = botRoomCache.get(device.getId());
+                
+                if (botRoomId == null) {
+                    botRoomId = createDirectRoom(deviceUserId, botUserId, token);
+                    if (botRoomId != null) {
+                        botRoomCache.put(device.getId(), botRoomId);
+                        try { Thread.sleep(2000); } catch (Exception ignored) {} // wait for bot to join
+                    }
+                }
                 
                 if (botRoomId == null) {
                     log.error("Failed to create management room to {}", botUserId);
@@ -221,6 +266,8 @@ public class MatrixRouteService {
                                 if (m.find()) {
                                     return m.group(0);
                                 }
+                            } else {
+                                log.warn("Mautrix bridge bot responded with unexpected message: '{}'", body);
                             }
                         }
                     }
@@ -228,6 +275,32 @@ public class MatrixRouteService {
             }
         } catch (Exception e) {
              log.error("Failed to extract bot message from room {}", botRoomId, e);
+        }
+        return null;
+    }
+
+    public String sendSystemMessage(String roomId, String text) {
+        String txnId = UUID.randomUUID().toString();
+        String url = synapseUrl + "/_matrix/client/v3/rooms/" + roomId + "/send/m.room.message/" + txnId + "?user_id=@gmessagesbot:" + matrixDomain;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(asToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = Map.of(
+            "msgtype", "m.text",
+            "body", text
+        );
+
+        try {
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.PUT, request, Map.class).getBody();
+            if (response != null && response.containsKey("event_id")) {
+                return (String) response.get("event_id");
+            }
+        } catch (Exception e) {
+            log.error("Matrix API system message failed: {}", e.getMessage());
         }
         return null;
     }

@@ -208,6 +208,13 @@ public class SmppServerService {
                 String srcAddr = sm.getSourceAddress() != null ? sm.getSourceAddress().getAddress() : "";
                 String dstAddr = sm.getDestAddress()   != null ? sm.getDestAddress().getAddress()   : "";
                 
+                if (dstAddr == null || dstAddr.trim().isEmpty()) {
+                    log.warn("Blocked SUBMIT_SM due to empty destination address");
+                    SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
+                    resp.setCommandStatus(SmppConstants.STATUS_INVDSTADR);
+                    return resp;
+                }
+
                 String aitBlockAction = redis.opsForValue().get("smpp:ait:block:" + dstAddr);
                 if (aitBlockAction != null) {
                     log.warn("Blocked SUBMIT_SM for destination={} due to AIT auto-block policy (Action: {})", dstAddr, aitBlockAction);
