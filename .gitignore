@@ -65,3 +65,5 @@ messaging-agent.code-workspace
 logcat.txt
 matrix/mautrix-gmessages/config.yaml
 android-app/.kotlin/
+.env-vaults/
+!.env.vault
