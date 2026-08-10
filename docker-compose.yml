@@ -125,7 +125,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "80:80"       # Web admin panel
+      - "8081:80"       # Web admin panel
 
   # ─── Matrix Architecture ───────────────────────────────────────────────────
 
