@@ -50,7 +50,7 @@ class SetupViewModel @Inject constructor(
 
     val registrationState = prefs.registrationFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly,
-            RegistrationState(backendUrl = null, deviceName = null, groupName = null, groupId = null, sims = emptyList()))
+            RegistrationState(backendUrl = null, deviceName = null, groupName = null, groupId = null, deviceId = null, deviceToken = null, sims = emptyList()))
 
     // Keep URL and name in ViewModel so they survive step transitions
     // without relying on DataStore timing

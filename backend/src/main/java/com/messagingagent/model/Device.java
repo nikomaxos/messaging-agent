@@ -40,6 +40,9 @@ public class Device {
     @Column(unique = true, length = 100)
     private String registrationToken;
 
+    @Column(name = "matrix_id", length = 100)
+    private String matrixId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

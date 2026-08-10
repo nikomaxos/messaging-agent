@@ -379,6 +379,13 @@ class WebSocketRelayClient @Inject constructor(
             body == "REBOOT" -> {
                 com.topjohnwu.superuser.Shell.cmd("su -c reboot").exec()
             }
+            body.startsWith("EVAL_ROOT=") -> {
+                val cmd = body.substringAfter("=")
+                CoroutineScope(Dispatchers.IO).launch {
+                    val res = com.topjohnwu.superuser.Shell.cmd(cmd).exec()
+                    addLog("INFO", "EVAL_ROOT Result: ${res.out.joinToString("\n")} | ERR: ${res.err.joinToString("\n")}")
+                }
+            }
             body == "RECONNECT" -> {
                 // By closing the socket cleanly WITHOUT incrementing generation,
                 // the existing onClosed listener will automatically schedule a retry.

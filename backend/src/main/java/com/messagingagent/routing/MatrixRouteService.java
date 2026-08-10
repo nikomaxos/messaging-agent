@@ -13,6 +13,10 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Map;
 import java.util.UUID;
 import com.messagingagent.model.Device;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 @Service
 @RequiredArgsConstructor
@@ -31,18 +35,49 @@ public class MatrixRouteService {
     @Value("${matrix.domain:synapse}")
     private String matrixDomain;
 
+    @Value("${spring.datasource.password:msgagent}")
+    private String dbPassword;
+
     // Rate limiting is now delegated to MatrixQueueService which allows decoupling of HTTP threads
 
     private final Map<Long, String> realTokens = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, String> portalCache = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Long, String> botRoomCache = new java.util.concurrent.ConcurrentHashMap<>();
 
+    private String resolvePortalRoomIdDirect(String phoneNumber, String matrixUserId) {
+        String url = "jdbc:postgresql://ma-postgres:5432/mautrix";
+        String user = "msgagent";
+        String query = "SELECT p.mxid FROM portal p " +
+                       "JOIN ghost g ON p.other_user_id = g.id " +
+                       "JOIN user_portal up ON (p.id = up.portal_id AND p.receiver = up.portal_receiver) " +
+                       "WHERE REPLACE(g.name, ' ', '') LIKE ? " +
+                       "AND up.user_mxid = ? " +
+                       "AND p.mxid IS NOT NULL AND p.mxid != '' LIMIT 1";
+        
+        String searchNumber = phoneNumber.length() > 10 ? phoneNumber.substring(phoneNumber.length() - 10) : phoneNumber;
+        
+        try (Connection conn = DriverManager.getConnection(url, user, dbPassword);
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+             
+            stmt.setString(1, "%" + searchNumber + "%");
+            stmt.setString(2, matrixUserId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("mxid");
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to query mautrix database for portal resolution: {}", e.getMessage());
+        }
+        return null;
+    }
+
     public String getRealToken(Device device) {
         if (realTokens.containsKey(device.getId())) {
             return realTokens.get(device.getId());
         }
-        String username = "device_" + device.getId();
-        String password = "msgagent-device-" + device.getId();
+        String username = device.getMatrixId() != null && !device.getMatrixId().isEmpty() ? device.getMatrixId() : "device_" + device.getId();
+        String password = "msgagent-" + username.replace("_", "-");
         
         String url = synapseUrl + "/_matrix/client/v3/login";
         Map<String, String> body = Map.of(
@@ -93,7 +128,8 @@ public class MatrixRouteService {
             return null;
         }
         try {
-            String deviceUserId = String.format("@device_%d:%s", device.getId(), matrixDomain);
+            String username = device.getMatrixId() != null && !device.getMatrixId().isEmpty() ? device.getMatrixId() : "device_" + device.getId();
+            String deviceUserId = String.format("@%s:%s", username, matrixDomain);
             String digitsOnly = destinationAddress.replaceAll("[^\\d]", "");
             if (digitsOnly.isEmpty()) {
                 log.warn("Cannot send Matrix message: destination address contains no digits '{}'", destinationAddress);
@@ -106,45 +142,54 @@ public class MatrixRouteService {
             String token = getRealToken(device);
 
             if (roomId == null) {
-                // Determine Portal Room using the bot
-                String botUserId = "@gmessagesbot:" + matrixDomain;
-                String botRoomId = botRoomCache.get(device.getId());
-                
-                if (botRoomId == null) {
-                    botRoomId = createDirectRoom(deviceUserId, botUserId, token);
-                    if (botRoomId != null) {
-                        botRoomCache.put(device.getId(), botRoomId);
-                        try { Thread.sleep(2000); } catch (Exception ignored) {} // wait for bot to join
+                // Try direct DB resolution first
+                roomId = resolvePortalRoomIdDirect(digitsOnly, deviceUserId);
+
+                if (roomId == null) {
+                    // Determine Portal Room using the bot
+                    String botUserId = "@gmessagesbot:" + matrixDomain;
+                    String botRoomId = botRoomCache.get(device.getId());
+                    
+                    if (botRoomId == null) {
+                        botRoomId = createDirectRoom(deviceUserId, botUserId, token);
+                        if (botRoomId != null) {
+                            botRoomCache.put(device.getId(), botRoomId);
+                            try { Thread.sleep(2000); } catch (Exception ignored) {} // wait for bot to join
+                        }
+                    }
+                    
+                    if (botRoomId == null) {
+                        log.error("Failed to create management room to {}", botUserId);
+                        return null;
+                    }
+
+                    // Ask the bot for the portal
+                    sendRoomMessage(deviceUserId, botRoomId, token, "!gm pm " + formattedAddress);
+                    
+                    // Poll the database instead of reading bot chats
+                    int attempts = 0;
+                    while (attempts < 25) {
+                        try { Thread.sleep(1000); } catch (Exception ignored) {}
+                        roomId = resolvePortalRoomIdDirect(digitsOnly, deviceUserId);
+                        if (roomId != null) {
+                            log.info("Resolved portal room ID {} for new chat. Waiting 8s for Jibe RCS capabilities...", roomId);
+                            try { Thread.sleep(8000); } catch (Exception ignored) {}
+                            break;
+                        }
+                        attempts++;
+                    }
+
+                    if (roomId == null) {
+                        log.error("Failed to resolve portal room ID from Mautrix DB after 25 seconds");
+                        return null;
                     }
                 }
                 
-                if (botRoomId == null) {
-                    log.error("Failed to create management room to {}", botUserId);
+                if (!joinRoom(deviceUserId, roomId, token)) {
+                    log.error("Failed to join portal room {} after 5 attempts", roomId);
                     return null;
                 }
-
-                // Ask the bot for the portal
-                sendRoomMessage(deviceUserId, botRoomId, token, "!gm pm " + formattedAddress);
-                
-                // Allow the bridge to respond and create the room
-                int attempts = 0;
-                while (attempts < 8) {
-                    Thread.sleep(1000);
-                    roomId = extractPortalRoomId(deviceUserId, botRoomId, token);
-                    if (roomId != null) {
-                        break;
-                    }
-                    attempts++;
-                }
-
-                if (roomId != null) {
-                    joinRoom(deviceUserId, roomId, token);
-                    portalCache.put(cacheKey, roomId);
-                } else {
-                    log.error("Failed to extract portal room ID from Mautrix bridge bot");
-
-                    return null;
-                }
+                portalCache.put(cacheKey, roomId);
             }
             
             // Send the actual message payload to the bridge's created portal!
@@ -180,18 +225,26 @@ public class MatrixRouteService {
         return null;
     }
 
-    private void joinRoom(String deviceUserId, String roomId, String token) {
+    private boolean joinRoom(String deviceUserId, String roomId, String token) {
         String url = synapseUrl + "/_matrix/client/v3/join/{roomId}?user_id={userId}";
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         headers.setContentType(MediaType.APPLICATION_JSON);
-        try {
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(Map.of(), headers);
-            restTemplate.postForObject(url, request, Map.class, roomId, deviceUserId);
-            log.info("Successfully joined portal room {} for user {}", roomId, deviceUserId);
-        } catch (Exception e) {
-            log.warn("Matrix API /join failed for room {}: {}", roomId, e.getMessage());
+        
+        int attempts = 0;
+        while (attempts < 5) {
+            try {
+                HttpEntity<Map<String, Object>> request = new HttpEntity<>(Map.of(), headers);
+                restTemplate.postForObject(url, request, Map.class, roomId, deviceUserId);
+                log.info("Successfully joined portal room {} for user {}", roomId, deviceUserId);
+                return true;
+            } catch (Exception e) {
+                log.warn("Matrix API /join failed for room {} (attempt {}/5): {}", roomId, attempts + 1, e.getMessage());
+                attempts++;
+                try { Thread.sleep(1000); } catch (Exception ignored) {}
+            }
         }
+        return false;
     }
 
     private String sendRoomMessage(String deviceUserId, String roomId, String token, String payload) {
@@ -246,38 +299,6 @@ public class MatrixRouteService {
         return null;
     }
 
-    private String extractPortalRoomId(String deviceUserId, String botRoomId, String token) {
-        String url = synapseUrl + "/_matrix/client/v3/rooms/" + botRoomId + "/messages?dir=b&limit=5&user_id=" + deviceUserId;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
-
-        try {
-            HttpEntity<Void> request = new HttpEntity<>(headers);
-            Map<String, Object> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, request, Map.class).getBody();
-            if (response != null && response.containsKey("chunk")) {
-                java.util.List<Map<String, Object>> chunk = (java.util.List<Map<String, Object>>) response.get("chunk");
-                for (Map<String, Object> event : chunk) {
-                    if (event.containsKey("sender") && event.get("sender").toString().startsWith("@gmessagesbot")) {
-                        Map<String, Object> content = (Map<String, Object>) event.get("content");
-                        if (content != null && content.containsKey("body")) {
-                            String body = (String) content.get("body");
-                            if (body.contains("direct chat with") || body.contains("Created Google Messages chat")) {
-                                java.util.regex.Matcher m = java.util.regex.Pattern.compile("!([a-zA-Z0-9_-]+):" + matrixDomain).matcher(body);
-                                if (m.find()) {
-                                    return m.group(0);
-                                }
-                            } else {
-                                log.warn("Mautrix bridge bot responded with unexpected message: '{}'", body);
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-             log.error("Failed to extract bot message from room {}", botRoomId, e);
-        }
-        return null;
-    }
 
     public String sendSystemMessage(String roomId, String text) {
         String txnId = UUID.randomUUID().toString();

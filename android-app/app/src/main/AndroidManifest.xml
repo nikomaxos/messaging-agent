@@ -101,6 +101,15 @@
             android:foregroundServiceType="shortService"
             android:process=":bot" />
 
+        <receiver
+            android:name=".receiver.OtaRequestHandlerReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.messagingagent.android.REQUEST_OTA" />
+            </intent-filter>
+        </receiver>
+
         <receiver android:name=".service.CommReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="com.messagingagent.android.comm.ACTION_DISPATCH_RESULT" />

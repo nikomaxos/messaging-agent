@@ -310,7 +310,9 @@ public class SmppServerService {
                     redis.opsForList().rightPush(msgIdsKey, partMessageId);
                     redis.expire(msgIdsKey, Duration.ofMinutes(10));
                     
-                    Long currentParts = redis.opsForHash().size(concatKey);
+                    Long currentParts = redis.opsForValue().increment("smpp:concat:count:" + concatKey);
+                    redis.expire("smpp:concat:count:" + concatKey, Duration.ofMinutes(10));
+
                     if (currentParts == null || currentParts < totalParts) {
                         log.info("Buffered multipart SMS: part {}/{} for refNum={}", partNum, totalParts, refNum);
                         SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
@@ -333,6 +335,7 @@ public class SmppServerService {
                     
                     redis.delete(concatKey);
                     redis.delete(msgIdsKey);
+                    redis.delete("smpp:concat:count:" + concatKey);
                     
                     String mainCorrelationId = partMessageId;
                     if (allMsgIds != null && !allMsgIds.isEmpty()) {

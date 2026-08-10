@@ -61,6 +61,8 @@ public class DeviceWebSocketService {
     /** Rate-limiter for auto-OTA — last push time per device. */
     private final ConcurrentHashMap<Long, Instant> lastOtaPushTime = new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<Long, java.util.concurrent.locks.ReentrantLock> groupLocks = new ConcurrentHashMap<>();
+
     /** Queue a command for delivery on the next heartbeat/ping. */
     public void queueCommand(Long deviceId, String command) {
         pendingCommandQueue.computeIfAbsent(deviceId, k -> new ConcurrentLinkedQueue<>()).offer(command);
@@ -261,9 +263,73 @@ public class DeviceWebSocketService {
 
     /** Called when the device sends a real-time bulk DLR sync from native sqlite */
     public void handleDeliveryBulk(String base64Data, String deviceToken) {
-        // Disabled: Backend-side bulk tracking has been replaced by the superior 
-        // device-side TRACK_DLR_ONLY architecture for Matrix messages. 
-        // Keeping endpoint alive temporarily for backward compatibility with old APKs.
+        try {
+            String decoded = new String(java.util.Base64.getDecoder().decode(base64Data), java.nio.charset.StandardCharsets.UTF_8);
+            if (decoded.isBlank() || decoded.startsWith("EMPTY|") || decoded.startsWith("ERROR|")) return;
+
+            // Find device and its group
+            Optional<Device> deviceOpt = deviceRepository.findByRegistrationToken(deviceToken);
+            if (deviceOpt.isEmpty()) return;
+            Device device = deviceOpt.get();
+            if (device.getGroup() == null) return;
+            Long groupId = device.getGroup().getId();
+
+            // Find all DISPATCHED messages for this device group that still need a DLR
+            List<MessageLog> pending = messageLogRepository.findByStatusAndDeviceGroupId(
+                    MessageLog.Status.DISPATCHED, groupId);
+            if (pending.isEmpty()) return;
+
+            String[] lines = decoded.split("\n");
+            for (MessageLog msg : pending) {
+                if (msg.getRcsDlrReceivedAt() != null) continue; // already has DLR
+                if (msg.getFallbackStartedAt() != null) continue; // fallback already fired
+                String msgDest = msg.getDestinationAddress() != null ? msg.getDestinationAddress().replaceAll("[^0-9+]", "") : "";
+                String msgText = msg.getMessageText() != null ? msg.getMessageText() : "";
+                if (msgDest.isEmpty() || msgText.isEmpty()) continue;
+
+                String cleanMsgText = msgText.replaceAll("[^\\p{L}\\p{N}]", "").toLowerCase();
+
+                for (String line : lines) {
+                    if (line.isBlank()) continue;
+                    String[] parts = line.split("\\|", 3);
+                    if (parts.length < 3) continue;
+                    String bugleDest = parts[0].replaceAll("[^0-9+]", "");
+                    int statusId;
+                    try { statusId = Integer.parseInt(parts[1]); } catch (NumberFormatException e) { continue; }
+
+                    // Destination match (suffix)
+                    if (!(bugleDest.endsWith(msgDest) || msgDest.endsWith(bugleDest))) continue;
+
+                    // Only process delivered/read statuses
+                    if (statusId != 11 && statusId != 12 && statusId != 13) continue;
+
+                    // Decode the Base64 text from Bugle
+                    String bugleText;
+                    try {
+                        bugleText = new String(java.util.Base64.getDecoder().decode(parts[2]), java.nio.charset.StandardCharsets.UTF_8);
+                    } catch (Exception e) { continue; }
+
+                    // Fuzzy text match: strip non-alphanumeric, compare
+                    String cleanBugle = bugleText.replaceAll("[^\\p{L}\\p{N}]", "").toLowerCase();
+                    boolean exactMatch = bugleText.contains(msgText);
+                    boolean fuzzyMatch = !cleanMsgText.isEmpty() && !cleanBugle.isEmpty()
+                            && (cleanBugle.contains(cleanMsgText) || cleanMsgText.contains(cleanBugle));
+                    boolean prefixMatch = msgText.length() >= 10 && bugleText.contains(msgText.substring(0, 10));
+
+                    if (exactMatch || fuzzyMatch || prefixMatch) {
+                        log.info("Backend bulk DLR match for correlationId={} dest={} (bugle status={})",
+                                msg.getSmppMessageId(), bugleDest, statusId);
+                        SmsDeliveryResultEvent result = new SmsDeliveryResultEvent();
+                        result.setCorrelationId(msg.getSmppMessageId());
+                        result.setResult(SmsDeliveryResultEvent.Result.DELIVERED);
+                        handleDeliveryResult(result, deviceToken);
+                        break; // matched this message, move to next pending
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("handleDeliveryBulk error: {}", e.getMessage());
+        }
     }
 
     /** 
@@ -271,17 +337,22 @@ public class DeviceWebSocketService {
      * Dispatches queued messages to ALL available ONLINE devices for maximum TPS.
      * Uses the load balancer for fair device selection.
      */
-    public synchronized void drainQueueForGroup(DeviceGroup group) {
-        List<Device> onlineDevices = deviceRepository.findByGroupAndStatus(group, Device.Status.ONLINE);
-        if (onlineDevices.isEmpty()) {
-            return;
-        }
+    public void drainQueueForGroup(DeviceGroup group) {
+        if (group == null || group.getId() == null) return;
+        
+        java.util.concurrent.locks.ReentrantLock lock = groupLocks.computeIfAbsent(group.getId(), k -> new java.util.concurrent.locks.ReentrantLock());
+        lock.lock();
+        try {
+            List<Device> onlineDevices = deviceRepository.findByGroupAndStatus(group, Device.Status.ONLINE);
+            if (onlineDevices.isEmpty()) {
+                return;
+            }
 
-        // Track the earliest cooldown expiry for scheduling a delayed re-drain
-        long earliestCooldownMs = Long.MAX_VALUE;
+            // Track the earliest cooldown expiry for scheduling a delayed re-drain
+            long earliestCooldownMs = Long.MAX_VALUE;
 
-        // Drain as many queued messages as there are available devices
-        while (true) {
+            // Drain as many queued messages as there are available devices
+            while (true) {
             // Re-fetch available (non-rate-limited) devices that have not hit the InFlight Token Bucket capacity
             List<Device> available = onlineDevices.stream().filter(d -> {
                 int inFlight = d.getInFlightDispatches() != null ? d.getInFlightDispatches() : 0;
@@ -376,6 +447,9 @@ public class DeviceWebSocketService {
             log.debug("Scheduling delayed drain in {}ms for group {}", earliestCooldownMs, group.getName());
             DeviceGroup grp = group;
             scheduler.schedule(() -> drainQueueForGroup(grp), earliestCooldownMs, TimeUnit.MILLISECONDS);
+        }
+        } finally {
+            lock.unlock();
         }
     }
 

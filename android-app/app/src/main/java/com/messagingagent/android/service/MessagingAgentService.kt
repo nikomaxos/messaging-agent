@@ -211,7 +211,11 @@ class MessagingAgentService : Service() {
                         val flowState = prefs.registrationFlow().first()
                         val url = flowState.backendUrl
                         if (url != null) {
-                            val client = okhttp3.OkHttpClient()
+                            val client = okhttp3.OkHttpClient.Builder()
+                                .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                                .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                                .build()
                             
                             // 1. Check Agent Update
                             try {

@@ -13,7 +13,7 @@ session.bind_transceiver({
     if (pdu.command_status === 0) {
         console.log('Successfully bound');
         session.submit_sm({
-            destination_addr: '306981860567',
+            destination_addr: '306973699061',
             source_addr: '123456',
             short_message: 'Hello from Node JS TEST'
         }, function(pdu) {

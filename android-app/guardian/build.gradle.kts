@@ -11,9 +11,9 @@ android {
         applicationId = "com.messagingagent.guardian"
         minSdk = 26
         targetSdk = 34
-        versionCode = 113
-        versionName = "1.1.6"
-        buildConfigField("String", "API_BASE_URL", "\"http://rcs.nikomaxos.duckdns.org\"")
+        versionCode = 114
+        versionName = "1.1.7"
+
     }
 
     buildTypes {

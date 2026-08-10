@@ -44,6 +44,10 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM MessageLog m WHERE (m.smscSupplier.id = :supplierId OR m.fallbackSmsc.id = :supplierId) AND m.status IN :statuses AND m.createdAt >= :startDate")
     long countBySmscAndStatusesSince(@org.springframework.data.repository.query.Param("supplierId") Long supplierId, @org.springframework.data.repository.query.Param("statuses") java.util.List<MessageLog.Status> statuses, @org.springframework.data.repository.query.Param("startDate") java.time.Instant startDate);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.id = :id")
+    java.util.Optional<MessageLog> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+
     @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = :status AND m.rcsExpiresAt < :now")
     java.util.List<MessageLog> findExpiredLogs(@org.springframework.data.repository.query.Param("status") MessageLog.Status status, @org.springframework.data.repository.query.Param("now") java.time.Instant now);
 
@@ -168,4 +172,8 @@ public interface MessageLogRepository extends JpaRepository<MessageLog, Long>, J
     java.util.List<String> findLowVolumeDestinations(
             @org.springframework.data.repository.query.Param("since") java.time.Instant since,
             @org.springframework.data.repository.query.Param("maxVolume") int maxVolume);
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MessageLog m WHERE m.status = :status AND m.deviceGroup.id = :groupId")
+    java.util.List<MessageLog> findByStatusAndDeviceGroupId(
+            @org.springframework.data.repository.query.Param("status") MessageLog.Status status,
+            @org.springframework.data.repository.query.Param("groupId") Long groupId);
 }

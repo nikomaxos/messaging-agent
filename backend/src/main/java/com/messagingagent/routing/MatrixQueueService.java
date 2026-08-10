@@ -96,27 +96,33 @@ public class MatrixQueueService {
         try {
             log.info("Dispatching async queued message through Matrix Bridge for {}", target.getName());
             String eventId = matrixRouteService.sendMessage(target, queued.getDestinationAddress(), queued.getMessageText());
-
             if (eventId == null) {
-                int attempts = queued.getDispatchAttempts() != null ? queued.getDispatchAttempts() : 0;
+                MessageLog latest = messageLogRepository.findById(queued.getId()).orElse(null);
+                if (latest == null || latest.getStatus() != MessageLog.Status.DISPATCHED) {
+                    log.warn("Message {} state changed (current status: {}) while waiting for Matrix. Skipping update.", 
+                             queued.getSmppMessageId(), latest != null ? latest.getStatus() : "DELETED");
+                    return;
+                }
+
+                int attempts = latest.getDispatchAttempts() != null ? latest.getDispatchAttempts() : 0;
                 attempts++;
-                queued.setDispatchAttempts(attempts);
+                latest.setDispatchAttempts(attempts);
 
                 if (attempts >= 3) {
-                    log.error("Matrix Gateway Error persisting for msg {}. Falling back to ERROR.", queued.getSmppMessageId());
-                    messageLogRepository.save(queued);
+                    log.error("Matrix Gateway Error persisting for msg {}. Falling back to ERROR.", latest.getSmppMessageId());
+                    messageLogRepository.save(latest);
 
                     SmsDeliveryResultEvent dlr = new SmsDeliveryResultEvent();
-                    dlr.setCorrelationId(queued.getSmppMessageId());
+                    dlr.setCorrelationId(latest.getSmppMessageId());
                     dlr.setResult(SmsDeliveryResultEvent.Result.ERROR);
                     dlr.setErrorDetail("Matrix Gateway Error");
                     java.util.concurrent.CompletableFuture.runAsync(() -> deviceWebSocketService.handleDeliveryResult(dlr, target.getRegistrationToken()));
                 } else {
-                    log.warn("Matrix Gateway Error for msg {}, requeuing (Attempt {}/3)", queued.getSmppMessageId(), attempts);
-                    queued.setStatus(MessageLog.Status.QUEUED);
-                    queued.setDevice(null);
-                    queued.setDispatchedAt(null);
-                    messageLogRepository.save(queued);
+                    log.warn("Matrix Gateway Error for msg {}, requeuing (Attempt {}/3)", latest.getSmppMessageId(), attempts);
+                    latest.setStatus(MessageLog.Status.QUEUED);
+                    latest.setDevice(null);
+                    latest.setDispatchedAt(null);
+                    messageLogRepository.save(latest);
 
                     // Unlock device natively because we are re-queuing it
                     target.setInFlightDispatches(Math.max(0, (target.getInFlightDispatches() != null ? target.getInFlightDispatches() : 0) - 1));
@@ -126,24 +132,27 @@ public class MatrixQueueService {
                     // We don't trigger the direct interval fallback here since it runs asynchronously.
                 }
             } else {
-                // Save Matrix Event ID into supplierMessageId for the Sync Task
-                queued.setSupplierMessageId(eventId);
-                queued.setRcsSentAt(java.time.Instant.now());
-                messageLogRepository.save(queued);
-                
-                // Emit TRACK_DLR_ONLY to the Android agent for FastTrack native polling
-                if (queued.getMessageText() != null) {
-                    try {
-                        String b64Text = java.util.Base64.getEncoder().encodeToString(queued.getMessageText().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                        String cmd = "TRACK_DLR_ONLY=" + queued.getSmppMessageId() + "|" + queued.getDestinationAddress() + "|" + b64Text;
-                        deviceRepository.findByGroup(target.getGroup()).forEach(dev -> {
-                            if (dev.getStatus() == Device.Status.ONLINE || dev.getStatus() == Device.Status.BUSY) {
-                                deviceWebSocketService.sendSysCommand(dev, cmd);
-                            }
-                        });
-                        log.debug("Sent TRACK_DLR_ONLY to all devices in group {} for correlationId {}", target.getGroup().getId(), queued.getSmppMessageId());
-                    } catch (Exception ex) {
-                        log.warn("Failed to encode TRACK_DLR_ONLY for {}: {}", queued.getSmppMessageId(), ex.getMessage());
+                MessageLog latest = messageLogRepository.findById(queued.getId()).orElse(null);
+                if (latest != null && latest.getStatus() == MessageLog.Status.DISPATCHED) {
+                    // Save Matrix Event ID into supplierMessageId for the Sync Task
+                    latest.setSupplierMessageId(eventId);
+                    latest.setRcsSentAt(java.time.Instant.now());
+                    messageLogRepository.save(latest);
+                    
+                    // Emit TRACK_DLR_ONLY to the Android agent for FastTrack native polling
+                    if (queued.getMessageText() != null) {
+                        try {
+                            String b64Text = java.util.Base64.getEncoder().encodeToString(queued.getMessageText().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            String cmd = "TRACK_DLR_ONLY=" + queued.getSmppMessageId() + "|" + queued.getDestinationAddress() + "|" + b64Text;
+                            deviceRepository.findByGroup(target.getGroup()).forEach(dev -> {
+                                if (dev.getStatus() == Device.Status.ONLINE || dev.getStatus() == Device.Status.BUSY) {
+                                    deviceWebSocketService.sendSysCommand(dev, cmd);
+                                }
+                            });
+                            log.debug("Sent TRACK_DLR_ONLY to all devices in group {} for correlationId {}", target.getGroup().getId(), queued.getSmppMessageId());
+                        } catch (Exception ex) {
+                            log.warn("Failed to encode TRACK_DLR_ONLY for {}: {}", queued.getSmppMessageId(), ex.getMessage());
+                        }
                     }
                 }
             }

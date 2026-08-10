@@ -15,7 +15,8 @@ import java.util.List;
 
 /**
  * Sweeps for RCS messages that were dispatched to a device
- * but have not received a delivery receipt within the configured timeout window.
+ * but have not received a delivery receipt within the configured timeout
+ * window.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,11 +28,11 @@ public class RcsExpirationService {
     private final SmppResponseService smppResponseService;
     private final com.messagingagent.device.DeviceWebSocketService deviceWebSocketService;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
-    
+
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
     private RcsExpirationService self;
-    
+
     @org.springframework.beans.factory.annotation.Autowired
     private org.springframework.scheduling.TaskScheduler taskScheduler;
 
@@ -43,7 +44,6 @@ public class RcsExpirationService {
 
     // Safety net: Run every 30 seconds
     @Scheduled(fixedDelay = 30000)
-    @Transactional
     public void processExpiredMessages() {
         Instant now = Instant.now();
         List<MessageLog> expiredLogs = messageLogRepository.findExpiredLogs(MessageLog.Status.DISPATCHED, now);
@@ -59,18 +59,31 @@ public class RcsExpirationService {
         }
     }
 
-    @Transactional
     public void processSingleMessage(Long messageId) {
-        MessageLog logEntry = messageLogRepository.findById(messageId).orElse(null);
-        // Ensure it's still DISPATCHED and actually expired
-        if (logEntry != null && logEntry.getStatus() == MessageLog.Status.DISPATCHED && logEntry.getRcsExpiresAt() != null) {
-            if (!Instant.now().isBefore(logEntry.getRcsExpiresAt())) {
-                executeFallback(logEntry);
-            }
+        FallbackResult result = self.executeExpirationLogic(messageId);
+        if (result != null && result.device != null && result.group != null) {
+            deviceWebSocketService.unlockDeviceAndDrainQueue(result.device, result.group, result.correlationId);
         }
     }
 
-    private void executeFallback(MessageLog logEntry) {
+    private record FallbackResult(com.messagingagent.model.Device device, com.messagingagent.model.DeviceGroup group,
+            String correlationId) {
+    }
+
+    @Transactional
+    public FallbackResult executeExpirationLogic(Long messageId) {
+        MessageLog logEntry = messageLogRepository.findByIdForUpdate(messageId).orElse(null);
+        // Ensure it's still DISPATCHED and actually expired
+        if (logEntry != null && logEntry.getStatus() == MessageLog.Status.DISPATCHED
+                && logEntry.getRcsExpiresAt() != null) {
+            if (!Instant.now().isBefore(logEntry.getRcsExpiresAt())) {
+                return executeFallback(logEntry);
+            }
+        }
+        return null;
+    }
+
+    private FallbackResult executeFallback(MessageLog logEntry) {
         boolean handledByFallback = false;
         com.messagingagent.model.Device oldDevice = logEntry.getDevice();
         com.messagingagent.model.DeviceGroup oldGroup = logEntry.getDeviceGroup();
@@ -81,11 +94,12 @@ public class RcsExpirationService {
             if (shouldResend) {
                 log.info("Expiration triggered Fallback SMSC (id={}) for correlationId={}",
                         logEntry.getFallbackSmsc().getId(), logEntry.getSmppMessageId());
-                
+
                 logEntry.setFallbackStartedAt(Instant.now());
 
                 if (logEntry.getDevice() != null) {
-                    deviceWebSocketService.sendSysCommand(logEntry.getDevice(), "CANCEL_RCS=" + logEntry.getDestinationAddress());
+                    deviceWebSocketService.sendSysCommand(logEntry.getDevice(),
+                            "CANCEL_RCS=" + logEntry.getDestinationAddress());
                 }
 
                 com.messagingagent.kafka.SmppOutboundEvent event = com.messagingagent.kafka.SmppOutboundEvent.builder()
@@ -114,9 +128,7 @@ public class RcsExpirationService {
         }
 
         messageLogRepository.save(logEntry);
-        
-        if (oldDevice != null && oldGroup != null) {
-            deviceWebSocketService.unlockDeviceAndDrainQueue(oldDevice, oldGroup, logEntry.getSmppMessageId());
-        }
+
+        return new FallbackResult(oldDevice, oldGroup, logEntry.getSmppMessageId());
     }
 }

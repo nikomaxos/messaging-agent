@@ -27,3 +27,4 @@
     public static *** v(...);
     public static *** d(...);
 }
+-keep class com.messagingagent.android.bot.BugleDbQuery { *; }

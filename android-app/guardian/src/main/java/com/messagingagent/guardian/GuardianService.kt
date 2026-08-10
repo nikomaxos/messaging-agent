@@ -22,7 +22,11 @@ import java.io.File
 
 class GuardianService : Service() {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
     private fun sendProgress(status: String, progress: Int = -1) {
         val intent = Intent("com.messagingagent.guardian.UPDATE_STATUS")
@@ -176,6 +180,32 @@ class GuardianService : Service() {
             
             if (errorReader.ready()) {
                 errorOutput = errorReader.readText()
+            }
+
+            if (!isSuccess && (output.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE") || errorOutput.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE"))) {
+                sendProgress("Signature mismatch detected. Wiping old version first...")
+                Log.w("Guardian", "Signature mismatch. Uninstalling old agent...")
+                
+                os.writeBytes("pm uninstall com.messagingagent.android\n")
+                os.writeBytes("pm install -r ${apkFile.absolutePath}\n")
+                os.writeBytes("echo __DONE_RETRY__\n")
+                os.flush()
+
+                output = ""
+                errorOutput = ""
+                
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line == "__DONE_RETRY__") break
+                    if (line.contains("Success", ignoreCase = true)) {
+                        isSuccess = true
+                    }
+                    output += line + "\n"
+                }
+
+                if (errorReader.ready()) {
+                    errorOutput += errorReader.readText()
+                }
             }
             
             if (isSuccess || output.contains("Success", ignoreCase = true)) {
