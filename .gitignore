@@ -29,7 +29,8 @@ android-app/apk-updates/
 # Logs & temp files
 *.log
 *.txt
-*.sql
+# Exclude flyway migrations from the ignore rule
+!backend/src/main/resources/db/migration/*.sql
 *.bak
 *.old
 *.tmp
