@@ -1,24 +1,18 @@
-FROM docker:27-cli
+FROM node:20-alpine
 
-# Install Python3, Git, Bash, Docker Compose plugin, and curl
-RUN apk add --no-cache \
-    python3 \
-    git \
-    bash \
-    curl \
-    docker-cli-compose \
-    openssh-client
+# Install SSH client and Bash for remote execution
+RUN apk add --no-cache openssh-client bash curl
 
 WORKDIR /app
 
-# Copy deploy agent files
-COPY webhook_server.py /app/webhook_server.py
-COPY deploy.sh /app/deploy.sh
-RUN chmod +x /app/deploy.sh
+# Install dependencies
+COPY package*.json ./
+RUN npm install
 
-# Git config (needed for git operations)
-RUN git config --global --add safe.directory /repo
+# Copy application files
+COPY server.js ./
 
-EXPOSE 9000
+# Expose port
+EXPOSE 8082
 
-CMD ["python3", "/app/webhook_server.py"]
+CMD ["node", "server.js"]

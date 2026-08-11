@@ -179,8 +179,6 @@ services:
       dockerfile: Dockerfile
     container_name: ma-deploy-agent
     restart: unless-stopped
-    profiles:
-      - production
     environment:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-change-me-in-production}
       DEPLOY_BRANCH: ${DEPLOY_BRANCH:-main}
@@ -189,9 +187,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/repo
-    working_dir: /repo
+      - ~/.ssh:/root/.ssh:ro
     ports:
-      - "9000:9000"
+      - "8082:8082"
 
 volumes:
   postgres_data:
