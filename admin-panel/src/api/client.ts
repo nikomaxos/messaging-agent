@@ -83,6 +83,11 @@ export const createSmppRouting = (d: any) => api.post('/smpp/routings', d).then(
 export const updateSmppRouting = (id: number, d: any) => api.put(`/smpp/routings/${id}`, d).then((r: any) => r.data)
 export const deleteSmppRouting = (id: number) => api.delete(`/smpp/routings/${id}`)
 
+export const getRoutingRateLimits   = () => api.get('/routing/rate-limits').then((r: any) => r.data)
+export const createRoutingRateLimit = (d: any) => api.post('/routing/rate-limits', d).then((r: any) => r.data)
+export const updateRoutingRateLimit = (id: number, d: any) => api.put(`/routing/rate-limits/${id}`, d).then((r: any) => r.data)
+export const deleteRoutingRateLimit = (id: number) => api.delete(`/routing/rate-limits/${id}`)
+
 // ── Message Logs ──────────────────────────────────────────────────────────
 export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC', size = 50) => 
   api.get('/logs', { params: { page, size, sortBy, sortDir, ...filters } }).then((r: any) => r.data)

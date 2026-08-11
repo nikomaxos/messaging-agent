@@ -10,6 +10,7 @@ import SimCardsPage from './pages/SimCardsPage'
 import SmppServerPage from './pages/SmppServerPage'
 import SmppClientsPage from './pages/SmppClientsPage'
 import SmppRoutingPage from './pages/SmppRoutingPage'
+import RoutingRateLimitsPage from './pages/RoutingRateLimitsPage'
 import SmscsPage from './pages/SmscsPage'
 import SystemLogsPage from './pages/SystemLogsPage'
 import MessageTrackingPage from './pages/MessageTrackingPage'
@@ -42,9 +43,10 @@ export default function App() {
             <Route path="devices" element={<DevicesPage />} />
             <Route path="sim-cards" element={<SimCardsPage />} />
             <Route path="smpp/server" element={<SmppServerPage />} />
-            <Route path="smscs" element={<SmscsPage />} />
             <Route path="smpp/clients" element={<SmppClientsPage />} />
             <Route path="smpp/routing" element={<SmppRoutingPage />} />
+            <Route path="smpp/rate-limits" element={<RoutingRateLimitsPage />} />
+            <Route path="smscs" element={<SmscsPage />} />
             <Route path="logs/messages" element={<MessageTrackingPage />} />
             <Route path="logs/system" element={<SystemLogsPage />} />
             <Route path="users" element={<UsersPage />} />

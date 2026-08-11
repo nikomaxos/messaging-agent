@@ -102,6 +102,7 @@ export default function SmppClientsPage() {
               <th className="px-5 py-4 font-medium">System ID</th>
               <th className="px-5 py-4 font-medium">Password</th>
               <th className="px-5 py-4 font-medium">Status</th>
+              <th className="px-5 py-4 font-medium">Priority</th>
               <th className="px-5 py-4 font-medium">State</th>
               <th className="px-5 py-4 font-medium">Active Binds</th>
               <th className="px-5 py-4 font-medium">Uptime</th>
@@ -125,6 +126,12 @@ export default function SmppClientsPage() {
                 </td>
                 <td className="px-5 py-3">
                   <input type="checkbox" checked={formData.active !== false} onChange={e => setFormData({ ...formData, active: e.target.checked })} /> Active
+                </td>
+                <td className="px-5 py-3">
+                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm" value={formData.priority || 2} onChange={e => setFormData({ ...formData, priority: parseInt(e.target.value) })}>
+                    <option value={1}>1 (OTP)</option>
+                    <option value={2}>2 (Marketing)</option>
+                  </select>
                 </td>
                 <td className="px-5 py-3 text-slate-500">—</td>
                 <td className="px-5 py-3 text-slate-500">—</td>
@@ -159,6 +166,18 @@ export default function SmppClientsPage() {
                       c.active 
                         ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">Active</span>
                         : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Inactive</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {isEd ? (
+                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" value={formData.priority || 2} onChange={(e: any) => setFormData({ ...formData, priority: parseInt(e.target.value) })}>
+                        <option value={1}>1 (OTP)</option>
+                        <option value={2}>2 (Marketing)</option>
+                      </select>
+                    ) : (
+                      c.priority === 1 
+                        ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">OTP (P1)</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Marketing (P2)</span>
                     )}
                   </td>
                   <td className="px-5 py-3 text-xs text-slate-400">

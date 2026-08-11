@@ -66,8 +66,18 @@ export interface SmppClient {
   systemId: string
   password?: string
   active: boolean
+  priority?: number
   createdAt: string
   activeSessions?: SmppSession[]
+}
+
+export interface RoutingRateLimit {
+  id?: number
+  customerProfileId: string
+  countryCode: string
+  networkId: string
+  supplierId: string
+  speedTps: number
 }
 
 export interface SmppRouting {
