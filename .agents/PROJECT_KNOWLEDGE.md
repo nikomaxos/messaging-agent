@@ -19,7 +19,14 @@ The `messaging-agent` is a multi-component platform designed for messaging routi
   - A Vite + React + Tailwind CSS dashboard.
   - Provides a UI for device management, logs, and DevOps operations (Deployments).
 
-## 2. Infrastructure (Hetzner + Proxmox)
+## 2. Advanced Queueing & Rate Limiting Architecture
+
+To handle massive asynchronous burst traffic and fractional rate limiting (e.g. 0.1 TPS), the system employs a custom **Modular Monolith Worker** pattern backed by Kafka and Redis:
+- **Zero-Latency OTP Prioritization**: SMPP clients can be assigned Priority 1 (OTP) or Priority 2 (Marketing). The Redis `ZADD` composite score logic (`priority * 10^13 + timestamp`) guarantees OTP messages are mathematically forced to the head of the dispatch queue ahead of any marketing blasts.
+- **Fractional Rate Limiting (Minimum Delay Algorithm)**: Redis `PX` expirations calculate mandatory millisecond delays based on `1000 / TPS`. This allows infinitely fractional speeds perfectly bound to Customer Profile + Country + Network + Supplier route combinations.
+- **Microservice Decoupling**: High-volume queue processing is isolated in the `ma-dispatcher-worker` container (using `spring.profiles.active=worker`) to prevent web and API threads in the `backend` from being blocked under load.
+
+## 3. Infrastructure (Hetzner + Proxmox)
 
 - **Bare Metal**: Hetzner AX41 Dedicated Server (`65.108.8.252`).
 - **Hypervisor**: Proxmox VE 8.

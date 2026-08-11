@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Rocket, Server, RefreshCw, Terminal, Undo2, PlayCircle } from 'lucide-react'
+import packageJson from '../../package.json'
 
 export default function DeployPage() {
   const [logs, setLogs] = useState<string[]>([])
@@ -77,7 +78,7 @@ export default function DeployPage() {
             Messaging Agent Deployments
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Manage Enterprise Production deployments for the Messaging Agent
+            Manage Enterprise Production deployments for the Messaging Agent (v{packageJson.version})
           </p>
         </div>
       </div>
