@@ -13,11 +13,13 @@ import java.util.List;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class RateLimiterService {
 
-    @Qualifier("smppCorrelationRedisTemplate")
     private final RedisTemplate<String, String> redis;
+
+    public RateLimiterService(@Qualifier("stringRedisTemplate") RedisTemplate<String, String> redis) {
+        this.redis = redis;
+    }
 
     /**
      * Lua script for Minimum Delay Algorithm (Supports fractional speeds).
