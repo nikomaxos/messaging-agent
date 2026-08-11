@@ -114,6 +114,33 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      
+  dispatcher-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ma-dispatcher-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: messagingagent
+      DB_USER: msgagent
+      DB_PASS: msgagent
+      KAFKA_BROKERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: worker
+      SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
+      SPRING_FLYWAY_IGNORE_MISSING_MIGRATIONS: "true"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "false"
 
   admin-panel:
     build:

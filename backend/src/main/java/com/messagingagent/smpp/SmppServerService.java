@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import com.messagingagent.repository.SmppServerSettingsRepository;
 import com.messagingagent.model.SmppServerSettings;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Profile;
 import com.messagingagent.service.SystemLogService;
 
 /**
@@ -34,6 +35,7 @@ import com.messagingagent.service.SystemLogService;
  *  3. Publishes SmsInboundEvent to Kafka "sms.inbound"
  */
 @Service
+@Profile("!worker")
 @Slf4j
 public class SmppServerService {
 
@@ -151,11 +153,18 @@ public class SmppServerService {
         @Override
         public void sessionCreated(Long sessionId, SmppServerSession session,
                                     BaseBindResp preparedBindResponse) {
-            session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), session.getConfiguration().getSystemId(), session));
-            sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now()));
-            log.info("SMPP session created id={}", sessionId);
+            String systemId = session.getConfiguration().getSystemId();
+            Integer priority = 2; // Default Marketing
+            var clientOpt = smppClientRepository.findBySystemId(systemId);
+            if (clientOpt.isPresent() && clientOpt.get().getPriority() != null) {
+                priority = clientOpt.get().getPriority();
+            }
+                                        
+            session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), systemId, priority, session));
+            sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now(), priority));
+            log.info("SMPP session created id={} systemId={} priority={}", sessionId, systemId, priority);
             systemLogService.logAndBroadcast("INFO", "SMPP Server", "Session Created",
-                "Session ID: " + sessionId + " for " + session.getConfiguration().getSystemId());
+                "Session ID: " + sessionId + " for " + systemId + " with Priority: " + priority);
         }
 
         @Override
@@ -177,12 +186,14 @@ public class SmppServerService {
 
         private final String smppSessionId;
         private final String systemId;
+        private final Integer priority;
         private final SmppServerSession session;
 
-        MessageReceiverHandlerImpl(String smppSessionId, String systemId, SmppServerSession session) {
+        MessageReceiverHandlerImpl(String smppSessionId, String systemId, Integer priority, SmppServerSession session) {
             super(log);
             this.smppSessionId = smppSessionId;
             this.systemId = systemId;
+            this.priority = priority;
             this.session = session;
         }
 
@@ -359,9 +370,10 @@ public class SmppServerService {
                             .messageText(msgText)
                             .dataCoding(sm.getDataCoding())
                             .timestampMs(System.currentTimeMillis())
+                            .priority(priority)
                             .build();
 
-                    kafkaTemplate.send("sms.inbound", dstAddr, event);
+                    kafkaTemplate.send("sms.inbound.raw", dstAddr, event);
 
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                     resp.setCommandStatus(SmppConstants.STATUS_OK);
@@ -381,9 +393,10 @@ public class SmppServerService {
                             .messageText(msgText)
                             .dataCoding(sm.getDataCoding())
                             .timestampMs(System.currentTimeMillis())
+                            .priority(priority)
                             .build();
 
-                    kafkaTemplate.send("sms.inbound", dstAddr, event);
+                    kafkaTemplate.send("sms.inbound.raw", dstAddr, event);
 
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                     resp.setCommandStatus(SmppConstants.STATUS_OK);

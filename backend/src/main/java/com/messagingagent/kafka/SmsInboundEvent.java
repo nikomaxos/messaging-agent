@@ -13,7 +13,8 @@ public class SmsInboundEvent {
     private String messageText;
     private byte dataCoding;
     private String correlationId;
-    private long timestampMs;
-    private int dlrDelayMinSec;
-    private int dlrDelayMaxSec;
+    private Long timestampMs;
+    private Integer dlrDelayMinSec;
+    private Integer dlrDelayMaxSec;
+    private Integer priority;
 }

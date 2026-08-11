@@ -30,6 +30,7 @@ import com.messagingagent.model.SmppRouting;
 import com.messagingagent.model.SmppRoutingDestination;
 import com.messagingagent.model.SmscSupplier;
 import com.messagingagent.smpp.SmscConnectionManager;
+import org.springframework.context.annotation.Profile;
 
 /**
  * Core routing service. Consumes inbound SMS from Kafka, selects a target
@@ -38,6 +39,7 @@ import com.messagingagent.smpp.SmscConnectionManager;
  * Also consumes delivery results and maps them back to SMPP responses.
  */
 @Service
+@Profile("!worker")
 @RequiredArgsConstructor
 @Slf4j
 public class RcsDispatchService {

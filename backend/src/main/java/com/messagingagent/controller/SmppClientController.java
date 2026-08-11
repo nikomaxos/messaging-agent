@@ -52,6 +52,7 @@ public class SmppClientController {
                 client.setPassword(clientDetails.getPassword());
             }
             client.setActive(clientDetails.isActive());
+            client.setPriority(clientDetails.getPriority() != null ? clientDetails.getPriority() : 2);
             return ResponseEntity.ok(repository.save(client));
         }).orElse(ResponseEntity.notFound().build());
     }

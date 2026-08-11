@@ -33,6 +33,10 @@ public class SmppClient {
     @Builder.Default
     private boolean active = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer priority = 2; // 1 = High (OTP), 2 = Normal (Marketing)
+
     @CreationTimestamp
     private Instant createdAt;
 
