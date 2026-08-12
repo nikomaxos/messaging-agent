@@ -20,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class SystemLogService {
 
     private final SystemLogRepository systemLogRepository;
-    private final SimpMessagingTemplate messagingTemplate;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SimpMessagingTemplate messagingTemplate;
 
     public void logAndBroadcast(String level, String device, String event, String detail) {
         try {
@@ -39,7 +40,9 @@ public class SystemLogService {
                     .event(event)
                     .detail(detail)
                     .build();
-            messagingTemplate.convertAndSend("/topic/logs", dto);
+            if (messagingTemplate != null) {
+                messagingTemplate.convertAndSend("/topic/logs", dto);
+            }
         } catch (Exception e) {
             log.error("Failed to persist and broadcast system log", e);
         }
