@@ -73,7 +73,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./services/legacy-monolith
       dockerfile: Dockerfile
     container_name: ma-backend
     restart: unless-stopped
@@ -117,7 +117,7 @@ services:
       
   dispatcher-worker:
     build:
-      context: ./backend
+      context: ./services/legacy-monolith
       dockerfile: Dockerfile
     container_name: ma-dispatcher-worker
     restart: unless-stopped
