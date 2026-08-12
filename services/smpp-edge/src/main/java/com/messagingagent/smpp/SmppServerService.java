@@ -69,6 +69,7 @@ public class SmppServerService {
         int timeout = 30000;
 
         SmppServerConfiguration config = new SmppServerConfiguration();
+        config.setSystemId("Global_Net");
         config.setHost(bindHost);
         config.setPort(bindPort);
         config.setMaxConnectionSize(maxConn);
