@@ -8,8 +8,8 @@ app.use(cors());
 app.use(express.json());
 
 const PROXMOX_IP = '65.108.8.252';
-const PROD_VM_ID = 200;
-const PROD_IP = '10.10.10.192';
+const PROD_VM_IDS = [301, 302, 303]; // K3s Master and Workers
+const PROD_IP = '10.10.10.193'; // K3s Master IP
 
 // Helper to spawn commands and stream back to the SSE response
 function runCommand(cmd, res, onExit) {
@@ -42,16 +42,17 @@ app.post('/api/deploy/production', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.write(`data: ${JSON.stringify({ log: `Starting Production Deployment to ${PROD_IP}...` })}\n\n`);
+  res.write(`data: ${JSON.stringify({ log: `Starting Kubernetes Production Deployment to ${PROD_IP}...` })}\n\n`);
   
   const snapshotName = `pre_deploy_${Date.now()}`;
-  // 1. SSH to Proxmox to snapshot VM 200
-  // 2. SSH to Production VM (10.10.10.192) to run deploy script
+  
   const cmd = `
-    echo "Creating Proxmox snapshot ${snapshotName} for Rollback capability..."
-    ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm snapshot ${PROD_VM_ID} ${snapshotName} --description 'Auto-snapshot before deployment'"
-    echo "Snapshot created. Triggering deployment inside Production VM..."
-    ssh -o StrictHostKeyChecking=no nick@${PROD_IP} "cd ~/messaging-agent && git pull origin main && REPO_DIR=~/messaging-agent ./deploy-agent/deploy.sh"
+    echo "Creating Proxmox snapshots ${snapshotName} for K3s nodes..."
+    for vmid in ${PROD_VM_IDS.join(' ')}; do
+      ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm snapshot $vmid ${snapshotName} --description 'Auto-snapshot before K8s deployment'"
+    done
+    echo "Snapshots created. Triggering deployment on Kubernetes Master Node..."
+    ssh -o StrictHostKeyChecking=no ubuntu@${PROD_IP} "if [ ! -d ~/messaging-agent ]; then git clone https://github.com/nikomaxos/messaging-agent.git ~/messaging-agent; fi && cd ~/messaging-agent && ./deploy-agent/deploy-k8s.sh"
   `;
 
   runCommand(cmd, res, (code) => {
@@ -65,9 +66,9 @@ app.post('/api/rollback/production', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.write(`data: ${JSON.stringify({ log: 'Fetching available snapshots...' })}\n\n`);
+  res.write(`data: ${JSON.stringify({ log: 'Fetching available snapshots from K3s Master...' })}\n\n`);
   
-  const getSnapshotsCmd = `ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm listsnapshot ${PROD_VM_ID}"`;
+  const getSnapshotsCmd = `ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm listsnapshot ${PROD_VM_IDS[0]}"`;
   const child = spawn('bash', ['-c', getSnapshotsCmd]);
   
   let output = '';
@@ -89,11 +90,13 @@ app.post('/api/rollback/production', (req, res) => {
       return res.end();
     }
 
-    res.write(`data: ${JSON.stringify({ log: 'Rolling back VM ' + PROD_VM_ID + ' to snapshot ' + targetSnapshot + '...' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ log: 'Rolling back K3s VMs ' + PROD_VM_IDS.join(', ') + ' to snapshot ' + targetSnapshot + '...' })}\n\n`);
     const rollbackCmd = `
-      ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm stop ${PROD_VM_ID} || true"
-      ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm rollback ${PROD_VM_ID} ${targetSnapshot}"
-      ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm start ${PROD_VM_ID}"
+      for vmid in ${PROD_VM_IDS.join(' ')}; do
+        ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm stop $vmid || true"
+        ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm rollback $vmid ${targetSnapshot}"
+        ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm start $vmid"
+      done
     `;
 
     runCommand(rollbackCmd, res, (code) => {
