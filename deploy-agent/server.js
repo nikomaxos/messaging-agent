@@ -66,28 +66,27 @@ app.get('/api/deploy/info', (req, res) => {
   const { exec } = require('child_process');
   
   // 1. Get Prod version
-  exec(`ssh -o StrictHostKeyChecking=no ubuntu@10.10.10.193 "cat ~/messaging-agent/admin-panel/package.json 2>/dev/null || echo '{\\"version\\":\\"Unknown\\"}'"`, (err, stdout) => {
+  exec(`ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ubuntu@10.10.10.193 "cat ~/messaging-agent/admin-panel/package.json 2>/dev/null || echo '{\\"version\\":\\"Unknown\\"}'"`, { timeout: 5000 }, (err, stdout) => {
     let prodVersion = "Unknown";
     try {
       prodVersion = "v" + JSON.parse(stdout).version;
     } catch(e) {}
 
     // 2. Get Snapshot version
-    exec(`ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm listsnapshot ${PROD_VM_IDS[0]}"`, (err2, stdout2) => {
+    exec(`ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@${PROXMOX_IP} "qm listsnapshot ${PROD_VM_IDS[0]}"`, { timeout: 5000 }, (err2, stdout2) => {
       let rollbackTarget = "Unknown Version";
-      const lines = (stdout2 || "").split('\\n');
+      const lines = (stdout2 || "").split('\n');
       for (let i = lines.length - 1; i >= 0; i--) {
         if (lines[i].includes('pre_deploy_')) {
-          const snapName = lines[i].trim().split(' ')[0].replace('\`->', '').trim();
-          const vMatch = snapName.match(/pre_deploy_v([0-9.]+)_/);
+          const vMatch = lines[i].match(/pre_deploy_v([0-9.]+)_(\d+)/);
           if (vMatch) {
-            rollbackTarget = "v" + vMatch[1];
+            const d = new Date(parseInt(vMatch[2]));
+            rollbackTarget = `v${vMatch[1]} (snapshot from ${d.toLocaleString()})`;
           } else {
-            // Try to format timestamp
-            const tsMatch = snapName.match(/pre_deploy_(\\d+)/);
+            const tsMatch = lines[i].match(/pre_deploy_(\d+)/);
             if (tsMatch) {
               const d = new Date(parseInt(tsMatch[1]));
-              rollbackTarget = "snapshot from " + d.toLocaleString();
+              rollbackTarget = `v1.0.0 (snapshot from ${d.toLocaleString()})`;
             } else {
               rollbackTarget = "previous snapshot";
             }

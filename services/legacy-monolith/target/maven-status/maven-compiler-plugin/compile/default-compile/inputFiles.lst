@@ -54,6 +54,7 @@
 /app/src/main/java/com/messagingagent/admin/ThroughputController.java
 /app/src/main/java/com/messagingagent/model/AiChatSession.java
 /app/src/main/java/com/messagingagent/model/AppUser.java
+/app/src/main/java/com/messagingagent/kafka/RcsOutboundEvent.java
 /app/src/main/java/com/messagingagent/repository/ScheduledReportRepository.java
 /app/src/main/java/com/messagingagent/device/DeviceWebSocketService.java
 /app/src/main/java/com/messagingagent/repository/SmppClientRepository.java

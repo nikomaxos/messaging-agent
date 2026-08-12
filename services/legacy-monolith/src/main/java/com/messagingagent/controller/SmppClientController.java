@@ -6,6 +6,7 @@ import com.messagingagent.dto.SmppClientDto;
 import com.messagingagent.dto.SmppSessionDto;
 import com.messagingagent.smpp.SmppSessionRegistry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +23,20 @@ public class SmppClientController {
 
     private final SmppClientRepository repository;
     private final SmppSessionRegistry sessionRegistry;
+    private final StringRedisTemplate redisTemplate;
+
+    private void syncToRedis(SmppClient client) {
+        String key = "config:client:" + client.getSystemId() + ":password";
+        if (client.isActive()) {
+            redisTemplate.opsForValue().set(key, client.getPassword());
+        } else {
+            redisTemplate.delete(key);
+        }
+    }
+
+    private void removeFromRedis(String systemId) {
+        redisTemplate.delete("config:client:" + systemId + ":password");
+    }
 
     @GetMapping
     public List<SmppClientDto> getAll() {
@@ -39,7 +54,9 @@ public class SmppClientController {
     @PostMapping
     @Transactional
     public SmppClient create(@RequestBody SmppClient client) {
-        return repository.save(client);
+        SmppClient saved = repository.save(client);
+        syncToRedis(saved);
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -53,7 +70,9 @@ public class SmppClientController {
             }
             client.setActive(clientDetails.isActive());
             client.setPriority(clientDetails.getPriority() != null ? clientDetails.getPriority() : 2);
-            return ResponseEntity.ok(repository.save(client));
+            SmppClient saved = repository.save(client);
+            syncToRedis(saved);
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -61,6 +80,7 @@ public class SmppClientController {
     public ResponseEntity<?> delete(@PathVariable Long id) {
         return repository.findById(id).map(client -> {
             repository.delete(client);
+            removeFromRedis(client.getSystemId());
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }

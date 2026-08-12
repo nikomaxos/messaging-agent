@@ -1,4 +1,4 @@
-ALTER TABLE routing_rate_limits DROP CONSTRAINT idx_rate_limit_unique;
+DROP INDEX idx_rate_limit_unique;
 
 ALTER TABLE routing_rate_limits RENAME COLUMN max_tps TO speed_tps;
 ALTER TABLE routing_rate_limits ALTER COLUMN speed_tps TYPE DECIMAL(10, 4);

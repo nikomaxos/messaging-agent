@@ -23,6 +23,7 @@ com/messagingagent/admin/DeviceLogController.class
 com/messagingagent/model/AiAgentConfig$AiAgentConfigBuilder.class
 com/messagingagent/admin/ReportController.class
 com/messagingagent/repository/AppUserRepository.class
+com/messagingagent/kafka/RcsOutboundEvent.class
 com/messagingagent/smpp/SmscConnectionManager.class
 com/messagingagent/security/EncryptionService.class
 com/messagingagent/kafka/SmppOutboundEvent.class
@@ -42,6 +43,7 @@ com/messagingagent/admin/SimCardController.class
 com/messagingagent/controller/ScreenFrameController.class
 com/messagingagent/routing/DlrRecheckScheduler.class
 com/messagingagent/routing/MatrixRouteService.class
+com/messagingagent/kafka/RcsOutboundEvent$RcsOutboundEventBuilder.class
 com/messagingagent/config/RedisConfig.class
 com/messagingagent/device/DeviceWebSocketController.class
 com/messagingagent/config/WebMvcConfig.class
