@@ -40,6 +40,7 @@ public class DeviceWebSocketService {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final KafkaTemplate<String, SmsDeliveryResultEvent> deliveryResultKafka;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final DeviceRepository deviceRepository;
     private final MessageLogRepository messageLogRepository;
     private final DeviceLogRepository deviceLogRepository;
