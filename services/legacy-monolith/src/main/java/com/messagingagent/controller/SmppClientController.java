@@ -41,12 +41,17 @@ public class SmppClientController {
     @GetMapping
     public List<SmppClientDto> getAll() {
         return repository.findAll().stream().map(client -> {
-            List<SmppSessionDto> activeSessions = sessionRegistry.getSessionsBySystemId(client.getSystemId())
-                    .stream().map(info -> {
-                        String bindType = info.getSession().getConfiguration().getType().toString();
-                        long uptime = Duration.between(info.getBoundAt(), Instant.now()).getSeconds();
-                        return new SmppSessionDto(info.getSessionId(), bindType, uptime);
-                    }).collect(Collectors.toList());
+            String key = "smpp:sessions:" + client.getSystemId();
+            java.util.Map<Object, Object> rawSessions = redisTemplate.opsForHash().entries(key);
+            
+            List<SmppSessionDto> activeSessions = rawSessions.entrySet().stream().map(entry -> {
+                String sessionId = entry.getKey().toString();
+                String[] parts = entry.getValue().toString().split("\\|");
+                String bindType = parts.length > 0 ? parts[0] : "UNKNOWN";
+                long uptime = parts.length > 1 ? Long.parseLong(parts[1]) : 0L;
+                return new SmppSessionDto(sessionId, bindType, uptime);
+            }).collect(Collectors.toList());
+            
             return SmppClientDto.fromEntity(client, activeSessions);
         }).collect(Collectors.toList());
     }

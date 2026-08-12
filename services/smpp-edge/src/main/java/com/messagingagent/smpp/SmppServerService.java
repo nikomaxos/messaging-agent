@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * SMPP Server using CloudHopper.
@@ -111,6 +112,29 @@ public class SmppServerService {
             Thread.currentThread().interrupt();
         }
         start();
+    }
+
+    @Scheduled(fixedDelay = 10000)
+    public void syncSessionsToRedis() {
+        if (smppServer == null) return;
+        
+        // Group sessions by systemId
+        java.util.Map<String, java.util.Map<String, String>> clientSessions = new java.util.HashMap<>();
+        
+        sessionRegistry.getAllSessions().forEach(info -> {
+            String systemId = info.getSession().getConfiguration().getSystemId();
+            String bindType = info.getSession().getConfiguration().getType().toString();
+            long uptime = Duration.between(info.getBoundAt(), Instant.now()).getSeconds();
+            
+            clientSessions.computeIfAbsent(systemId, k -> new java.util.HashMap<>())
+                          .put(info.getSessionId(), bindType + "|" + uptime);
+        });
+        
+        clientSessions.forEach((systemId, sessions) -> {
+            String key = "smpp:sessions:" + systemId;
+            redis.opsForHash().putAll(key, sessions);
+            redis.expire(key, Duration.ofSeconds(30));
+        });
     }
 
     // ─── Redis key helpers ────────────────────────────────────────────────────

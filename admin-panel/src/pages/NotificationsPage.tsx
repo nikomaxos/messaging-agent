@@ -15,6 +15,7 @@ const ALERT_TYPES = [
   { value: 'SMSC_DISCONNECT', label: 'SMSC Disconnect', desc: 'Fires when active SMSC suppliers disconnect' },
   { value: 'HIGH_LATENCY', label: 'High Latency', desc: 'Fires when avg delivery latency exceeds threshold (future)' },
   { value: 'POSSIBLE_AIT_TRAFFIC', label: 'Possible AIT / SMS Pumping', desc: 'Fires when any single number receives more messages than the threshold in the last hour.' },
+  { value: 'SMPP_CLIENT_OFFLINE', label: 'Customer Offline', desc: 'Fires when an active customer account disconnects from the SMPP server' },
 ]
 
 const severityIcon = (s: string) => {

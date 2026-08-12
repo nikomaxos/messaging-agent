@@ -52,6 +52,8 @@ public class AlertScheduler {
     private final SmscConnectionManager smscConnectionManager;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
     private final com.messagingagent.routing.MatrixRouteService matrixRouteService;
+    private final com.messagingagent.repository.SmppClientRepository smppClientRepository;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void evaluateAlerts() {
@@ -142,6 +144,25 @@ public class AlertScheduler {
                 if (suspiciousNumbers > 0) {
                     yield new AlertResult(true, suspiciousNumbers,
                             String.format("%d numbers flagged for AIT (received >= %d messages in last hour)", suspiciousNumbers, trafficThreshold),
+                            NotificationAlert.Severity.CRITICAL);
+                }
+                yield null;
+            }
+            case SMPP_CLIENT_OFFLINE -> {
+                long offlineCount = 0;
+                java.util.List<String> offlineClients = new java.util.ArrayList<>();
+                for (com.messagingagent.model.SmppClient client : smppClientRepository.findAll()) {
+                    if (client.isActive()) {
+                        String key = "smpp:sessions:" + client.getSystemId();
+                        if (redisTemplate.opsForHash().size(key) == 0) {
+                            offlineCount++;
+                            offlineClients.add(client.getSystemId());
+                        }
+                    }
+                }
+                if (offlineCount > 0) {
+                    yield new AlertResult(true, offlineCount,
+                            String.format("%d active SMPP client(s) offline: %s", offlineCount, String.join(", ", offlineClients)),
                             NotificationAlert.Severity.CRITICAL);
                 }
                 yield null;

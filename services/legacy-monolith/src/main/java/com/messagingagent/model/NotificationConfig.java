@@ -24,7 +24,8 @@ public class NotificationConfig {
         DEVICE_OFFLINE,
         SMSC_DISCONNECT,
         SELF_HEALING_ESCALATION,
-        POSSIBLE_AIT_TRAFFIC
+        POSSIBLE_AIT_TRAFFIC,
+        SMPP_CLIENT_OFFLINE
     }
 
     @Id
