@@ -1,0 +1,3 @@
+ALTER TABLE device
+ADD COLUMN active_network_type VARCHAR(255),
+ADD COLUMN auto_reboot_enabled BOOLEAN NOT NULL DEFAULT FALSE;

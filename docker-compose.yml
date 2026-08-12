@@ -154,6 +154,61 @@ services:
     ports:
       - "8081:80"       # Web admin panel
 
+  ma-core-service:
+    build:
+      context: ./services/core-service
+      dockerfile: Dockerfile
+    container_name: ma-core-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: messagingagent
+      DB_USER: msgagent
+      DB_PASS: msgagent
+    ports:
+      - "18080:8080"
+
+  ma-routing-engine:
+    build:
+      context: ./services/routing-engine
+      dockerfile: Dockerfile
+    container_name: ma-routing-engine
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:29092
+    ports:
+      - "18081:8081"
+
+  ma-smpp-edge:
+    build:
+      context: ./services/smpp-edge
+      dockerfile: Dockerfile
+    container_name: ma-smpp-edge
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:29092
+    ports:
+      - "8083:8082"
+      - "2776:2775"
+
   # ─── Matrix Architecture ───────────────────────────────────────────────────
 
   synapse:

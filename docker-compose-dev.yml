@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  ma-zookeeper-dev:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: ma-zookeeper-dev
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - messaging-dev-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ma-kafka-dev:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: ma-kafka-dev
+    depends_on:
+      ma-zookeeper-dev:
+        condition: service_healthy
+    ports:
+      - "19092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: ma-zookeeper-dev:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://ma-kafka-dev:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - messaging-dev-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ma-postgres-dev:
+    image: postgres:16
+    container_name: ma-postgres-dev
+    environment:
+      POSTGRES_USER: msgagent
+      POSTGRES_PASSWORD: msgagentpass
+      POSTGRES_DB: db_core
+    ports:
+      - "15432:5432"
+    networks:
+      - messaging-dev-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U msgagent -d db_core"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ma-redis-dev:
+    image: redis:7.2-alpine
+    container_name: ma-redis-dev
+    ports:
+      - "16379:6379"
+    networks:
+      - messaging-dev-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ma-core-service:
+    build:
+      context: ./services/core-service
+      dockerfile: Dockerfile
+    image: messaging-agent-core-service:latest
+    container_name: ma-core-service
+    ports:
+      - "18080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_HOST=ma-postgres-dev
+      - DB_NAME=db_core
+      - DB_USER=msgagent
+      - DB_PASS=msgagentpass
+      - KAFKA_BROKERS=ma-kafka-dev:29092
+    depends_on:
+      ma-postgres-dev:
+        condition: service_healthy
+      ma-kafka-dev:
+        condition: service_healthy
+    networks:
+      - messaging-dev-net
+
+  ma-routing-engine:
+    build:
+      context: ./services/routing-engine
+      dockerfile: Dockerfile
+    container_name: ma-routing-engine
+    ports:
+      - "18081:8081"
+    environment:
+      - REDIS_HOST=ma-redis-dev
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=ma-kafka-dev:29092
+    depends_on:
+      ma-redis-dev:
+        condition: service_healthy
+      ma-kafka-dev:
+        condition: service_healthy
+    networks:
+      - messaging-dev-net
+
+  ma-smpp-edge:
+    build:
+      context: ./services/smpp-edge
+      dockerfile: Dockerfile
+    container_name: ma-smpp-edge
+    ports:
+      - "8083:8082"
+      - "2776:2775"
+    environment:
+      - REDIS_HOST=ma-redis-dev
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=ma-kafka-dev:29092
+    depends_on:
+      ma-redis-dev:
+        condition: service_healthy
+      ma-kafka-dev:
+        condition: service_healthy
+    networks:
+      - messaging-dev-net
+
+  ma-api-gateway:
+    image: node:20-alpine
+    container_name: ma-api-gateway
+    working_dir: /app
+    volumes:
+      - ./services/api-gateway:/app
+    command: sh -c "npm install && npm start"
+    ports:
+      - "13000:3000"
+    environment:
+      - CORE_SERVICE_URL=http://ma-core-service:8080
+    depends_on:
+      - ma-core-service
+    networks:
+      - messaging-dev-net
+
+networks:
+  messaging-dev-net:
+    driver: bridge

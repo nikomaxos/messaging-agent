@@ -1,0 +1,2 @@
+ALTER TABLE device ADD COLUMN send_interval_seconds DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE device ADD COLUMN last_dispatched_at TIMESTAMPTZ;

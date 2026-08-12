@@ -1,0 +1,1 @@
+ALTER TABLE smpp_client ADD COLUMN priority INT NOT NULL DEFAULT 2;

@@ -1,0 +1,406 @@
+package com.messagingagent.smpp;
+
+import com.cloudhopper.smpp.SmppBindType;
+import com.cloudhopper.smpp.SmppConstants;
+import com.cloudhopper.smpp.SmppSession;
+import com.cloudhopper.smpp.SmppSessionConfiguration;
+import com.cloudhopper.smpp.impl.DefaultSmppClient;
+import com.cloudhopper.smpp.impl.DefaultSmppSessionHandler;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
+import com.cloudhopper.smpp.pdu.DeliverSm;
+import com.cloudhopper.smpp.pdu.EnquireLink;
+import com.cloudhopper.smpp.pdu.EnquireLinkResp;
+import com.cloudhopper.smpp.pdu.PduRequest;
+import com.cloudhopper.smpp.pdu.PduResponse;
+import com.cloudhopper.smpp.pdu.SubmitSm;
+import com.cloudhopper.smpp.pdu.SubmitSmResp;
+import com.cloudhopper.smpp.type.Address;
+import com.cloudhopper.smpp.type.SmppChannelException;
+import com.cloudhopper.smpp.type.SmppTimeoutException;
+import com.messagingagent.smpp.model.SmscSupplier;
+import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
+
+@Service
+@Slf4j
+public class SmscConnectionManager {
+
+    private final RestTemplate restTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+    
+    @Value("${core.service.url:http://ma-core-service:8080}")
+    private String coreServiceUrl;
+    
+    private DefaultSmppClient smppClient;
+    private final Map<Long, UpstreamSessionInfo> activeSessions = new ConcurrentHashMap<>();
+    private final Map<Long, Instant> disconnectedAt = new ConcurrentHashMap<>();
+    private final java.util.Set<Long> connectingSuppliers = ConcurrentHashMap.newKeySet();
+    private final Map<Long, SmscSupplier> supplierCache = new ConcurrentHashMap<>();
+    
+    public SmscConnectionManager(KafkaTemplate<String, String> kafkaTemplate) {
+        this.restTemplate = new RestTemplate();
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = new ObjectMapper();
+    }
+    
+    public Instant getDisconnectedAt(Long supplierId) {
+        return disconnectedAt.get(supplierId);
+    }
+
+    public static class UpstreamSessionInfo {
+        private final SmppSession session;
+        private final Instant boundAt;
+        private Instant lastEnquireLink;
+        
+        public UpstreamSessionInfo(SmppSession session, Instant boundAt) {
+            this.session = session;
+            this.boundAt = boundAt;
+            this.lastEnquireLink = Instant.now();
+        }
+        
+        public SmppSession session() { return session; }
+        public Instant boundAt() { return boundAt; }
+        public Instant lastEnquireLink() { return lastEnquireLink; }
+        public void setLastEnquireLink(Instant lastEnquireLink) { this.lastEnquireLink = lastEnquireLink; }
+    }
+
+    public UpstreamSessionInfo getSessionInfo(Long supplierId) {
+        return activeSessions.get(supplierId);
+    }
+    
+    private ScheduledExecutorService monitorExecutor;
+
+    @EventListener(ContextRefreshedEvent.class)
+    public void init() {
+        startManager();
+    }
+
+    public synchronized void startManager() {
+        if (monitorExecutor != null && !monitorExecutor.isShutdown()) {
+            return;
+        }
+        
+        smppClient = new DefaultSmppClient(Executors.newCachedThreadPool(), 1, null);
+        monitorExecutor = Executors.newSingleThreadScheduledExecutor();
+        
+        log.info("Starting SMSC Connection Manager...");
+        loadAndConnectAll();
+        
+        monitorExecutor.scheduleAtFixedRate(this::monitorSessions, 2, 2, TimeUnit.SECONDS);
+    }
+
+    @PreDestroy
+    public synchronized void stopManager() {
+        if (monitorExecutor != null) {
+            monitorExecutor.shutdownNow();
+        }
+        log.info("Stopping all SMSC upstream sessions...");
+        activeSessions.values().forEach(info -> {
+            try {
+                info.session().unbind(5000);
+                info.session().destroy();
+            } catch (Exception e) {
+                log.warn("Error stopping upstream session", e);
+            }
+        });
+        activeSessions.clear();
+        disconnectedAt.clear();
+        connectingSuppliers.clear();
+        
+        if (smppClient != null) {
+            smppClient.destroy();
+        }
+    }
+    
+    public synchronized void reload() {
+        log.info("Reloading SMSC Connection Manager...");
+        stopManager();
+        startManager();
+    }
+
+    private void loadAndConnectAll() {
+        try {
+            SmscSupplier[] suppliers = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", SmscSupplier[].class);
+            if (suppliers != null) {
+                log.info("Loaded {} SMSC suppliers from core-service", suppliers.length);
+                for (SmscSupplier supplier : suppliers) {
+                    if (supplier.isActive()) {
+                        supplierCache.put(supplier.getId(), supplier);
+                        if (connectingSuppliers.add(supplier.getId())) {
+                            connectAsync(supplier);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to load SMSC suppliers from core-service: {}", e.getMessage());
+        }
+    }
+
+    private void connectAsync(SmscSupplier supplier) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                connectSynchronously(supplier);
+            } catch (Exception e) {
+                log.error("Failed initial connect for Supplier [{}] (id={}): {}", 
+                        supplier.getName(), supplier.getId(), e.getMessage());
+            } finally {
+                connectingSuppliers.remove(supplier.getId());
+            }
+        });
+    }
+
+    private void connectSynchronously(SmscSupplier supplier) throws Exception {
+        SmppSessionConfiguration config = new SmppSessionConfiguration();
+        config.setWindowSize(1);
+        config.setName("Supplier." + supplier.getId());
+        
+        SmppBindType type = SmppBindType.TRANSCEIVER;
+        try {
+            if (supplier.getBindType() != null) {
+                type = SmppBindType.valueOf(supplier.getBindType().toUpperCase());
+            }
+        } catch (Exception ignored) { }
+        
+        config.setType(type);
+        config.setHost(supplier.getHost());
+        config.setPort(supplier.getPort());
+        config.setConnectTimeout(5000);
+        config.setSystemId(supplier.getSystemId());
+        config.setPassword(supplier.getPassword());
+        
+        if (supplier.getSystemType() != null && !supplier.getSystemType().isBlank()) {
+            config.setSystemType(supplier.getSystemType());
+        }
+
+        config.getLoggingOptions().setLogBytes(false);
+        config.getLoggingOptions().setLogPdu(true);
+        
+        config.setWindowMonitorInterval(15000);
+        config.setRequestExpiryTimeout(30000);
+        config.setWindowWaitTimeout(60000);
+
+        log.info("Connecting to SMSC [{}] at {}:{} as {}...", 
+                supplier.getName(), supplier.getHost(), supplier.getPort(), type);
+
+        SmppSession session = smppClient.bind(config, new UpstreamSessionHandler(supplier));
+        activeSessions.put(supplier.getId(), new UpstreamSessionInfo(session, Instant.now()));
+        disconnectedAt.remove(supplier.getId());
+        
+        log.info("Successfully bound to SMSC [{}] (id={})", supplier.getName(), supplier.getId());
+    }
+
+    private void monitorSessions() {
+        // Periodically refresh cache from core-service
+        try {
+            SmscSupplier[] suppliers = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", SmscSupplier[].class);
+            if (suppliers != null) {
+                for (SmscSupplier s : suppliers) {
+                    if (s.isActive()) supplierCache.put(s.getId(), s);
+                }
+            }
+        } catch (Exception ignored) {}
+        
+        for (SmscSupplier supplier : supplierCache.values()) {
+            if (!supplier.isActive()) continue;
+            
+            UpstreamSessionInfo info = activeSessions.get(supplier.getId());
+            SmppSession session = info != null ? info.session() : null;
+            
+            if (session == null || !session.isBound() || session.isClosed()) {
+                if (session != null) {
+                    activeSessions.remove(supplier.getId());
+                    disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                    try { session.destroy(); } catch(Exception ignored) {}
+                }
+                
+                if (connectingSuppliers.add(supplier.getId())) {
+                    log.warn("SMSC [{}] disconnected. Attempting reconnect...", supplier.getName());
+                    connectAsync(supplier);
+                }
+            } else {
+                Integer lifetimeMin = supplier.getMaxSessionLifetime();
+                if (lifetimeMin != null && lifetimeMin > 0) {
+                    long sessionAge = java.time.Duration.between(info.boundAt(), Instant.now()).toMillis();
+                    long maxLifetimeMs = lifetimeMin * 60000L;
+                    if (sessionAge >= maxLifetimeMs) {
+                        log.warn("Session for SMSC [{}] reached max lifetime ({} minutes). Forcing rebind.", supplier.getName(), lifetimeMin);
+                        CompletableFuture.runAsync(() -> {
+                            try {
+                                session.unbind(5000);
+                                session.destroy();
+                            } catch (Exception ignored) {}
+                            activeSessions.remove(supplier.getId());
+                            disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                        });
+                        continue;
+                    }
+                }
+
+                try {
+                    long interval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 15000;
+                    if (java.time.Duration.between(info.lastEnquireLink(), Instant.now()).toMillis() >= interval) {
+                        info.setLastEnquireLink(Instant.now());
+                        
+                        CompletableFuture.runAsync(() -> {
+                            try {
+                                EnquireLinkResp resp = session.enquireLink(new EnquireLink(), 10000);
+                            } catch (SmppTimeoutException | SmppChannelException e) {
+                                log.warn("EnquireLink failed for SMSC [{}]. Marking dead.", supplier.getName());
+                                try { session.destroy(); } catch(Exception ignored) {}
+                                activeSessions.remove(supplier.getId());
+                                disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                            } catch (Exception e) {
+                                try { session.destroy(); } catch(Exception ignored) {}
+                                activeSessions.remove(supplier.getId());
+                                disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                            }
+                        });
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+    
+    public String submitMessage(Long supplierId, String source, String dest, String text) {
+        UpstreamSessionInfo info = activeSessions.get(supplierId);
+        if (info == null || info.session() == null || !info.session().isBound()) {
+            for (int i = 0; i < 50; i++) {
+                try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                info = activeSessions.get(supplierId);
+                if (info != null && info.session() != null && info.session().isBound()) {
+                    break;
+                }
+            }
+            if (info == null || info.session() == null || !info.session().isBound()) {
+                log.error("Cannot route. SMSC Session not active for supplierId={}", supplierId);
+                return null;
+            }
+        }
+        
+        SmppSession session = info.session();
+        SmscSupplier supplier = supplierCache.get(supplierId);
+        if (supplier == null) return null;
+
+        try {
+            LongSmsHelper.SmsPart[] parts = LongSmsHelper.createParts(text);
+            String firstMessageId = null;
+
+            for (LongSmsHelper.SmsPart part : parts) {
+                SubmitSm sm = new SubmitSm();
+                sm.setSourceAddress(new Address((byte) supplier.getSourceTon(), (byte) supplier.getSourceNpi(), source));
+                sm.setDestAddress(new Address((byte) supplier.getDestTon(), (byte) supplier.getDestNpi(), dest));
+                
+                sm.setShortMessage(part.payload());
+                sm.setDataCoding(part.dataCoding());
+
+                if (part.hasUdh()) {
+                    sm.setEsmClass(SmppConstants.ESM_CLASS_UDHI_MASK);
+                }
+                sm.setRegisteredDelivery(SmppConstants.REGISTERED_DELIVERY_SMSC_RECEIPT_REQUESTED);
+
+                SubmitSmResp resp = session.submit(sm, 10000);
+                if (resp.getCommandStatus() == SmppConstants.STATUS_OK) {
+                    if (firstMessageId == null) {
+                        firstMessageId = resp.getMessageId() != null ? resp.getMessageId() : "OK";
+                    }
+                } else {
+                    log.error("Failed partial SUBMIT_SM. Part status: {}", resp.getCommandStatus());
+                    return null;
+                }
+            }
+
+            return firstMessageId;
+        } catch (Exception e) {
+            log.error("Failed to SUBMIT_SM to SMSC id={}: {}", supplierId, e.getMessage());
+            return null;
+        }
+    }
+
+    private class UpstreamSessionHandler extends DefaultSmppSessionHandler {
+        private final SmscSupplier supplier;
+
+        public UpstreamSessionHandler(SmscSupplier supplier) {
+            super(log);
+            this.supplier = supplier;
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes")
+        public PduResponse firePduRequestReceived(PduRequest pduRequest) {
+            if (pduRequest instanceof DeliverSm) {
+                DeliverSm deliverSm = (DeliverSm) pduRequest;
+                try {
+                    String receiptedMessageId = null;
+                    if (deliverSm.getOptionalParameter(SmppConstants.TAG_RECEIPTED_MSG_ID) != null) {
+                        receiptedMessageId = new String(deliverSm.getOptionalParameter(SmppConstants.TAG_RECEIPTED_MSG_ID).getValue(), java.nio.charset.StandardCharsets.UTF_8);
+                        receiptedMessageId = receiptedMessageId.replace("\0", "");
+                    } else if (deliverSm.getShortMessage() != null) {
+                        String msg = new String(deliverSm.getShortMessage(), java.nio.charset.StandardCharsets.UTF_8);
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)id:\\s*([^\\s]+)").matcher(msg);
+                        if (m.find()) {
+                            receiptedMessageId = m.group(1);
+                        } else {
+                            receiptedMessageId = msg.trim().split(" ")[0];
+                        }
+                    }
+
+                    if (receiptedMessageId != null) {
+                        log.info("DLR Received: id={}", receiptedMessageId);
+                        // Publish DLR event to Kafka instead of writing to Postgres directly!
+                        String dlrJson = String.format("{\"messageId\":\"%s\", \"status\":\"DELIVERED\", \"timestamp\":%d}", receiptedMessageId, System.currentTimeMillis());
+                        kafkaTemplate.send("sms.outbound.dlr", receiptedMessageId, dlrJson);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse DeliverSM for DLR", e);
+                }
+                
+                com.cloudhopper.smpp.pdu.DeliverSmResp resp = (com.cloudhopper.smpp.pdu.DeliverSmResp) deliverSm.createResponse();
+                resp.setCommandStatus(SmppConstants.STATUS_OK);
+                return resp;
+            } else if (pduRequest instanceof EnquireLink) {
+                EnquireLinkResp resp = (EnquireLinkResp) pduRequest.createResponse();
+                resp.setCommandStatus(SmppConstants.STATUS_OK);
+                return resp;
+            } else if (pduRequest instanceof com.cloudhopper.smpp.pdu.Unbind) {
+                com.cloudhopper.smpp.pdu.UnbindResp resp = (com.cloudhopper.smpp.pdu.UnbindResp) pduRequest.createResponse();
+                resp.setCommandStatus(SmppConstants.STATUS_OK);
+                
+                CompletableFuture.runAsync(() -> {
+                    try { Thread.sleep(200); } catch (Exception ignored) {}
+                    UpstreamSessionInfo info = activeSessions.get(supplier.getId());
+                    if (info != null && info.session() != null) {
+                        try { info.session().destroy(); } catch(Exception ignored) {}
+                    }
+                    activeSessions.remove(supplier.getId());
+                    disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                });
+                return resp;
+            }
+            return pduRequest.createResponse();
+        }
+
+        @Override
+        public void fireChannelUnexpectedlyClosed() {
+            log.warn("Upstream Channel unexpectedly closed for supplier [{}]", supplier.getName());
+            activeSessions.remove(supplier.getId());
+            disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+        }
+
+        @Override
+        public void fireUnknownThrowable(Throwable t) {
+            log.error("Upstream Channel unknown throwable for supplier [{}]: ", supplier.getName(), t);
+        }
+    }
+}
