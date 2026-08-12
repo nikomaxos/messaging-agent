@@ -4,20 +4,23 @@ This vault contains the context, architecture, and deployment strategy for the `
 
 ## 1. System Architecture
 
-The `messaging-agent` is a multi-component platform designed for messaging routing and device management:
+The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Driven Microservices Architecture**:
 
+- **Core Service (`ma-core-service`)**:
+  - A Java Spring Boot application (Port 18080).
+  - Handles UI CRUD operations, Admin APIs, and pushes active configuration/metadata to Redis.
+- **Routing Engine (`ma-routing-engine`)**:
+  - A Java Spring Boot application (Port 18081).
+  - 100% Event-Driven. Consumes inbound SMS from Kafka, performs O(1) Redis lookups for rate limiting and routing, and dispatches to outbound queues.
+- **SMPP Edge Node (`ma-smpp-edge`)**:
+  - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
+  - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
+- **Legacy Backend (`ma-backend`)**:
+  - Still active temporarily for Android WebSocket management (`DeviceWebSocketService`) and Matrix integration (`mautrix-gmessages`).
 - **Android Client (`android-app`)**:
-  - Handles WebSocket connections (`WebSocketRelayClient`) back to the server.
-  - Features an OTA (Over-The-Air) update mechanism (`OtaRequestHandlerReceiver`) that downloads and installs APK updates automatically.
-  - Listens to Matrix and SMPP events for bidirectional messaging.
-- **Backend (`backend`)**:
-  - A Java Spring Boot application.
-  - Manages `DeviceWebSocketService` for realtime Android interactions.
-  - Integrates with Matrix (`MatrixQueueService`, `MatrixRouteService`) and SMPP (`SmppServerService`).
-  - Connects to an external `mautrix-gmessages` bridge.
+  - Handles WebSocket connections back to the server and OTA (Over-The-Air) updates.
 - **Admin Panel (`admin-panel`)**:
-  - A Vite + React + Tailwind CSS dashboard.
-  - Provides a UI for device management, logs, and DevOps operations (Deployments).
+  - A Vite + React + Tailwind CSS dashboard providing UI for device management, logs, and DevOps operations.
 
 ## 2. Advanced Queueing & Rate Limiting Architecture
 
