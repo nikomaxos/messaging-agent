@@ -18,3 +18,10 @@ config:client:{systemId}:password
 To bridge the gap between the Source of Truth and the Edge Cache:
 - Any backend API responsible for creating, updating, or deleting SMPP clients (e.g. `SmppClientController`) **MUST** push these changes to Redis immediately.
 - **Deactivation**: If a client is deactivated via the UI, their key must be deleted from Redis to instantly revoke their access at the edge, without requiring the edge node to poll for state changes.
+
+## Connection State Synchronization (Heartbeat)
+Because TCP connections are held by `ma-smpp-edge` but queried by `legacy-monolith` (UI) and `core-service` (Notification Engine), the edge node must broadcast the active connection state:
+
+1. **Heartbeat Publish**: The `ma-smpp-edge` node runs a `@Scheduled` task every 10 seconds, writing all active session IDs and their uptimes into a Redis Hash: `smpp:sessions:{systemId}`.
+2. **Crash Resilience**: These Redis keys have a TTL of 30 seconds. If an edge node crashes catastrophically, the keys will expire on their own, allowing the Notification Engine to detect the outage.
+3. **Cross-Service Visibility**: The `legacy-monolith` reads `smpp:sessions:{systemId}` from Redis instead of a local memory map, ensuring accurate UI reporting and enabling the `SMPP_CLIENT_OFFLINE` alert rule to fire precisely.

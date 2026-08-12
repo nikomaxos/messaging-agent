@@ -44,7 +44,8 @@ app.post('/api/deploy/production', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.write(`data: ${JSON.stringify({ log: `Starting Kubernetes Production Deployment to ${PROD_IP}...` })}\n\n`);
   
-  const snapshotName = `pre_deploy_v${require('/repo/admin-panel/package.json').version}_${Date.now()}`;
+  const versionStripped = require('/repo/admin-panel/package.json').version.replace(/\./g, '_');
+  const snapshotName = `pre_deploy_v${versionStripped}_${Date.now()}`;
   
   const cmd = `
     echo "Creating Proxmox snapshots ${snapshotName} for K3s nodes..."
@@ -78,7 +79,7 @@ app.get('/api/deploy/info', (req, res) => {
       const lines = (stdout2 || "").split('\n');
       for (let i = lines.length - 1; i >= 0; i--) {
         if (lines[i].includes('pre_deploy_')) {
-          const vMatch = lines[i].match(/pre_deploy_v([0-9.]+)_(\d+)/);
+          const vMatch = lines[i].match(/pre_deploy_v([0-9_]+)_(\d+)/);
           if (vMatch) {
             const d = new Date(parseInt(vMatch[2]));
             rollbackTarget = `v${vMatch[1]} (snapshot from ${d.toLocaleString()})`;
