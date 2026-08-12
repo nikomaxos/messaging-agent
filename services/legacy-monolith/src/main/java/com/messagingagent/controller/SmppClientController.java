@@ -38,6 +38,11 @@ public class SmppClientController {
         redisTemplate.delete("config:client:" + systemId + ":password");
     }
 
+    @jakarta.annotation.PostConstruct
+    public void syncAllToRedisOnStartup() {
+        repository.findAll().forEach(this::syncToRedis);
+    }
+
     @GetMapping
     public List<SmppClientDto> getAll() {
         return repository.findAll().stream().map(client -> {
