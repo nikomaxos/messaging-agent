@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build-backend:
-    name: Build Backend (Java 21)
+  build-legacy-monolith:
+    name: Build Legacy Monolith (Java 21)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,8 +20,59 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build backend
-        working-directory: ./backend
+      - name: Build Legacy Monolith
+        working-directory: ./services/legacy-monolith
+        run: mvn -B package -DskipTests
+
+  build-core-service:
+    name: Build Core Service (Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Core Service
+        working-directory: ./services/core-service
+        run: mvn -B package -DskipTests
+
+  build-routing-engine:
+    name: Build Routing Engine (Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Routing Engine
+        working-directory: ./services/routing-engine
+        run: mvn -B package -DskipTests
+
+  build-smpp-edge:
+    name: Build SMPP Edge Node (Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build SMPP Edge Node
+        working-directory: ./services/smpp-edge
         run: mvn -B package -DskipTests
 
   build-admin-panel:
