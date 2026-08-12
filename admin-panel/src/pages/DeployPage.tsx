@@ -6,6 +6,8 @@ export default function DeployPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [isDeploying, setIsDeploying] = useState(false)
   const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | null>(null)
+  const [prodVersion, setProdVersion] = useState<string>('Loading...')
+  const [rollbackTarget, setRollbackTarget] = useState<string>('Unknown Version')
   
   const isProductionEnv = typeof window !== 'undefined' && window.location.hostname === 'messaging-agent.globalnetservices.net'
 
@@ -14,6 +16,19 @@ export default function DeployPage() {
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs])
+
+  useEffect(() => {
+    fetch('/api/deploy/info')
+      .then(res => res.json())
+      .then(data => {
+        setProdVersion(data.productionVersion || 'Unknown')
+        setRollbackTarget(data.rollbackTarget || 'Unknown Version')
+      })
+      .catch(err => {
+        setProdVersion('Error Fetching')
+        setRollbackTarget('Unknown Version')
+      })
+  }, [])
 
   const triggerDeploy = async (env: 'production' | 'rollback_prod') => {
     if (isDeploying) return
@@ -78,7 +93,7 @@ export default function DeployPage() {
             Messaging Agent Deployments
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Manage Enterprise {isProductionEnv ? 'Production' : 'Staging'} deployments for the Messaging Agent (v{packageJson.version})
+            Manage Enterprise deployments for the Messaging Agent
           </p>
         </div>
       </div>
@@ -94,6 +109,7 @@ export default function DeployPage() {
               <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-2">
                 <Server size={20} className="text-emerald-400" />
                 Staging (DevBox)
+                <span className="ml-auto text-sm font-normal text-emerald-400/80 bg-emerald-400/10 px-2 py-0.5 rounded">v{packageJson.version}</span>
               </h2>
               <p className="text-sm text-slate-400 mb-2">
                 This environment acts as the primary Staging and Development server. 
@@ -110,6 +126,7 @@ export default function DeployPage() {
             <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-2">
               <Rocket size={20} className="text-brand-400" />
               Production
+              <span className="ml-auto text-sm font-normal text-brand-400/80 bg-brand-400/10 px-2 py-0.5 rounded">{prodVersion}</span>
             </h2>
             <p className="text-xs text-brand-400/80 mb-6 font-mono">
               Ubuntu Server VM: 10.10.10.192
@@ -133,7 +150,7 @@ export default function DeployPage() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Undo2 size={16} />
-                Rollback Production
+                Rollback Production to {rollbackTarget}
               </button>
             </div>
           </div>
