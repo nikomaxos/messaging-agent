@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ma-smpp-edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ma-smpp-edge
+  template:
+    metadata:
+      labels:
+        app: ma-smpp-edge
+    spec:
+      containers:
+      - name: ma-smpp-edge
+        image: messaging-agent-ma-smpp-edge:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Xmx256m -Xms64m -XX:MaxMetaspaceSize=128m"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: KAFKA_BROKERS
+          value: "kafka:29092"
+        ports:
+        - containerPort: 8082
+        - containerPort: 2775
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ma-smpp-edge
+spec:
+  type: LoadBalancer
+  selector:
+    app: ma-smpp-edge
+  ports:
+    - name: api
+      port: 8083
+      targetPort: 8082
+    - name: smpp
+      port: 2776
+      targetPort: 2775

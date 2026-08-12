@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ma-rcs-mautrix
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ma-rcs-mautrix
+  template:
+    metadata:
+      labels:
+        app: ma-rcs-mautrix
+    spec:
+      containers:
+      - name: ma-rcs-mautrix
+        image: messaging-agent-ma-rcs-mautrix:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Xmx256m -Xms64m -XX:MaxMetaspaceSize=128m"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: KAFKA_BROKERS
+          value: "kafka:29092"
+        - name: MATRIX_SYNAPSE_URL
+          value: "http://10.10.10.192:8008"
+        - name: MATRIX_BRIDGE_DB_URL
+          value: "jdbc:postgresql://postgres:5432/mautrix"
+        - name: MATRIX_BRIDGE_DB_USER
+          value: "msgagent"
+        - name: MATRIX_BRIDGE_DB_PASS
+          value: "msgagent"
+        ports:
+        - containerPort: 2777

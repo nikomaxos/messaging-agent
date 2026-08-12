@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_DIR="${REPO_DIR:-/repo}"
 LOG_DIR="${REPO_DIR}/deploy-logs"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
-COMPOSE_SERVICES="${COMPOSE_SERVICES:-backend admin-panel ma-core-service ma-routing-engine ma-smpp-edge}"
+COMPOSE_SERVICES="${COMPOSE_SERVICES:-backend admin-panel ma-core-service ma-routing-engine ma-smpp-edge ma-rcs-mautrix}"
 
 mkdir -p "$LOG_DIR"
 

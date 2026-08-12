@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ma-routing-engine
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ma-routing-engine
+  template:
+    metadata:
+      labels:
+        app: ma-routing-engine
+    spec:
+      containers:
+      - name: ma-routing-engine
+        image: messaging-agent-ma-routing-engine:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Xmx256m -Xms64m -XX:MaxMetaspaceSize=128m"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: KAFKA_BROKERS
+          value: "kafka:29092"
+        ports:
+        - containerPort: 8081

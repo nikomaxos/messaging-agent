@@ -78,7 +78,7 @@ export default function DeployPage() {
             Messaging Agent Deployments
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Manage Enterprise Production deployments for the Messaging Agent (v{packageJson.version})
+            Manage Enterprise {isProductionEnv ? 'Production' : 'Staging'} deployments for the Messaging Agent (v{packageJson.version})
           </p>
         </div>
       </div>

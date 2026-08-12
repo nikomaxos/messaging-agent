@@ -130,6 +130,26 @@ services:
     networks:
       - messaging-dev-net
 
+  ma-rcs-mautrix:
+    build: ./services/rcs-mautrix
+    container_name: ma-rcs-mautrix-dev
+    restart: unless-stopped
+    depends_on:
+      - ma-postgres-dev
+      - ma-redis-dev
+      - ma-kafka-dev
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_HOST=ma-postgres-dev
+      - REDIS_HOST=ma-redis-dev
+      - KAFKA_BROKERS=ma-kafka-dev:29092
+      - MATRIX_SYNAPSE_URL=http://ma-synapse:8008
+      - MATRIX_BRIDGE_DB_URL=jdbc:postgresql://ma-postgres-dev:5432/mautrix
+    ports:
+      - "2777:2777"
+    networks:
+      - messaging-dev-net
+
   ma-api-gateway:
     image: node:20-alpine
     container_name: ma-api-gateway

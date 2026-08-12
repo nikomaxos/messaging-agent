@@ -9,6 +9,7 @@ import com.messagingagent.routing.MatrixRouteService;
 import com.messagingagent.routing.MatrixQueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class DeviceWebSocketService {
     private final DeviceLogRepository deviceLogRepository;
     private final RoundRobinLoadBalancer loadBalancer;
     private final MatrixQueueService matrixQueueService;
+    private final StringRedisTemplate redisTemplate;
 
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
@@ -106,6 +108,10 @@ public class DeviceWebSocketService {
                 deviceLogRepository.save(DeviceLog.builder()
                         .device(device).level("INFO").event("Device ONLINE")
                         .detail("Reconnected via ping").build());
+                redisTemplate.opsForValue().set("device:status:" + device.getId(), "ONLINE");
+                if (device.getMatrixId() != null) {
+                    redisTemplate.opsForValue().set("device:matrixId:" + device.getId(), device.getMatrixId());
+                }
             }
             deviceRepository.save(device);
             // Drain any pending commands queued by REST controllers
@@ -148,6 +154,10 @@ public class DeviceWebSocketService {
                     deviceLogRepository.save(DeviceLog.builder()
                             .device(device).level("INFO").event("Device ONLINE")
                             .detail("battery=" + heartbeat.getBatteryPercent() + "% network=" + heartbeat.getActiveNetworkType()).build());
+                    redisTemplate.opsForValue().set("device:status:" + device.getId(), "ONLINE");
+                    if (device.getMatrixId() != null) {
+                        redisTemplate.opsForValue().set("device:matrixId:" + device.getId(), device.getMatrixId());
+                    }
                 }
                 device.setStatus(Device.Status.ONLINE);
             }
@@ -413,8 +423,16 @@ public class DeviceWebSocketService {
             deviceRepository.save(target);
 
             if (queued.getRoutingMode() == com.messagingagent.model.RoutingMode.MATRIX) {
-                // Instantly enqueue without blocking. The target is properly locked in DB for concurrency protection.
-                matrixQueueService.enqueue(target, queued);
+                // Instantly publish to outbound.rcs for the new rcs-mautrix worker
+                com.messagingagent.kafka.RcsOutboundEvent rcsEvent = new com.messagingagent.kafka.RcsOutboundEvent();
+                rcsEvent.setSmppMessageId(queued.getSmppMessageId());
+                rcsEvent.setDeviceId(target.getId());
+                rcsEvent.setMatrixId(target.getMatrixId());
+                rcsEvent.setDestinationAddress(queued.getDestinationAddress());
+                rcsEvent.setMessageText(queued.getMessageText());
+                rcsEvent.setTimestampMs(System.currentTimeMillis());
+                
+                kafkaTemplate.send("outbound.rcs", rcsEvent);
 
             } else {
                 SmsInboundEvent event = new SmsInboundEvent();

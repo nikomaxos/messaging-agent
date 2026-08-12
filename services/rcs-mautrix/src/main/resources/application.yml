@@ -1,0 +1,40 @@
+server:
+  port: 2777
+
+spring:
+  application:
+    name: ma-rcs-mautrix
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    consumer:
+      group-id: rcs-mautrix-group
+      auto-offset-reset: earliest
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "com.messagingagent.kafka"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+matrix:
+  synapse:
+    url: ${MATRIX_SYNAPSE_URL:http://ma-synapse:8008}
+  appservice:
+    token: ${MATRIX_AS_TOKEN:pRsqHyaFEqmFDeQy6yHGynoeegtTBrwGsUcdL93f09Tx6FMcc7o1QJue5lVvUuYT}
+  domain: ${MATRIX_DOMAIN:synapse}
+  bridge:
+    db:
+      url: ${MATRIX_BRIDGE_DB_URL:jdbc:postgresql://ma-postgres:5432/mautrix}
+      username: ${MATRIX_BRIDGE_DB_USER:msgagent}
+      password: ${MATRIX_BRIDGE_DB_PASS:msgagent}
+  sync:
+    delay-ms: 2000
+  dlr-poll-ms: 3000
