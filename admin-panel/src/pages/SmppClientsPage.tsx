@@ -8,7 +8,7 @@ import { ConfirmModal } from '../components/ConfirmModal'
 
 export default function SmppClientsPage() {
   const qc = useQueryClient()
-  const { data: clients = [], isFetching } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients })
+  const { data: clients = [], isFetching } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients, refetchInterval: 5000 })
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<Partial<SmppClient>>({})
