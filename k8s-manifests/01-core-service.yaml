@@ -29,6 +29,8 @@ spec:
           value: "msgagent"
         - name: DB_PASS
           value: "msgagent"
+        - name: SPRING_SECURITY_JWT_SECRET
+          value: "change-me-in-production-this-must-be-at-least-32-chars"
         ports:
         - containerPort: 8080
 ---
