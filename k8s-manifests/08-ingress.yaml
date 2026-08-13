@@ -4,6 +4,7 @@ metadata:
   name: admin-panel-ingress
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web, websecure
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   rules:
