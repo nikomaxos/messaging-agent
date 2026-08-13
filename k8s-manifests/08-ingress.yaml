@@ -3,7 +3,8 @@ kind: Ingress
 metadata:
   name: admin-panel-ingress
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web, websecure
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   rules:
   - host: messaging-agent.globalnetservices.net
@@ -16,3 +17,7 @@ spec:
             name: ma-admin-panel
             port:
               number: 8081
+  tls:
+  - hosts:
+    - messaging-agent.globalnetservices.net
+    secretName: messaging-agent-tls-secret
