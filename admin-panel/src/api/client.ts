@@ -88,6 +88,17 @@ export const createRoutingRateLimit = (d: any) => api.post('/routing/rate-limits
 export const updateRoutingRateLimit = (id: number, d: any) => api.put(`/routing/rate-limits/${id}`, d).then((r: any) => r.data)
 export const deleteRoutingRateLimit = (id: number) => api.delete(`/routing/rate-limits/${id}`)
 
+export const getCountryPrefixes   = () => api.get('/routing/prefixes').then((r: any) => r.data)
+export const createCountryPrefix  = (d: any) => api.post('/routing/prefixes', d).then((r: any) => r.data)
+export const updateCountryPrefix  = (id: string, d: any) => api.put(`/routing/prefixes/${id}`, d).then((r: any) => r.data)
+export const deleteCountryPrefix  = (id: string) => api.delete(`/routing/prefixes/${id}`).then((r: any) => r.data)
+export const syncCountryPrefixes  = () => api.post('/prefixes/sync').then((r: any) => r.data)
+
+// ── Testing Module ────────────────────────────────────────────────────────
+export const sendTestMessage = (d: any) => api.post('/testing/send', d).then((r: any) => r.data)
+export const sendStressTest = (d: any) => api.post('/testing/stress', d).then((r: any) => r.data)
+export const emulateRouting = (d: any) => api.post('/routing/emulate', d).then((r: any) => r.data)
+
 // ── Message Logs ──────────────────────────────────────────────────────────
 export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'createdAt', sortDir = 'DESC', size = 50) => 
   api.get('/logs', { params: { page, size, sortBy, sortDir, ...filters } }).then((r: any) => r.data)

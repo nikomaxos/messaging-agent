@@ -21,6 +21,8 @@ public class SmppRoutingDto {
     private String smppClientName;
     private String smppClientSystemId;
     
+    private CountryPrefixDto countryPrefix;
+    
     private boolean isDefault;
     private String routingMode;
     private boolean autoFailEnabled;
@@ -36,6 +38,20 @@ public class SmppRoutingDto {
     private List<DestinationDto> destinations;
     private Instant createdAt;
     private Instant updatedAt;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CountryPrefixDto {
+        private Long id;
+        private String countryName;
+        private String prefix;
+        private String networkName;
+        private String mcc;
+        private String mnc;
+        private String iso;
+    }
 
     @Data
     @Builder
@@ -67,6 +83,16 @@ public class SmppRoutingDto {
                 .smppClientId(routing.getSmppClient().getId())
                 .smppClientName(routing.getSmppClient().getName())
                 .smppClientSystemId(routing.getSmppClient().getSystemId())
+                .countryPrefix(routing.getCountryPrefix() != null ? 
+                    CountryPrefixDto.builder()
+                        .id(routing.getCountryPrefix().getId())
+                        .countryName(routing.getCountryPrefix().getCountryName())
+                        .prefix(routing.getCountryPrefix().getPrefix())
+                        .networkName(routing.getCountryPrefix().getNetworkName())
+                        .mcc(routing.getCountryPrefix().getMcc())
+                        .mnc(routing.getCountryPrefix().getMnc())
+                        .iso(routing.getCountryPrefix().getIso())
+                        .build() : null)
                 .isDefault(routing.isDefault())
                 .routingMode(routing.getRoutingMode() != null ? routing.getRoutingMode().name() : "WEBSOCKET")
                 .autoFailEnabled(routing.isAutoFailEnabled())

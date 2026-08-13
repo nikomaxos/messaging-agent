@@ -42,6 +42,10 @@ public class SmppRouting {
     @JoinColumn(name = "fallback_smsc_id")
     private SmscSupplier fallbackSmsc;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "country_prefix_id")
+    private CountryPrefix countryPrefix;
+
     @Column(name = "resend_trigger", length = 20)
     private String resendTrigger; // e.g. "RCS_FAILED", "FAILED"
 

@@ -75,62 +75,32 @@ services:
 
   # ─── Application ───────────────────────────────────────────────────────────
 
-  backend:
+  api-gateway:
     build:
-      context: ./services/legacy-monolith
+      context: ./services/api-gateway
       dockerfile: Dockerfile
-    container_name: ma-backend
+    container_name: ma-api-gateway
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: messagingagent
-      DB_USER: msgagent
-      DB_PASS: msgagent
-      KAFKA_BROKERS: kafka:29092
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      SMPP_BIND_PORT: 2775
-      JWT_SECRET: change-me-in-production-this-must-be-at-least-32-chars
-      ADMIN_USER: admin
-      ADMIN_PASS: changeme
-      SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
-      SPRING_FLYWAY_IGNORE_MISSING_MIGRATIONS: "true"
-      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "false"
-      ADB_VENDOR_KEYS: /home/msgagent/.android/adbkey
-      HOME: /home/msgagent
-    volumes:
-      - ${USERPROFILE:-.}/.android:/home/msgagent/.android:ro
-      - ./android-app/apk-updates:/tmp/updates
-      - .:/repo
     ports:
-      - "9090:9090"   # REST API + WebSocket
-      - "2775:2775"   # SMPP server port
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9090/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      
-  dispatcher-worker:
+      - "9090:3000"
+    environment:
+      PORT: 3000
+      CORE_SERVICE_URL: http://core-service:8080
+      DEVICE_GATEWAY_URL: http://device-gateway:8083
+      ROUTING_ENGINE_URL: http://routing-engine:8084
+      PREFIX_UPDATER_URL: http://prefix-updater:8085
+      JWT_SECRET: change-me-in-production-this-must-be-at-least-32-chars
+
+  core-service:
     build:
-      context: ./services/legacy-monolith
+      context: ./services/core-service
       dockerfile: Dockerfile
-    container_name: ma-dispatcher-worker
+    container_name: ma-core-service
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     environment:
       DB_HOST: postgres
@@ -139,12 +109,45 @@ services:
       DB_USER: msgagent
       DB_PASS: msgagent
       KAFKA_BROKERS: kafka:29092
+      JWT_SECRET: change-me-in-production-this-must-be-at-least-32-chars
+
+  device-gateway:
+    build:
+      context: ./services/device-gateway
+      dockerfile: Dockerfile
+    container_name: ma-device-gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: messagingagent
+      DB_USER: msgagent
+      DB_PASS: msgagent
+      KAFKA_BROKERS: kafka:29092
+      JWT_SECRET: change-me-in-production-this-must-be-at-least-32-chars
+    ports:
+      - "8083:8083"
+
+  routing-engine:
+    build:
+      context: ./services/routing-engine
+      dockerfile: Dockerfile
+    container_name: ma-routing-engine
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:29092
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      SPRING_PROFILES_ACTIVE: worker
-      SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
-      SPRING_FLYWAY_IGNORE_MISSING_MIGRATIONS: "true"
-      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "false"
 
   admin-panel:
     build:
@@ -153,10 +156,22 @@ services:
     container_name: ma-admin-panel
     restart: unless-stopped
     depends_on:
-      backend:
-        condition: service_healthy
+      api-gateway:
+        condition: service_started
     ports:
       - "8081:80"       # Web admin panel
+
+  prefix-updater:
+    build:
+      context: ./services/prefix-updater
+      dockerfile: Dockerfile
+    container_name: ma-prefix-updater
+    restart: unless-stopped
+    environment:
+      CORE_SERVICE_URL: http://core-service:8080
+      PORT: 8085
+    ports:
+      - "8085:8085"
 
 
 

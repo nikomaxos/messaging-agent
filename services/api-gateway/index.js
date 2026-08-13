@@ -17,19 +17,38 @@ app.use((req, res, next) => {
     next();
 });
 
-// Proxy routes to core-service
-app.use('/api/v1/core', createProxyMiddleware({
+const DEVICE_GATEWAY_URL = process.env.DEVICE_GATEWAY_URL || 'http://device-gateway:8083';
+const ROUTING_ENGINE_URL = process.env.ROUTING_ENGINE_URL || 'http://routing-engine:8084';
+const PREFIX_UPDATER_URL = process.env.PREFIX_UPDATER_URL || 'http://prefix-updater:8085';
+
+// Proxy routes to core-service (excluding devices, routing emulate, and sync)
+app.use('/api', createProxyMiddleware({
     target: CORE_SERVICE_URL,
     changeOrigin: true,
-    pathRewrite: {
-        '^/api/v1/core': '/api' // Rewrite so core-service sees /api/users
-    },
-    onProxyReq: (proxyReq, req, res) => {
-        // Forward auth info
-        if (req.user) {
-            proxyReq.setHeader('x-user-id', req.user.id);
-        }
+    pathFilter: (pathname, req) => {
+        return pathname.startsWith('/api') && 
+               !pathname.startsWith('/api/devices') && 
+               !pathname.startsWith('/api/routing/emulate') &&
+               !pathname.startsWith('/api/prefixes/sync');
     }
+}));
+
+// Proxy device related routes
+app.use('/api/devices', createProxyMiddleware({
+    target: DEVICE_GATEWAY_URL,
+    changeOrigin: true
+}));
+
+// Proxy routing emulation
+app.use('/api/routing/emulate', createProxyMiddleware({
+    target: ROUTING_ENGINE_URL,
+    changeOrigin: true
+}));
+
+// Proxy prefix updater sync
+app.use('/api/prefixes/sync', createProxyMiddleware({
+    target: PREFIX_UPDATER_URL,
+    changeOrigin: true
 }));
 
 app.get('/health', (req, res) => {

@@ -68,3 +68,4 @@ matrix/mautrix-gmessages/config.yaml
 android-app/.kotlin/
 .env-vaults/
 !.env.vault
+**/node_modules/

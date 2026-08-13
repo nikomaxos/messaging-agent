@@ -1,149 +1,176 @@
 const express = require('express');
 const cors = require('cors');
-const { spawn } = require('child_process');
-const path = require('path');
+const { NodeSSH } = require('node-ssh');
+const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PROXMOX_IP = '65.108.8.252';
-const PROD_VM_IDS = [301, 302, 303]; // K3s Master and Workers
-const PROD_IP = '10.10.10.193'; // K3s Master IP
+// In-memory store for deployment sessions (to avoid passing passwords in GET EventSource URLs)
+const deploySessions = new Map();
 
-// Helper to spawn commands and stream back to the SSE response
-function runCommand(cmd, res, onExit) {
-  res.write(`data: ${JSON.stringify({ log: `> Executing Task...` })}\n\n`);
+// Helper to execute SSH commands and stream back to the SSE response
+async function runSshCommandStream(ssh, cmd, res, onExit) {
+  res.write(`data: ${JSON.stringify({ log: `> Executing SSH Task...` })}\n\n`);
 
-  // Keep-alive heartbeat every 15 seconds to prevent Nginx/Caddy from dropping the SSE stream
   const keepAlive = setInterval(() => {
     res.write(':\n\n'); // SSE comment
   }, 15000);
 
-  const child = spawn('bash', ['-c', cmd]);
-
-  child.stdout.on('data', (data) => {
-    res.write(`data: ${JSON.stringify({ log: data.toString().trim() })}\n\n`);
-  });
-
-  child.stderr.on('data', (data) => {
-    res.write(`data: ${JSON.stringify({ log: data.toString().trim(), error: true })}\n\n`);
-  });
-
-  child.on('close', (code) => {
+  try {
+    await ssh.execCommand(cmd, {
+      onStdout(chunk) {
+        res.write(`data: ${JSON.stringify({ log: chunk.toString('utf8').trim() })}\n\n`);
+      },
+      onStderr(chunk) {
+        res.write(`data: ${JSON.stringify({ log: chunk.toString('utf8').trim(), error: true })}\n\n`);
+      }
+    });
     clearInterval(keepAlive);
-    res.write(`data: ${JSON.stringify({ log: `Command exited with code ${code}` })}\n\n`);
-    if (onExit) onExit(code);
-  });
+    res.write(`data: ${JSON.stringify({ log: `Command completed successfully.` })}\n\n`);
+    if (onExit) onExit(0);
+  } catch (err) {
+    clearInterval(keepAlive);
+    res.write(`data: ${JSON.stringify({ log: `Command failed: ${err.message}`, error: true })}\n\n`);
+    if (onExit) onExit(1);
+  }
 }
 
-// Deploy to Production
-app.post('/api/deploy/production', (req, res) => {
+// 1. Init Deployment Session
+app.post('/api/deploy/init', (req, res) => {
+  const { ip, username, password } = req.body;
+  if (!ip || !username) {
+    return res.status(400).json({ error: 'IP and username are required' });
+  }
+
+  const token = crypto.randomUUID();
+  deploySessions.set(token, { ip, username, password, createdAt: Date.now() });
+
+  // Cleanup old sessions after 5 minutes
+  setTimeout(() => deploySessions.delete(token), 300000);
+
+  res.json({ token });
+});
+
+// 2. Execute Deployment (SSE)
+app.get('/api/deploy/production', async (req, res) => {
+  const token = req.query.token;
+  const session = deploySessions.get(token);
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.write(`data: ${JSON.stringify({ log: `Starting Kubernetes Production Deployment to ${PROD_IP}...` })}\n\n`);
-  
-  const versionStripped = require('/repo/admin-panel/package.json').version.replace(/\./g, '_');
-  const snapshotName = `pre_deploy_v${versionStripped}_${Date.now()}`;
-  
-  const cmd = `
-    echo "Creating Proxmox snapshots ${snapshotName} for K3s nodes..."
-    for vmid in ${PROD_VM_IDS.join(' ')}; do
-      ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm snapshot $vmid ${snapshotName} --description 'Auto-snapshot before K8s deployment'"
-    done
-    echo "Snapshots created. Triggering deployment on Kubernetes Master Node..."
-    ssh -o StrictHostKeyChecking=no ubuntu@${PROD_IP} "if [ ! -d ~/messaging-agent ]; then git clone https://github.com/nikomaxos/messaging-agent.git ~/messaging-agent; fi && cd ~/messaging-agent && ./deploy-agent/deploy-k8s.sh"
-  `;
 
-  runCommand(cmd, res, (code) => {
-    res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
-    res.end();
-  });
-});
+  if (!session) {
+    res.write(`data: ${JSON.stringify({ log: 'Invalid or expired deployment token.', error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    return res.end();
+  }
 
-// Get Deploy Info
-app.get('/api/deploy/info', (req, res) => {
-  const { exec } = require('child_process');
+  res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH...` })}\n\n`);
   
-  // 1. Get Prod version
-  exec(`ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ubuntu@10.10.10.193 "cat ~/messaging-agent/admin-panel/package.json 2>/dev/null || echo '{\\"version\\":\\"Unknown\\"}'"`, { timeout: 5000 }, (err, stdout) => {
-    let prodVersion = "Unknown";
-    try {
-      prodVersion = "v" + JSON.parse(stdout).version;
-    } catch(e) {}
-
-    // 2. Get Snapshot version
-    exec(`ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@${PROXMOX_IP} "qm listsnapshot ${PROD_VM_IDS[0]}"`, { timeout: 5000 }, (err2, stdout2) => {
-      let rollbackTarget = "Unknown Version";
-      const lines = (stdout2 || "").split('\n');
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].includes('pre_deploy_')) {
-          const vMatch = lines[i].match(/pre_deploy_v([0-9_]+)_(\d+)/);
-          if (vMatch) {
-            const d = new Date(parseInt(vMatch[2]));
-            rollbackTarget = `v${vMatch[1]} (snapshot from ${d.toLocaleString()})`;
-          } else {
-            const tsMatch = lines[i].match(/pre_deploy_(\d+)/);
-            if (tsMatch) {
-              const d = new Date(parseInt(tsMatch[1]));
-              rollbackTarget = `v1.0.0 (snapshot from ${d.toLocaleString()})`;
-            } else {
-              rollbackTarget = "previous snapshot";
-            }
-          }
-          break;
-        }
-      }
-      
-      res.json({ productionVersion: prodVersion, rollbackTarget });
+  const ssh = new NodeSSH();
+  try {
+    await ssh.connect({
+      host: session.ip,
+      username: session.username,
+      password: session.password || undefined,
+      privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
+      tryKeyboard: true,
+      readyTimeout: 10000
     });
-  });
-});
+    res.write(`data: ${JSON.stringify({ log: `SSH Connected successfully.` })}\n\n`);
 
-// Rollback Production
-app.post('/api/rollback/production', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.write(`data: ${JSON.stringify({ log: 'Fetching available snapshots from K3s Master...' })}\n\n`);
-  
-  const getSnapshotsCmd = `ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm listsnapshot ${PROD_VM_IDS[0]}"`;
-  const child = spawn('bash', ['-c', getSnapshotsCmd]);
-  
-  let output = '';
-  child.stdout.on('data', data => output += data.toString());
-  
-  child.on('close', () => {
-    const lines = output.split('\\n');
-    let targetSnapshot = null;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (lines[i].includes('pre_deploy_')) {
-        targetSnapshot = lines[i].trim().split(' ')[0].replace('\`->', '').trim();
-        break;
-      }
-    }
-
-    if (!targetSnapshot) {
-      res.write(`data: ${JSON.stringify({ log: 'No pre_deploy snapshot found!', error: true })}\n\n`);
-      res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-      return res.end();
-    }
-
-    res.write(`data: ${JSON.stringify({ log: 'Rolling back K3s VMs ' + PROD_VM_IDS.join(', ') + ' to snapshot ' + targetSnapshot + '...' })}\n\n`);
-    const rollbackCmd = `
-      for vmid in ${PROD_VM_IDS.join(' ')}; do
-        ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm stop $vmid || true"
-        ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm rollback $vmid ${targetSnapshot}"
-        ssh -o StrictHostKeyChecking=no root@${PROXMOX_IP} "qm start $vmid"
-      done
+    const cmd = `
+      echo "Triggering deployment on Target Node..."
+      if [ ! -d ~/messaging-agent ]; then git clone https://github.com/nikomaxos/messaging-agent.git ~/messaging-agent; fi 
+      cd ~/messaging-agent 
+      ./deploy-agent/deploy-k8s.sh
     `;
 
-    runCommand(rollbackCmd, res, (code) => {
+    await runSshCommandStream(ssh, cmd, res, (code) => {
+      ssh.dispose();
       res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
       res.end();
     });
-  });
+
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ log: `SSH Connection Failed: ${err.message}`, error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    res.end();
+  }
+});
+
+// 3. Get Deploy Info (Changed to POST to accept credentials safely)
+app.post('/api/deploy/info', async (req, res) => {
+  const { ip, username, password } = req.body;
+  if (!ip || !username) {
+    return res.status(400).json({ error: 'IP and username are required' });
+  }
+
+  const ssh = new NodeSSH();
+  try {
+    await ssh.connect({ host: ip, username, password: password || undefined, privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'), tryKeyboard: true, readyTimeout: 5000 });
+    
+    // Get Prod version
+    const result = await ssh.execCommand("cat ~/messaging-agent/admin-panel/package.json 2>/dev/null || echo '{\"version\":\"Unknown\"}'");
+    let prodVersion = "Unknown";
+    try {
+      prodVersion = "v" + JSON.parse(result.stdout).version;
+    } catch(e) {}
+
+    ssh.dispose();
+    res.json({ productionVersion: prodVersion, rollbackTarget: "Kubernetes Native Rollback (Previous ReplicaSet)" });
+
+  } catch (err) {
+    res.status(500).json({ error: `SSH Connection Failed: ${err.message}` });
+  }
+});
+
+// 4. Rollback Production (SSE)
+app.get('/api/rollback/production', async (req, res) => {
+  const token = req.query.token;
+  const session = deploySessions.get(token);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  if (!session) {
+    res.write(`data: ${JSON.stringify({ log: 'Invalid or expired rollback token.', error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    return res.end();
+  }
+
+  res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH for Rollback...` })}\n\n`);
+  
+  const ssh = new NodeSSH();
+  try {
+    await ssh.connect({
+      host: session.ip,
+      username: session.username,
+      password: session.password || undefined,
+      privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
+      tryKeyboard: true,
+      readyTimeout: 10000
+    });
+    
+    res.write(`data: ${JSON.stringify({ log: 'Rolling back K3s deployments natively via kubectl...' })}\n\n`);
+    const rollbackCmd = `kubectl rollout undo deployment --all`;
+    
+    await runSshCommandStream(ssh, rollbackCmd, res, (code) => {
+      ssh.dispose();
+      res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
+      res.end();
+    });
+
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ log: `SSH Connection Failed: ${err.message}`, error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    res.end();
+  }
 });
 
 const PORT = process.env.PORT || 8082;

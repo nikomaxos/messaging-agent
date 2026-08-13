@@ -27,6 +27,7 @@ const nav = [
   { to: '/logs/system',   icon: <Server size={20} className="text-indigo-400" />, label: 'System Logs' },
   { to: '/audit',         icon: <Shield size={20} className="text-violet-400" />, label: 'Audit Log' },
   { to: '/deploy',        icon: <Rocket size={20} className="text-teal-400" />, label: 'Auto-Deploy' },
+  { to: '/testing',       icon: <Activity size={20} className="text-yellow-400" />, label: 'Testing' },
   { to: '/users',          icon: <UserCog size={20} className="text-rose-400" />, label: 'Users' },
 ]
 

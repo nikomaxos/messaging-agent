@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSmppRoutings, createSmppRouting, updateSmppRouting, deleteSmppRouting, getGroups, getSmppClients, getSmscSuppliers } from '../api/client'
+import { getSmppRoutings, createSmppRouting, updateSmppRouting, deleteSmppRouting, getGroups, getSmppClients, getSmscSuppliers, getCountryPrefixes } from '../api/client'
 import { SmppClient, DeviceGroup, SmppRouting } from '../types'
-import { Plus, Trash2, Route, Edit2, X } from 'lucide-react'
+import { Plus, Trash2, Route, Edit2, X, Network, Globe } from 'lucide-react'
 import { ConfirmModal } from '../components/ConfirmModal'
+import CountryPrefixesTab from './CountryPrefixesTab'
 
 // Modal Component for Create/Edit
-function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: any) {
+function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, prefixes }: any) {
   const qc = useQueryClient()
   const [formData, setFormData] = useState<any>({
     smppClientId: '',
+    countryPrefixId: '',
     isDefault: false,
     routingMode: 'WEBSOCKET',
     autoFailEnabled: false,
@@ -26,6 +28,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
     if (route) {
       setFormData({
         smppClientId: route.smppClientId || '',
+        countryPrefixId: route.countryPrefix?.id || '',
         isDefault: route.isDefault || false,
         routingMode: route.routingMode || 'WEBSOCKET',
         autoFailEnabled: route.autoFailEnabled || false,
@@ -46,6 +49,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
     } else {
       setFormData({
         smppClientId: '',
+        countryPrefixId: '',
         isDefault: false,
         routingMode: 'WEBSOCKET',
         autoFailEnabled: false,
@@ -79,6 +83,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
     const payload = {
       ...formData,
       smppClientId: Number(formData.smppClientId),
+      countryPrefix: formData.countryPrefixId ? { id: Number(formData.countryPrefixId) } : null,
       autoFailTimeoutMinutes: formData.autoFailTimeoutMinutes ? Number(formData.autoFailTimeoutMinutes) : 15,
       fallbackSmscId: formData.fallbackSmscId ? Number(formData.fallbackSmscId) : null,
       rcsExpirationSeconds: formData.rcsExpirationSeconds ? Number(formData.rcsExpirationSeconds) : null,
@@ -129,13 +134,23 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
           
           {/* Client Selection */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Incoming SMPP Client</label>
-              <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
-                value={formData.smppClientId} onChange={(e: any) => setFormData({...formData, smppClientId: e.target.value})}>
-                <option value="">-- Select Source Client --</option>
-                {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.systemId})</option>)}
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Incoming SMPP Client</label>
+                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
+                  value={formData.smppClientId} onChange={(e: any) => setFormData({...formData, smppClientId: e.target.value})}>
+                  <option value="">-- Select Source Client --</option>
+                  {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.systemId})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Target Network (MCC/MNC)</label>
+                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
+                  value={formData.countryPrefixId} onChange={(e: any) => setFormData({...formData, countryPrefixId: e.target.value})}>
+                  <option value="">-- ALL NETWORKS --</option>
+                  {prefixes?.map((p: any) => <option key={p.id} value={p.id}>{p.countryName} - {p.networkName} ({p.mcc}/{p.mnc})</option>)}
+                </select>
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit">
               <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
@@ -306,14 +321,17 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs }: an
 
 export default function SmppRoutingPage() {
   const qc = useQueryClient()
-  const { data: routings = [], isFetching } = useQuery({ queryKey: ['smppRoutings'], queryFn: getSmppRoutings })
+  const { data: routes = [], isLoading } = useQuery({ queryKey: ['smppRoutings'], queryFn: getSmppRoutings })
+  const { data: clients = [] } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients })
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
-  const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: getSmppClients })
   const { data: smscs = [] } = useQuery({ queryKey: ['smscs'], queryFn: getSmscSuppliers })
+  const { data: prefixes = [] } = useQuery({ queryKey: ['countryPrefixes'], queryFn: getCountryPrefixes })
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRoute, setEditingRoute] = useState<any>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: number, name: string } | null>(null)
+  
+  const [activeTab, setActiveTab] = useState<'rules' | 'prefixes'>('rules')
 
   const deleteMut = useMutation({
     mutationFn: deleteSmppRouting,
@@ -332,118 +350,157 @@ export default function SmppRoutingPage() {
 
   return (
     <div className="p-8">
-      <ConfirmModal
-        isOpen={confirmDelete !== null}
-        title="Delete Route"
-        message={`Are you sure you want to delete the route for ${confirmDelete?.name}?`}
-        onConfirm={() => confirmDelete && deleteMut.mutate(confirmDelete.id)}
-        onCancel={() => setConfirmDelete(null)}
-      />
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Routing Configuration</h1>
-          <p className="text-slate-400 text-sm">Map incoming SMPP requests to Virtual SMSCs and set up Load Balancing / Failover.</p>
+          <p className="text-slate-400 text-sm">Map incoming requests to Virtual SMSCs and manage routing assets.</p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/20"
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-white/10 mb-6 pb-2">
+        <button 
+          onClick={() => setActiveTab('rules')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'rules' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white'}`}
         >
-          <Plus size={16} /> Add Route
+          <Network size={16} /> Routing Rules
+        </button>
+        <button 
+          onClick={() => setActiveTab('prefixes')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'prefixes' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white'}`}
+        >
+          <Globe size={16} /> Country Prefixes
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {routings.length === 0 && !isFetching && (
-          <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-12 text-center">
-            <Route className="mx-auto text-slate-600 mb-3" size={32} />
-            <div className="text-slate-400">No active routes defined.</div>
-            <div className="text-sm text-slate-500 mt-1">Messages without a route will drop unless a Default Route exists.</div>
+      {activeTab === 'rules' ? (
+        <>
+          <ConfirmModal
+            isOpen={confirmDelete !== null}
+            title="Delete Route"
+            message={`Are you sure you want to delete the route for ${confirmDelete?.name}?`}
+            onConfirm={() => confirmDelete && deleteMut.mutate(confirmDelete.id)}
+            onCancel={() => setConfirmDelete(null)}
+          />
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/20"
+            >
+              <Plus size={16} /> Add Route
+            </button>
           </div>
-        )}
 
-        {routings.map((r: any) => (
-          <div key={r.id} className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col hover:border-white/10 transition group gap-4 relative">
-            <div className="absolute top-4 right-4 flex gap-2">
-              <button onClick={() => openEditModal(r)} className="p-2 bg-white/5 text-slate-400 hover:text-white rounded transition" title="Edit Route">
-                <Edit2 size={15} />
-              </button>
-              <button onClick={() => setConfirmDelete({ id: r.id, name: r.smppClientName })} className="p-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete Route">
-                <Trash2 size={15} />
-              </button>
-            </div>
-            
-            <div className="flex items-start gap-6">
-               <div className="w-1/4">
-                 <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Source Client</div>
-                 <div className="font-medium text-white text-lg">{r.smppClientName}</div>
-                 <div className="text-xs text-slate-400 font-mono mt-0.5">{r.smppClientSystemId}</div>
-                 <div className="flex items-center gap-2 mt-2">
-                   {r.isDefault && <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest leading-none">Default</span>}
-                   <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest leading-none border ${r.routingMode === 'MATRIX' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
-                     {r.routingMode || 'WEBSOCKET'}
-                   </span>
-                 </div>
-                 {r.autoFailEnabled && (
-                   <div className="text-[10px] text-amber-500/70 mt-1 uppercase tracking-wide">
-                     Auto-fail: {r.autoFailTimeoutMinutes}m
-                   </div>
-                 )}
-               </div>
+          <div className="grid grid-cols-1 gap-4">
+            {routes.length === 0 && !isLoading && (
+              <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-12 text-center">
+                <Route className="mx-auto text-slate-600 mb-3" size={32} />
+                <div className="text-slate-400">No active routes defined.</div>
+                <div className="text-sm text-slate-500 mt-1">Messages without a route will drop unless a Default Route exists.</div>
+              </div>
+            )}
 
-               <div className="w-px h-16 bg-white/[0.05] mt-1 shrink-0 px-0"></div>
-               
-               <div className="flex-1">
-                 <div className="text-xs text-slate-500 mb-2 uppercase font-semibold tracking-wider flex items-center gap-2">
-                   Target Destinations
-                   {r.loadBalancerEnabled && <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/20 leading-none">Load Balanced</span>}
-                 </div>
-                 
-                 <div className="space-y-2">
-                   {r.destinations?.map((dest: any) => (
-                     <div key={dest.id} className="flex items-center gap-3 bg-black/20 px-3 py-2 rounded-lg border border-white/5 text-sm">
-                       <span className="font-medium text-brand-400 w-1/3 truncate">{dest.deviceGroupName}</span>
-                       {r.loadBalancerEnabled && (
-                         <span className="text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded w-16 text-center">{dest.weightPercent}%</span>
-                       )}
-                       {dest.fallbackSmscId && dest.fallbackSmscName && (
-                         <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 truncate">
-                           Fallback: {dest.fallbackSmscName}
-                         </span>
+            {routes.map((r: any) => (
+              <div key={r.id} className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col hover:border-white/10 transition group gap-4 relative">
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <button onClick={() => openEditModal(r)} className="p-2 bg-white/5 text-slate-400 hover:text-white rounded transition" title="Edit Route">
+                    <Edit2 size={15} />
+                  </button>
+                  <button onClick={() => setConfirmDelete({ id: r.id, name: r.smppClientName })} className="p-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete Route">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+                
+                <div className="flex items-start gap-6">
+                   <div className="w-1/4">
+                     <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Source Client</div>
+                     <div className="font-medium text-white text-lg">{r.smppClientName}</div>
+                     <div className="text-xs text-slate-400 font-mono mt-0.5">{r.smppClientSystemId}</div>
+                     <div className="flex items-center gap-2 mt-2">
+                       {r.isDefault && <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest leading-none">Default</span>}
+                       <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest leading-none border ${r.routingMode === 'MATRIX' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
+                         {r.routingMode || 'WEBSOCKET'}
+                       </span>
+                     </div>
+                     {r.autoFailEnabled && (
+                       <div className="text-[10px] text-amber-500/70 mt-1 uppercase tracking-wide">
+                         Auto-fail: {r.autoFailTimeoutMinutes}m
+                       </div>
+                     )}
+                     
+                     <div className="mt-4">
+                       <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Target Network</div>
+                       {r.countryPrefix ? (
+                         <div className="flex items-center gap-2 text-sm text-white">
+                           <Globe size={14} className="text-brand-400" />
+                           {r.countryPrefix.countryName} - {r.countryPrefix.networkName} 
+                           <span className="text-slate-400 text-xs">({r.countryPrefix.mcc}/{r.countryPrefix.mnc})</span>
+                         </div>
+                       ) : (
+                         <div className="text-sm text-slate-400 italic">ALL NETWORKS</div>
                        )}
                      </div>
-                   ))}
-                 </div>
-               </div>
+                   </div>
 
-               <div className="w-1/4">
-                 <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Failover State</div>
-                 {r.resendEnabled ? (
-                   <div className="space-y-1">
-                     <div className="text-sm text-amber-400 font-medium">{r.resendTrigger === 'ALL_FAILURES' ? 'On Any Error' : 'On Non-RCS Client'}</div>
-                     <div className="text-xs text-slate-400">Timer: {r.rcsExpirationSeconds}s</div>
-                     {r.fallbackSmscId && r.fallbackSmscName && (
-                        <div className="text-xs mt-2 px-2 py-1 bg-white/5 rounded line-clamp-2" title={r.fallbackSmscName}>
-                          Global: {r.fallbackSmscName}
-                        </div>
+                   <div className="w-px h-16 bg-white/[0.05] mt-1 shrink-0 px-0"></div>
+                   
+                   <div className="flex-1">
+                     <div className="text-xs text-slate-500 mb-2 uppercase font-semibold tracking-wider flex items-center gap-2">
+                       Target Destinations
+                       {r.loadBalancerEnabled && <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/20 leading-none">Load Balanced</span>}
+                     </div>
+                     
+                     <div className="space-y-2">
+                       {r.destinations?.map((dest: any) => (
+                         <div key={dest.id} className="flex items-center gap-3 bg-black/20 px-3 py-2 rounded-lg border border-white/5 text-sm">
+                           <span className="font-medium text-brand-400 w-1/3 truncate">{dest.deviceGroupName}</span>
+                           {r.loadBalancerEnabled && (
+                             <span className="text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded w-16 text-center">{dest.weightPercent}%</span>
+                           )}
+                           {dest.fallbackSmscId && dest.fallbackSmscName && (
+                             <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 truncate">
+                               Fallback: {dest.fallbackSmscName}
+                             </span>
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+
+                   <div className="w-1/4">
+                     <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Failover State</div>
+                     {r.resendEnabled ? (
+                       <div className="space-y-1">
+                         <div className="text-sm text-amber-400 font-medium">{r.resendTrigger === 'ALL_FAILURES' ? 'On Any Error' : 'On Non-RCS Client'}</div>
+                         <div className="text-xs text-slate-400">Timer: {r.rcsExpirationSeconds}s</div>
+                         {r.fallbackSmscId && r.fallbackSmscName && (
+                            <div className="text-xs mt-2 px-2 py-1 bg-white/5 rounded line-clamp-2" title={r.fallbackSmscName}>
+                              Global: {r.fallbackSmscName}
+                            </div>
+                         )}
+                       </div>
+                     ) : (
+                       <div className="text-sm text-slate-500 italic">No Fallback</div>
                      )}
                    </div>
-                 ) : (
-                   <div className="text-sm text-slate-500 italic">No Fallback</div>
-                 )}
-               </div>
-            </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <SmppRoutingModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        route={editingRoute} 
-        clients={clients} 
-        groups={groups} 
-        smscs={smscs} 
-      />
+          <SmppRoutingModal 
+            isOpen={modalOpen} 
+            onClose={() => setModalOpen(false)} 
+            route={editingRoute} 
+            clients={clients} 
+            groups={groups} 
+            smscs={smscs}
+            prefixes={prefixes}
+          />
+        </>
+      ) : (
+        <CountryPrefixesTab />
+      )}
     </div>
   )
 }
