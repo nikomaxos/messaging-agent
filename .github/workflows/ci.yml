@@ -11,22 +11,26 @@ jobs:
     name: Build Prefix Updater (Node 22)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - name: Install dependencies
         working-directory: ./services/prefix-updater
-        run: npm install
+        run: npm install --ignore-scripts
+
+      - name: Verify module loads
+        working-directory: ./services/prefix-updater
+        run: node -e "require('mcc-mnc-list'); require('express'); console.log('All modules OK');"
 
   build-core-service:
     name: Build Core Service (Java 21)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -43,7 +47,7 @@ jobs:
     name: Build Routing Engine (Java 21)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -60,7 +64,7 @@ jobs:
     name: Build SMPP Edge Node (Java 21)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -77,7 +81,7 @@ jobs:
     name: Build RCS Mautrix Worker (Java 21)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -94,10 +98,10 @@ jobs:
     name: Build Admin Panel (Node 22)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
