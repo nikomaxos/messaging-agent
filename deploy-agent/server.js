@@ -3,6 +3,9 @@ const cors = require('cors');
 const { NodeSSH } = require('node-ssh');
 const crypto = require('crypto');
 const fs = require('fs');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 const app = express();
 app.use(cors());
@@ -69,6 +72,26 @@ app.get('/api/deploy/production', async (req, res) => {
     return res.end();
   }
 
+  // 1. Auto-Push Local Changes First
+  res.write(`data: ${JSON.stringify({ log: 'Committing and pushing local changes to GitHub...' })}\n\n`);
+  try {
+    const gitCmds = `
+      git config --global --add safe.directory /repo &&
+      git config --global user.email "deploy-agent@messaging-agent.local" &&
+      git config --global user.name "Deploy Agent" &&
+      git add . &&
+      (git commit -m "Auto-Deploy: Pushed from Admin Panel" || true) &&
+      git push origin main
+    `;
+    await execPromise(gitCmds, { cwd: '/repo' });
+    res.write(`data: ${JSON.stringify({ log: 'Successfully pushed local changes.' })}\n\n`);
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ log: `Failed to push local changes: ${err.message}`, error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    return res.end();
+  }
+
+  // 2. SSH into target and Deploy
   res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH...` })}\n\n`);
   
   const ssh = new NodeSSH();

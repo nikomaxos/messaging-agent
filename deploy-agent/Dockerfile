@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# Install SSH client and Bash for remote execution
-RUN apk add --no-cache openssh-client bash curl
+# Install SSH client, Git, and Bash for remote execution
+RUN apk add --no-cache openssh-client bash curl git
 
 WORKDIR /app
 
