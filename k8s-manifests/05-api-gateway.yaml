@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ma-api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ma-api-gateway
+  template:
+    metadata:
+      labels:
+        app: ma-api-gateway
+    spec:
+      containers:
+      - name: ma-api-gateway
+        image: messaging-agent-api-gateway:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PORT
+          value: "3000"
+        - name: CORE_SERVICE_URL
+          value: "http://ma-core-service:8080"
+        - name: DEVICE_GATEWAY_URL
+          value: "http://ma-device-gateway:8083"
+        - name: ROUTING_ENGINE_URL
+          value: "http://ma-routing-engine:8084"
+        - name: PREFIX_UPDATER_URL
+          value: "http://ma-prefix-updater:8085"
+        - name: JWT_SECRET
+          value: "change-me-in-production-this-must-be-at-least-32-chars"
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ma-api-gateway
+spec:
+  selector:
+    app: ma-api-gateway
+  ports:
+    - port: 9090
+      targetPort: 3000

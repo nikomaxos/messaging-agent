@@ -31,12 +31,45 @@ git reset --hard "origin/$DEPLOY_BRANCH" 2>&1 | tee -a "$LOG_FILE"
 COMMIT_SHA=$(git rev-parse --short HEAD)
 log "Now at commit: $COMMIT_SHA"
 
-# Step 2: Apply Manifests
-log "--- Step 2: Applying Kubernetes Manifests ---"
+# Step 2: Build and Import Images
+log "--- Step 2: Building and Importing Docker Images ---"
+cd "$REPO_DIR"
+
+declare -A SERVICES
+SERVICES=(
+  ["core-service"]="services/core-service"
+  ["routing-engine"]="services/routing-engine"
+  ["smpp-edge"]="services/smpp-edge"
+  ["rcs-mautrix"]="services/rcs-mautrix"
+  ["api-gateway"]="services/api-gateway"
+  ["prefix-updater"]="services/prefix-updater"
+  ["admin-panel"]="admin-panel"
+)
+
+for service in "${!SERVICES[@]}"; do
+    path="${SERVICES[$service]}"
+    image_name="messaging-agent-${service}:latest"
+    log "Building $image_name from $path..."
+    sudo docker build -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
+    
+    log "Importing $image_name into k3s..."
+    sudo docker save "$image_name" | sudo k3s ctr images import - 2>&1 | tee -a "$LOG_FILE"
+done
+
+# Step 3: Apply Manifests
+log "--- Step 3: Applying Kubernetes Manifests ---"
 sudo kubectl apply -f k8s-manifests/ 2>&1 | tee -a "$LOG_FILE"
 
-# Step 3: Wait for rollout
-log "--- Step 3: Waiting for Rollouts ---"
+# Step 4: Force Rollout Restart for all deployments
+log "--- Step 4: Forcing Rollout Restarts ---"
+DEPLOYMENTS=$(sudo kubectl get deployments -o jsonpath='{.items[*].metadata.name}')
+for dep in $DEPLOYMENTS; do
+    log "Restarting deployment $dep..."
+    sudo kubectl rollout restart deployment "$dep" 2>&1 | tee -a "$LOG_FILE"
+done
+
+# Step 5: Wait for rollout
+log "--- Step 5: Waiting for Rollouts ---"
 DEPLOYMENTS=$(sudo kubectl get deployments -o jsonpath='{.items[*].metadata.name}')
 for dep in $DEPLOYMENTS; do
     log "Waiting for deployment $dep..."

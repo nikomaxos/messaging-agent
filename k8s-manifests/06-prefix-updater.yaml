@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ma-prefix-updater
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ma-prefix-updater
+  template:
+    metadata:
+      labels:
+        app: ma-prefix-updater
+    spec:
+      containers:
+      - name: ma-prefix-updater
+        image: messaging-agent-prefix-updater:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PORT
+          value: "8085"
+        - name: CORE_SERVICE_URL
+          value: "http://ma-core-service:8080"
+        ports:
+        - containerPort: 8085
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ma-prefix-updater
+spec:
+  selector:
+    app: ma-prefix-updater
+  ports:
+    - port: 8085
+      targetPort: 8085
