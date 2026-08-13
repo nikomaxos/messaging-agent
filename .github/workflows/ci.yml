@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./services/prefix-updater
-        run: npm install --ignore-scripts
+        run: npm install
 
       - name: Verify module loads
         working-directory: ./services/prefix-updater
