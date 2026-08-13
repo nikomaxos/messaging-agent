@@ -79,9 +79,10 @@ app.get('/api/deploy/production', async (req, res) => {
       git config --global --add safe.directory /repo &&
       git config --global user.email "deploy-agent@messaging-agent.local" &&
       git config --global user.name "Deploy Agent" &&
+      git remote set-url origin git@github.com:nikomaxos/messaging-agent.git &&
       git add . &&
       (git commit -m "Auto-Deploy: Pushed from Admin Panel" || true) &&
-      git push origin main
+      GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
     `;
     await execPromise(gitCmds, { cwd: '/repo' });
     res.write(`data: ${JSON.stringify({ log: 'Successfully pushed local changes.' })}\n\n`);
