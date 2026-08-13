@@ -21,18 +21,6 @@ const DEVICE_GATEWAY_URL = process.env.DEVICE_GATEWAY_URL || 'http://device-gate
 const ROUTING_ENGINE_URL = process.env.ROUTING_ENGINE_URL || 'http://routing-engine:8084';
 const PREFIX_UPDATER_URL = process.env.PREFIX_UPDATER_URL || 'http://prefix-updater:8085';
 
-// Proxy routes to core-service (excluding devices, routing emulate, and sync)
-app.use('/api', createProxyMiddleware({
-    target: CORE_SERVICE_URL,
-    changeOrigin: true,
-    pathFilter: (pathname, req) => {
-        return pathname.startsWith('/api') && 
-               !pathname.startsWith('/api/devices') && 
-               !pathname.startsWith('/api/routing/emulate') &&
-               !pathname.startsWith('/api/prefixes/sync');
-    }
-}));
-
 // Proxy device related routes
 app.use('/api/devices', createProxyMiddleware({
     target: DEVICE_GATEWAY_URL,
@@ -48,6 +36,12 @@ app.use('/api/routing/emulate', createProxyMiddleware({
 // Proxy prefix updater sync
 app.use('/api/prefixes/sync', createProxyMiddleware({
     target: PREFIX_UPDATER_URL,
+    changeOrigin: true
+}));
+
+// Proxy routes to core-service
+app.use('/api', createProxyMiddleware({
+    target: CORE_SERVICE_URL,
     changeOrigin: true
 }));
 
