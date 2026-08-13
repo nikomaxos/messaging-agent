@@ -2,6 +2,7 @@ package com.messagingagent.controller;
 
 import com.messagingagent.model.RoutingRateLimit;
 import com.messagingagent.repository.RoutingRateLimitRepository;
+import com.messagingagent.service.RedisConfigSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.List;
 public class RoutingRateLimitController {
 
     private final RoutingRateLimitRepository repository;
+    private final RedisConfigSyncService syncService;
 
     @GetMapping
     public List<RoutingRateLimit> getAll() {
@@ -22,7 +24,9 @@ public class RoutingRateLimitController {
 
     @PostMapping
     public RoutingRateLimit create(@RequestBody RoutingRateLimit limit) {
-        return repository.save(limit);
+        RoutingRateLimit saved = repository.save(limit);
+        syncService.syncRateLimit(saved);
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -33,13 +37,18 @@ public class RoutingRateLimitController {
             existing.setNetworkId(limit.getNetworkId());
             existing.setSupplierId(limit.getSupplierId());
             existing.setSpeedTps(limit.getSpeedTps());
-            return ResponseEntity.ok(repository.save(existing));
+            RoutingRateLimit saved = repository.save(existing);
+            syncService.syncRateLimit(saved);
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        repository.deleteById(id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        return repository.findById(id).map(limit -> {
+            repository.delete(limit);
+            syncService.deleteRateLimit(limit);
+            return ResponseEntity.ok().build();
+        }).orElse(ResponseEntity.notFound().build());
     }
 }

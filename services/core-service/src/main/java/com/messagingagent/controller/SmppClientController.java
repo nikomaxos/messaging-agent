@@ -3,6 +3,7 @@ package com.messagingagent.controller;
 import com.messagingagent.model.SmppClient;
 import com.messagingagent.repository.SmppClientRepository;
 import com.messagingagent.dto.SmppClientDto;
+import com.messagingagent.service.RedisConfigSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 public class SmppClientController {
 
     private final SmppClientRepository repository;
+    private final RedisConfigSyncService syncService;
 
     @GetMapping
     public List<SmppClientDto> getAll() {
@@ -28,7 +30,9 @@ public class SmppClientController {
     @PostMapping
     @Transactional
     public SmppClient create(@RequestBody SmppClient client) {
-        return repository.save(client);
+        SmppClient saved = repository.save(client);
+        syncService.syncClient(saved);
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -42,7 +46,9 @@ public class SmppClientController {
             }
             client.setActive(clientDetails.isActive());
             client.setPriority(clientDetails.getPriority() != null ? clientDetails.getPriority() : 2);
-            return ResponseEntity.ok(repository.save(client));
+            SmppClient saved = repository.save(client);
+            syncService.syncClient(saved);
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -50,6 +56,7 @@ public class SmppClientController {
     public ResponseEntity<?> delete(@PathVariable Long id) {
         return repository.findById(id).map(client -> {
             repository.delete(client);
+            syncService.deleteClient(client.getSystemId());
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }
