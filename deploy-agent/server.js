@@ -138,15 +138,19 @@ app.post('/api/deploy/info', async (req, res) => {
   try {
     await ssh.connect({ host: ip, username, password: password || undefined, privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'), tryKeyboard: true, readyTimeout: 5000 });
     
-    // Get Prod version
-    const result = await ssh.execCommand("cat ~/messaging-agent/admin-panel/package.json 2>/dev/null || echo '{\"version\":\"Unknown\"}'");
+    // Get Prod version from last successful deploy, not from git (which updates before pods rebuild)
+    const versionResult = await ssh.execCommand("cat ~/messaging-agent/.last-deploy 2>/dev/null || echo 'Never Deployed'");
+    const commitHash = versionResult.stdout.trim();
+    
+    // Read the package.json AT the last deployed commit (not HEAD which may be ahead)
+    const pkgResult = await ssh.execCommand(`cd ~/messaging-agent && git show ${commitHash}:admin-panel/package.json 2>/dev/null || echo '{"version":"Unknown"}'`);
     let prodVersion = "Unknown";
     try {
-      prodVersion = "v" + JSON.parse(result.stdout).version;
+      prodVersion = "v" + JSON.parse(pkgResult.stdout).version;
     } catch(e) {}
 
     ssh.dispose();
-    res.json({ productionVersion: prodVersion, rollbackTarget: "Kubernetes Native Rollback (Previous ReplicaSet)" });
+    res.json({ productionVersion: prodVersion, lastCommit: commitHash, rollbackTarget: "Kubernetes Native Rollback (Previous ReplicaSet)" });
 
   } catch (err) {
     res.status(500).json({ error: `SSH Connection Failed: ${err.message}` });
