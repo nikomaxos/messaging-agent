@@ -52,8 +52,16 @@ for service in "${!SERVICES[@]}"; do
     log "Building $image_name from $path..."
     sudo docker build -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
     
-    log "Importing $image_name into k3s..."
-    sudo docker save "$image_name" | sudo k3s ctr images import - 2>&1 | tee -a "$LOG_FILE"
+    log "Importing $image_name into k3s local..."
+    sudo docker save "$image_name" > "/tmp/${image_name}.tar"
+    sudo k3s ctr images import "/tmp/${image_name}.tar" 2>&1 | tee -a "$LOG_FILE"
+    
+    for node in 10.10.10.194 10.10.10.195; do
+        log "Syncing $image_name to worker $node..."
+        scp -o StrictHostKeyChecking=no "/tmp/${image_name}.tar" "ubuntu@${node}:/tmp/" 2>&1 | tee -a "$LOG_FILE"
+        ssh -o StrictHostKeyChecking=no "ubuntu@${node}" "sudo k3s ctr images import /tmp/${image_name}.tar && rm /tmp/${image_name}.tar" 2>&1 | tee -a "$LOG_FILE"
+    done
+    rm "/tmp/${image_name}.tar"
 done
 
 # Step 3: Apply Manifests
