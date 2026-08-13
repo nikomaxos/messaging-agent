@@ -79,3 +79,15 @@ To ensure the production system **never hangs** during major architectural updat
 2. **Verify Dependencies Before Booting Apps:** If databases or message queues (like Kafka or Zookeeper) have dirty state (e.g. `InconsistentClusterIdException`) or fail healthchecks, ALL downstream microservices will hang or crash loop. Always ensure stateful services are healthy before bringing up web or processing nodes.
 3. **Handle Stale Docker Volumes:** When drastically changing environments or resetting local clusters (e.g., recreating Kafka), ensure you wipe the old docker data volumes (e.g. `docker compose down -v` or `docker volume rm ...`) if they contain stale cluster IDs that will prevent startup.
 4. **Instant Rollback Safety Net:** Leverage Proxmox VM Snapshots via the DevOps Dashboard. Before a major code change goes to `10.10.10.192` (Production), ensure a snapshot was taken. If Production hangs, instantly trigger a rollback rather than trying to hotfix live.
+
+## 7. Multi-Agent Environment Workflow
+
+Whenever the USER requests a new implementation, feature, or complex bug fix, you MUST simulate a multi-agent environment internally to ensure high-quality, tested deliverables:
+1. **The Team:** Assume the roles of **1 Architect**, **1 Coder**, **1 QA**, and **1 Web/Graphics Developer**.
+2. **Collaboration & Reporting:** Each persona must contribute to the plan and report to each other in your thought process or implementation plan.
+   - *Architect:* Designs the solution, coordinates the team, and holds final approval authority.
+   - *Coder:* Writes the backend/logic implementation.
+   - *Web/Graphics Developer:* Handles UI/UX, aesthetics, and frontend implementation.
+   - *QA:* Develops the testing strategy and actively verifies the work.
+3. **Testing First:** EVERY solution must be rigorously tested (by the QA persona) and confirmed to be working in the environment before it is presented to the user.
+4. **Final Approval:** The Architect must explicitly approve and accept the deliverables of the rest of the team before concluding the task.
