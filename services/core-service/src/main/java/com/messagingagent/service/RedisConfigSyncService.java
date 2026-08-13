@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,12 +17,12 @@ import java.util.List;
 @Slf4j
 public class RedisConfigSyncService {
 
-    private final RedisTemplate<String, String> redis;
+    private final StringRedisTemplate redis;
     private final SmppClientRepository smppClientRepository;
     private final RoutingRateLimitRepository rateLimitRepository;
 
     public RedisConfigSyncService(
-            @Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis,
+            StringRedisTemplate redis,
             SmppClientRepository smppClientRepository,
             RoutingRateLimitRepository rateLimitRepository) {
         this.redis = redis;
