@@ -19,6 +19,23 @@ spec:
       containers:
       - name: synapse
         image: matrixdotorg/synapse:latest
+        command:
+          - /bin/bash
+          - -c
+          - |
+            if [ ! -f /data/homeserver.yaml ]; then
+              /start.py generate
+            fi
+            exec /start.py
+        env:
+        - name: SYNAPSE_SERVER_NAME
+          value: "synapse"
+        - name: SYNAPSE_REPORT_STATS
+          value: "no"
+        - name: SYNAPSE_CONFIG_DIR
+          value: "/data"
+        - name: SYNAPSE_CONFIG_PATH
+          value: "/data/homeserver.yaml"
         ports:
         - containerPort: 8008
           name: synapse
