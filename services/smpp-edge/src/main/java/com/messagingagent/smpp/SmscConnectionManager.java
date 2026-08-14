@@ -204,15 +204,20 @@ public class SmscConnectionManager {
         log.info("Successfully bound to SMSC [{}] (id={})", supplier.getName(), supplier.getId());
     }
 
+    public static class SupplierDto {
+        public SmscSupplier supplier;
+    }
+
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 2000)
     private void monitorSessions() {
         // Periodically refresh cache from core-service and evict deleted/inactive suppliers
         try {
-            SmscSupplier[] suppliers = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", SmscSupplier[].class);
-            if (suppliers != null) {
+            SupplierDto[] supplierDtos = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", SupplierDto[].class);
+            if (supplierDtos != null) {
                 java.util.Set<Long> validSupplierIds = new java.util.HashSet<>();
-                for (SmscSupplier s : suppliers) {
-                    if (s.isActive()) {
+                for (SupplierDto dto : supplierDtos) {
+                    SmscSupplier s = dto.supplier;
+                    if (s != null && s.isActive()) {
                         validSupplierIds.add(s.getId());
                         supplierCache.put(s.getId(), s);
                     }
