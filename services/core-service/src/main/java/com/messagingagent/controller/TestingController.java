@@ -60,7 +60,7 @@ public class TestingController {
     public static class StressTestRequest {
         private String senderId;
         private String message;
-        private String clientUsername;
+        private String clientSystemId;
         private Long supplierId;
         private String protocol;
         private int amount;
@@ -90,7 +90,7 @@ public class TestingController {
             String dummyNumber = randomPrefix.getPrefix() + generateRandomDigits(10 - randomPrefix.getPrefix().length());
             
             Map<String, Object> event = new HashMap<>();
-            event.put("systemId", request.getClientUsername() != null ? request.getClientUsername() : "STRESS_TEST");
+            event.put("systemId", request.getClientSystemId() != null && !request.getClientSystemId().isEmpty() ? request.getClientSystemId() : "STRESS_TEST");
             event.put("sourceAddress", request.getSenderId());
             event.put("destinationAddress", dummyNumber);
             event.put("messageText", request.getMessage());

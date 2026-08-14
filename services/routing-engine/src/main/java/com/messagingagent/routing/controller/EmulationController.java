@@ -14,7 +14,7 @@ public class EmulationController {
 
     @Data
     public static class EmulationRequest {
-        private String clientUsername;
+        private String clientSystemId;
         private String senderId;
         private String message;
         private String destination;
@@ -41,7 +41,7 @@ public class EmulationController {
         response.setOriginalMessage(request.getMessage());
         
         response.getExecutionTrace().add("[SYSTEM] Emulation started for message to " + request.getDestination());
-        response.getExecutionTrace().add("[AUTH] Validated Client Username: " + request.getClientUsername());
+        response.getExecutionTrace().add("[AUTH] Validated Client System ID: " + request.getClientSystemId());
         
         Integer dc = request.getDataCoding() != null ? request.getDataCoding() : 0;
         response.getExecutionTrace().add("[MODIFIER] Setting Data Coding scheme to: " + dc);

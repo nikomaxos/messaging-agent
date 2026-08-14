@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getSmscSuppliers, getCountryPrefixes, sendTestMessage, sendStressTest, emulateRouting, getSmppClients } from '../api/client'
 import { Send, Terminal, Activity, Zap, Server, Globe } from 'lucide-react'
+import { ClientSelect } from '../components/ClientSelect'
 
 export default function TestingPage() {
   const [activeTab, setActiveTab] = useState<'send' | 'emulator' | 'stress'>('send')
@@ -20,11 +21,11 @@ export default function TestingPage() {
   const [sendForm, setSendForm] = useState({ senderId: '', message: '', destination: '', supplierId: '', protocol: 'SMS', dataCoding: '0', isFlash: false })
   
   // Emulator State
-  const [emuForm, setEmuForm] = useState({ clientUsername: '', senderId: '', message: '', destination: '', supplierId: '', protocol: 'SMS', dataCoding: '0' })
+  const [emuForm, setEmuForm] = useState({ clientSystemId: '', senderId: '', message: '', destination: '', supplierId: '', protocol: 'SMS', dataCoding: '0' })
   const [emuResult, setEmuResult] = useState<any>(null)
   
   // Stress Test State
-  const [stressForm, setStressForm] = useState({ senderId: '', message: '', clientUsername: '', supplierId: '', protocol: 'SMS', amount: 100, countryName: '', simulationMode: 'SIMULATE_DELIVERY', forcedErrorCode: 'DELIVRD', dataCoding: '0' })
+  const [stressForm, setStressForm] = useState({ senderId: '', message: '', clientSystemId: '', supplierId: '', protocol: 'SMS', amount: 100, countryName: '', simulationMode: 'SIMULATE_DELIVERY', forcedErrorCode: 'DELIVRD', dataCoding: '0' })
 
   const sendMut = useMutation({ mutationFn: sendTestMessage, onSuccess: () => alert("Message sent to queue!"), onError: (e: any) => alert(e.response?.data?.error || e.message) })
   const emuMut = useMutation({ mutationFn: emulateRouting, onSuccess: (data) => setEmuResult(data), onError: (e: any) => alert(e.response?.data?.error || e.message) })
@@ -120,11 +121,8 @@ export default function TestingPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-slate-300 mb-1">Client Username</label>
-                  <input type="text" list="emu-clients" value={emuForm.clientUsername} onChange={e => setEmuForm({...emuForm, clientUsername: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" />
-                  <datalist id="emu-clients">
-                    {clients.map((c: any) => <option key={c.username} value={c.username} />)}
-                  </datalist>
+                  <label className="block text-sm text-slate-300 mb-1">Client Emulation</label>
+                  <ClientSelect clients={clients} value={emuForm.clientSystemId} onChange={v => setEmuForm({...emuForm, clientSystemId: v})} />
                 </div>
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Protocol</label>
@@ -216,11 +214,8 @@ export default function TestingPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-slate-300 mb-1">Client Username</label>
-                <input type="text" list="stress-clients" value={stressForm.clientUsername} onChange={e => setStressForm({...stressForm, clientUsername: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" />
-                <datalist id="stress-clients">
-                  {clients.map((c: any) => <option key={c.username} value={c.username} />)}
-                </datalist>
+                <label className="block text-sm text-slate-300 mb-1">Client Emulation</label>
+                <ClientSelect clients={clients} value={stressForm.clientSystemId} onChange={v => setStressForm({...stressForm, clientSystemId: v})} />
               </div>
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Protocol</label>
@@ -241,7 +236,7 @@ export default function TestingPage() {
                 <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Globe size={14}/> Destination Country</label>
                 <select value={stressForm.countryName} onChange={e => setStressForm({...stressForm, countryName: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white">
                   <option value="">-- Select Country --</option>
-                  {[...new Set(prefixes.map((p: any) => p.countryName))].map((c: any) => (
+                  {[...new Set(prefixes.map((p: any) => p.countryName))].sort().map((c: any) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>

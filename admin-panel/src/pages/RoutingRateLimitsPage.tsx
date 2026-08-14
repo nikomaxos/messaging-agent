@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getRoutingRateLimits, createRoutingRateLimit, updateRoutingRateLimit, deleteRoutingRateLimit, getSmppClients, getSmscSuppliers } from '../api/client'
+import { getRoutingRateLimits, createRoutingRateLimit, updateRoutingRateLimit, deleteRoutingRateLimit, getSmppClients, getSmscSuppliers, getCountryPrefixes } from '../api/client'
 import { RoutingRateLimit, SmppClient, SmscSupplier } from '../types'
 import { Plus, Pencil, Trash2, X, Check, Gauge } from 'lucide-react'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -10,11 +10,25 @@ export default function RoutingRateLimitsPage() {
   const { data: limits = [], isFetching } = useQuery({ queryKey: ['rateLimits'], queryFn: getRoutingRateLimits })
   const { data: clients = [] } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients })
   const { data: suppliers = [] } = useQuery({ queryKey: ['smscSuppliers'], queryFn: getSmscSuppliers })
+  const { data: prefixes = [] } = useQuery({ queryKey: ['countryPrefixes'], queryFn: getCountryPrefixes })
+
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<Partial<RoutingRateLimit>>({})
   const [isCreating, setIsCreating] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
+
+  const uniqueCountries = [...new Set(prefixes.map((p: any) => p.iso))]
+  const networksForCountry = formData.countryCode && formData.countryCode !== 'ALL' 
+    ? [...new Set(prefixes.filter((p: any) => p.iso === formData.countryCode).map((p: any) => p.networkName))]
+    : [...new Set(prefixes.map((p: any) => p.networkName))]
+  
+  const getSupplierName = (sysId: string) => {
+    if (sysId === 'ALL') return 'ALL'
+    if (sysId === 'WEBSOCKET') return 'WEBSOCKET (Devices)'
+    const supp = suppliers.find((s: any) => s.supplier.systemId === sysId)
+    return supp ? supp.supplier.name : sysId
+  }
 
   const createMut = useMutation({
     mutationFn: createRoutingRateLimit,
@@ -113,19 +127,28 @@ export default function RoutingRateLimitsPage() {
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <input className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
-                    value={formData.countryCode} onChange={e => setFormData({ ...formData, countryCode: e.target.value.toUpperCase() })} placeholder="ALL or GR, UK..." />
+                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                    value={formData.countryCode} onChange={e => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
+                    <option value="ALL">ALL Countries</option>
+                    {uniqueCountries.map((iso: any) => {
+                      const c = prefixes.find((p: any) => p.iso === iso);
+                      return <option key={iso} value={iso}>{c?.countryName} ({iso})</option>
+                    })}
+                  </select>
                 </td>
                 <td className="px-5 py-3">
-                  <input className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
-                    value={formData.networkId} onChange={e => setFormData({ ...formData, networkId: e.target.value })} placeholder="ALL or Vodafone..." />
+                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                    value={formData.networkId} onChange={e => setFormData({ ...formData, networkId: e.target.value })}>
+                    <option value="ALL">ALL Networks</option>
+                    {networksForCountry.map((net: any) => <option key={net} value={net}>{net}</option>)}
+                  </select>
                 </td>
                 <td className="px-5 py-3">
                   <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
                     value={formData.supplierId} onChange={e => setFormData({ ...formData, supplierId: e.target.value })}>
                     <option value="ALL">ALL</option>
                     <option value="WEBSOCKET">WEBSOCKET (Devices)</option>
-                    {suppliers.map((s: SmscSupplier) => <option key={s.supplier.systemId} value={s.supplier.systemId}>{s.supplier.systemId}</option>)}
+                    {suppliers.map((s: SmscSupplier) => <option key={s.supplier.systemId} value={s.supplier.systemId}>{s.supplier.name}</option>)}
                   </select>
                 </td>
                 <td className="px-5 py-3">
@@ -156,16 +179,25 @@ export default function RoutingRateLimitsPage() {
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? (
-                      <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
-                        value={formData.countryCode} onChange={(e: any) => setFormData({ ...formData, countryCode: e.target.value.toUpperCase() })} />
+                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                        value={formData.countryCode} onChange={(e: any) => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
+                        <option value="ALL">ALL Countries</option>
+                        {uniqueCountries.map((iso: any) => {
+                          const c = prefixes.find((p: any) => p.iso === iso);
+                          return <option key={iso} value={iso}>{c?.countryName} ({iso})</option>
+                        })}
+                      </select>
                     ) : (
                       l.countryCode === 'ALL' ? <span className="text-slate-500">ALL</span> : l.countryCode
                     )}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? (
-                      <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
-                        value={formData.networkId} onChange={(e: any) => setFormData({ ...formData, networkId: e.target.value })} />
+                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                        value={formData.networkId} onChange={(e: any) => setFormData({ ...formData, networkId: e.target.value })}>
+                        <option value="ALL">ALL Networks</option>
+                        {networksForCountry.map((net: any) => <option key={net} value={net}>{net}</option>)}
+                      </select>
                     ) : (
                       l.networkId === 'ALL' ? <span className="text-slate-500">ALL</span> : l.networkId
                     )}
@@ -176,10 +208,10 @@ export default function RoutingRateLimitsPage() {
                         value={formData.supplierId} onChange={(e: any) => setFormData({ ...formData, supplierId: e.target.value })}>
                         <option value="ALL">ALL</option>
                         <option value="WEBSOCKET">WEBSOCKET (Devices)</option>
-                        {suppliers.map((s: SmscSupplier) => <option key={s.supplier.systemId} value={s.supplier.systemId}>{s.supplier.systemId}</option>)}
+                        {suppliers.map((s: SmscSupplier) => <option key={s.supplier.systemId} value={s.supplier.systemId}>{s.supplier.name}</option>)}
                       </select>
                     ) : (
-                      l.supplierId === 'ALL' ? <span className="text-slate-500">ALL</span> : l.supplierId
+                      <span className={l.supplierId === 'ALL' ? "text-slate-500" : "text-white"}>{getSupplierName(l.supplierId)}</span>
                     )}
                   </td>
                   <td className="px-5 py-3">
