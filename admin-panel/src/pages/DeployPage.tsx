@@ -8,7 +8,7 @@ export default function DeployPage() {
   const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | null>(null)
   
   const [currentStep, setCurrentStep] = useState(0)
-  const totalSteps = 8
+  const totalSteps = 9
   const [vmWarnings, setVmWarnings] = useState<string[]>([])
   const [containerErrors, setContainerErrors] = useState<string[]>([])
   
