@@ -55,7 +55,7 @@ for service in "${!SERVICES[@]}"; do
     path="${SERVICES[$service]}"
     image_name="messaging-agent-${service}:latest"
     log "Building $image_name from $path..."
-    sudo docker buildx build --load --no-cache -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
+    sudo docker buildx build --load -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
     
     log "Importing $image_name into k3s local..."
     sudo docker save "$image_name" > "/tmp/${image_name}.tar"
