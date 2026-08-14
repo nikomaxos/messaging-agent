@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient, disconnectSmppClient } from '../api/client'
 import { SmppClient } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Unplug } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Unplug, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { ConfirmModal } from '../components/ConfirmModal'
 
 export default function SmppClientsPage() {
   const qc = useQueryClient()
-  const { data: clients = [], isFetching } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients, refetchInterval: 5000 })
+  const { data: clients = [], isFetching, refetch, dataUpdatedAt } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients, refetchInterval: 5000 })
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formData, setFormData] = useState<Partial<SmppClient>>({})
@@ -85,13 +85,31 @@ export default function SmppClientsPage() {
           <h1 className="text-2xl font-bold text-white mb-1">SMPP Clients</h1>
           <p className="text-slate-400 text-sm">Manage customers connecting via SMPP</p>
         </div>
-        <button
-          onClick={startCreate}
-          disabled={isCreating}
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
-        >
-          <Plus size={16} /> New Client
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Auto-refresh every 5s
+            {dataUpdatedAt > 0 && (
+              <span className="text-slate-600">• Last: {new Date(dataUpdatedAt).toLocaleTimeString()}</span>
+            )}
+          </div>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Refresh now"
+          >
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button
+            onClick={startCreate}
+            disabled={isCreating}
+            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+          >
+            <Plus size={16} /> New Client
+          </button>
+        </div>
       </div>
 
       <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
