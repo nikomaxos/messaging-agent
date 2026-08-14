@@ -123,9 +123,9 @@ else
     log "[CONTAINER_HEALTH_OK] All pods are running normally."
 fi
 
-# Step 9: Cleanup Disk Space
+# Step 9: Cleaning up old images
 log "--- Step 9: Cleaning up old images ---"
-sudo docker system prune -af --volumes 2>&1 | tee -a "$LOG_FILE"
+sudo docker system prune -f >/dev/null 2>&1 | tee -a "$LOG_FILE"
 for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
     log "Pruning k3s images on $node..."
     ssh -o StrictHostKeyChecking=no "ubuntu@$node" "sudo k3s crictl rmi --prune" 2>&1 | tee -a "$LOG_FILE" || true
