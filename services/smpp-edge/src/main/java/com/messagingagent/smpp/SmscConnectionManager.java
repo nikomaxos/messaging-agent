@@ -226,10 +226,8 @@ public class SmscConnectionManager {
                         supplierCache.remove(cachedId);
                         UpstreamSessionInfo info = activeSessions.remove(cachedId);
                         if (info != null && info.session() != null) {
-                            try {
-                                info.session().unbind(3000);
-                                info.session().destroy();
-                            } catch (Exception ignored) {}
+                            try { info.session().unbind(3000); } catch (Exception ignored) {}
+                            try { info.session().destroy(); } catch (Exception ignored) {}
                         }
                         disconnectedAt.remove(cachedId);
                         try {
