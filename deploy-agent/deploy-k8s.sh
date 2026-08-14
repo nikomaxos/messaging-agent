@@ -66,10 +66,51 @@ done
 
 # Step 3: Apply Manifests
 log "--- Step 3: Applying Kubernetes Manifests ---"
+sudo kubectl delete endpoints postgres redis kafka --ignore-not-found 2>&1 | tee -a "$LOG_FILE"
 sudo kubectl apply -f k8s-manifests/ 2>&1 | tee -a "$LOG_FILE"
 
-# Step 4: Force Rollout Restart for all deployments
-log "--- Step 4: Forcing Rollout Restarts ---"
+# Step 4: Wait for StatefulSets to be ready
+log "--- Step 4: Waiting for StatefulSets (Postgres, Matrix) to be ready ---"
+sudo kubectl rollout status statefulset ma-postgres --timeout=120s 2>&1 | tee -a "$LOG_FILE" || true
+sudo kubectl rollout status statefulset ma-synapse --timeout=120s 2>&1 | tee -a "$LOG_FILE" || true
+
+log "--- Step 4.1: Migrating Legacy Postgres Data to K8s ---"
+# Check if the DB is already populated to avoid duplicate restores
+DB_CHECK=$(sudo kubectl exec -i ma-postgres-0 -- psql -U postgres -d messaging_agent -c "\dt" || echo "empty")
+if [[ "$DB_CHECK" == *"empty"* || "$DB_CHECK" == *"Did not find any relations"* ]]; then
+    log "Database is empty. Starting pg_dump from legacy VM (10.10.10.192)..."
+    sudo kubectl exec -i ma-postgres-0 -- pg_dump -h 10.10.10.192 -U postgres -d messaging_agent > /tmp/legacy_dump.sql || log "pg_dump failed"
+    if [ -f /tmp/legacy_dump.sql ]; then
+        log "Restoring SQL dump to ma-postgres-0..."
+        cat /tmp/legacy_dump.sql | sudo kubectl exec -i ma-postgres-0 -- psql -U postgres -d messaging_agent || log "psql restore failed"
+        rm /tmp/legacy_dump.sql
+        log "Postgres Migration Complete."
+    fi
+else
+    log "Database already populated. Skipping Postgres migration."
+fi
+
+log "--- Step 4.2: Migrating Legacy Matrix Media to K8s ---"
+# Create a temp folder and rsync from legacy VM
+mkdir -p /tmp/synapse-migration
+log "Copying Matrix data from legacy VM..."
+scp -r -o StrictHostKeyChecking=no ubuntu@10.10.10.192:/opt/matrix/synapse/data/* /tmp/synapse-migration/ 2>/dev/null || log "scp failed or no matrix data"
+# Copy into the new pod
+if [ -d "/tmp/synapse-migration" ] && [ "$(ls -A /tmp/synapse-migration)" ]; then
+    log "Transferring Matrix data to ma-synapse-0..."
+    # Using tar to stream files into kubectl exec is much faster and reliable than kubectl cp for many files
+    cd /tmp/synapse-migration && tar cf - . | sudo kubectl exec -i ma-synapse-0 -- tar xf - -C /data
+    cd -
+    rm -rf /tmp/synapse-migration
+    log "Restarting Synapse to pick up config..."
+    sudo kubectl rollout restart statefulset ma-synapse
+    log "Matrix Migration Complete."
+else
+    log "No Matrix data found to migrate."
+fi
+
+# Step 5: Force Rollout Restart for all deployments
+log "--- Step 5: Forcing Rollout Restarts ---"
 DEPLOYMENTS=$(sudo kubectl get deployments -o jsonpath='{.items[*].metadata.name}')
 for dep in $DEPLOYMENTS; do
     log "Restarting deployment $dep..."
