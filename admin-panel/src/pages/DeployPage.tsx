@@ -8,8 +8,9 @@ export default function DeployPage() {
   const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | null>(null)
   
   const [currentStep, setCurrentStep] = useState(0)
-  const totalSteps = 7
+  const totalSteps = 8
   const [vmWarnings, setVmWarnings] = useState<string[]>([])
+  const [containerErrors, setContainerErrors] = useState<string[]>([])
   
   const [targetIp, setTargetIp] = useState('10.10.10.193')
   
@@ -66,6 +67,7 @@ export default function DeployPage() {
     setActiveEnv(env)
     setCurrentStep(0)
     setVmWarnings([])
+    setContainerErrors([])
 
     try {
       // Step 1: Initialize session to get token
@@ -95,6 +97,11 @@ export default function DeployPage() {
             const vmMatch = data.log.match(/\[VM_UPDATE_NEEDED\] (.*)/)
             if (vmMatch) {
               setVmWarnings(prev => [...prev, vmMatch[1]])
+            }
+            
+            const containerMatch = data.log.match(/\[CONTAINER_ERROR\] (.*)/)
+            if (containerMatch) {
+              setContainerErrors(prev => [...prev, containerMatch[1]])
             }
           }
           if (data.done) {
@@ -241,6 +248,14 @@ export default function DeployPage() {
                     </div>
                   ) : (
                     <div className="text-xs text-emerald-400/80">All nodes are up to date.</div>
+                  )}
+                  {containerErrors.length > 0 && (
+                    <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded text-red-300 text-xs">
+                      <div className="font-bold mb-1">❌ Container Startup Errors:</div>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {containerErrors.map((err, idx) => <li key={idx}>{err}</li>)}
+                      </ul>
+                    </div>
                   )}
                 </div>
               )}

@@ -33,6 +33,11 @@ log "Now at commit: $COMMIT_SHA"
 
 # Step 2: Build and Import Images
 log "--- Step 2: Building and Importing Docker Images ---"
+if ! dpkg -l | grep -q docker-buildx-plugin; then
+    log "Installing docker-buildx-plugin to fix legacy builder warnings..."
+    sudo apt-get update >/dev/null 2>&1
+    sudo apt-get install -y docker-buildx-plugin >/dev/null 2>&1
+fi
 cd "$REPO_DIR"
 
 declare -A SERVICES
@@ -50,7 +55,7 @@ for service in "${!SERVICES[@]}"; do
     path="${SERVICES[$service]}"
     image_name="messaging-agent-${service}:latest"
     log "Building $image_name from $path..."
-    sudo docker build --no-cache -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
+    sudo docker buildx build --load --no-cache -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
     
     log "Importing $image_name into k3s local..."
     sudo docker save "$image_name" > "/tmp/${image_name}.tar"
@@ -103,6 +108,20 @@ for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
         fi
     fi
 done
+
+# Step 8: Checking Kubernetes Container Health
+log "--- Step 8: Checking Kubernetes Container Health ---"
+FAILED_PODS=$(sudo kubectl get pods -A | grep -E 'CrashLoopBackOff|Error|ImagePullBackOff|Evicted|OOMKilled' || true)
+if [ ! -z "$FAILED_PODS" ]; then
+    echo "$FAILED_PODS" | while read -r line; do
+        namespace=$(echo "$line" | awk '{print $1}')
+        pod=$(echo "$line" | awk '{print $2}')
+        state=$(echo "$line" | awk '{print $4}')
+        log "[CONTAINER_ERROR] Namespace: $namespace, Pod: $pod, State: $state"
+    done
+else
+    log "[CONTAINER_HEALTH_OK] All pods are running normally."
+fi
 
 log "========== DEPLOY SUCCEEDED =========="
 log "Commit: $COMMIT_SHA"
