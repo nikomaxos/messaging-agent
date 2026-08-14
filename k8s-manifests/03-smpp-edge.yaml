@@ -19,12 +19,14 @@ spec:
         env:
         - name: JAVA_TOOL_OPTIONS
           value: "-Xmx256m -Xms64m -XX:MaxMetaspaceSize=128m"
+        - name: CORE_SERVICE_URL
+          value: "http://ma-core-service:8080"
         - name: REDIS_HOST
           value: "redis"
         - name: REDIS_PORT
           value: "6379"
         - name: KAFKA_BROKERS
-          value: "kafka:29092"
+          value: "kafka:9092"
         ports:
         - containerPort: 8082
         - containerPort: 2775

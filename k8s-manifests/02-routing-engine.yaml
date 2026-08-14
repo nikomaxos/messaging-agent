@@ -24,6 +24,6 @@ spec:
         - name: REDIS_PORT
           value: "6379"
         - name: KAFKA_BROKERS
-          value: "kafka:29092"
+          value: "kafka:9092"
         ports:
         - containerPort: 8081
