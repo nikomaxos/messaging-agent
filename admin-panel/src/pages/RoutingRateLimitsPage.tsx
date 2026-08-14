@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getRoutingRateLimits, createRoutingRateLimit, updateRoutingRateLimit, deleteRoutingRateLimit, getSmppClients, getSmscSuppliers, getCountryPrefixes } from '../api/client'
+import { getRoutingRateLimits, createRoutingRateLimit, updateRoutingRateLimit, deleteRoutingRateLimit, getSmppClients, getSmscSuppliers } from '../api/client'
 import { RoutingRateLimit, SmppClient, SmscSupplier } from '../types'
 import { Plus, Pencil, Trash2, X, Check, Gauge } from 'lucide-react'
 import { ConfirmModal } from '../components/ConfirmModal'
+import mccList from 'mcc-mnc-list'
 
 export default function RoutingRateLimitsPage() {
   const qc = useQueryClient()
   const { data: limits = [], isFetching } = useQuery({ queryKey: ['rateLimits'], queryFn: getRoutingRateLimits })
   const { data: clients = [] } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients })
   const { data: suppliers = [] } = useQuery({ queryKey: ['smscSuppliers'], queryFn: getSmscSuppliers })
-  const { data: prefixes = [] } = useQuery({ queryKey: ['countryPrefixes'], queryFn: getCountryPrefixes })
 
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -18,10 +18,11 @@ export default function RoutingRateLimitsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
 
-  const uniqueCountries = [...new Set(prefixes.map((p: any) => p.iso))]
+  const allRecords = mccList.all()
+  const uniqueCountries = [...new Set(allRecords.map(r => r.countryName).filter(Boolean))].sort()
   const networksForCountry = formData.countryCode && formData.countryCode !== 'ALL' 
-    ? [...new Set(prefixes.filter((p: any) => p.iso === formData.countryCode).map((p: any) => p.networkName))]
-    : [...new Set(prefixes.map((p: any) => p.networkName))]
+    ? [...new Set(allRecords.filter(r => r.countryCode === formData.countryCode).map(r => r.brand || r.operator || 'Unknown'))].sort()
+    : [...new Set(allRecords.map(r => r.brand || r.operator || 'Unknown'))].sort()
   
   const getSupplierName = (sysId: string) => {
     if (sysId === 'ALL') return 'ALL'
@@ -130,9 +131,9 @@ export default function RoutingRateLimitsPage() {
                   <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
                     value={formData.countryCode} onChange={e => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
                     <option value="ALL">ALL Countries</option>
-                    {uniqueCountries.map((iso: any) => {
-                      const c = prefixes.find((p: any) => p.iso === iso);
-                      return <option key={iso} value={iso}>{c?.countryName} ({iso})</option>
+                    {uniqueCountries.map((cName: any) => {
+                      const rec = allRecords.find((r: any) => r.countryName === cName);
+                      return <option key={rec?.countryCode || cName} value={rec?.countryCode || cName}>{cName} ({rec?.countryCode})</option>
                     })}
                   </select>
                 </td>
@@ -182,9 +183,9 @@ export default function RoutingRateLimitsPage() {
                       <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
                         value={formData.countryCode} onChange={(e: any) => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
                         <option value="ALL">ALL Countries</option>
-                        {uniqueCountries.map((iso: any) => {
-                          const c = prefixes.find((p: any) => p.iso === iso);
-                          return <option key={iso} value={iso}>{c?.countryName} ({iso})</option>
+                        {uniqueCountries.map((cName: any) => {
+                          const rec = allRecords.find((r: any) => r.countryName === cName);
+                          return <option key={rec?.countryCode || cName} value={rec?.countryCode || cName}>{cName} ({rec?.countryCode})</option>
                         })}
                       </select>
                     ) : (

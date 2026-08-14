@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getSmscSuppliers, getCountryPrefixes, sendTestMessage, sendStressTest, emulateRouting, getSmppClients } from '../api/client'
+import { getSmscSuppliers, sendTestMessage, sendStressTest, emulateRouting, getSmppClients } from '../api/client'
 import { Send, Terminal, Activity, Zap, Server, Globe } from 'lucide-react'
 import { ClientSelect } from '../components/ClientSelect'
+import mccList from 'mcc-mnc-list'
 
 export default function TestingPage() {
   const [activeTab, setActiveTab] = useState<'send' | 'emulator' | 'stress'>('send')
   const { data: smscs = [] } = useQuery({ queryKey: ['smscs'], queryFn: getSmscSuppliers })
-  const { data: prefixes = [] } = useQuery({ queryKey: ['countryPrefixes'], queryFn: getCountryPrefixes })
   const { data: clients = [] } = useQuery({ queryKey: ['clients'], queryFn: getSmppClients })
+
+  const uniqueCountries = [...new Set(mccList.all().map(r => r.countryName).filter(Boolean))].sort()
 
   const getCharStats = (msg: string, dc: string, protocol: string) => {
     const chars = msg.length;
@@ -236,7 +238,7 @@ export default function TestingPage() {
                 <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Globe size={14}/> Destination Country</label>
                 <select value={stressForm.countryName} onChange={e => setStressForm({...stressForm, countryName: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white">
                   <option value="">-- Select Country --</option>
-                  {[...new Set(prefixes.map((p: any) => p.countryName))].sort().map((c: any) => (
+                  {uniqueCountries.map((c: any) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
