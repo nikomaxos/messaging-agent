@@ -158,7 +158,7 @@ export default function SmscsPage() {
                         : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Unbound</span>}
                     {wrapper.uptimeSeconds != null && (
                       <span className="text-[10px] text-slate-500">
-                        Up: {Math.floor(wrapper.uptimeSeconds / 3600)}h {Math.floor((wrapper.uptimeSeconds % 3600) / 60)}m
+                        Up: {Math.floor(wrapper.uptimeSeconds / 3600)}h {Math.floor((wrapper.uptimeSeconds % 3600) / 60)}m ({s.bindType === 'TRANSCEIVER' ? '1TRX' : s.bindType === 'TRANSMITTER' ? '1TX' : s.bindType === 'RECEIVER' ? '1RX' : '1UNK'})
                       </span>
                     )}
                   </div>

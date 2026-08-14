@@ -15,8 +15,6 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 - **SMPP Edge Node (`ma-smpp-edge`)**:
   - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
-- **Legacy Backend (`ma-backend`)**:
-  - Still active temporarily for Android WebSocket management (`DeviceWebSocketService`) and Matrix integration (`mautrix-gmessages`).
 - **Android Client (`android-app`)**:
   - Handles WebSocket connections back to the server and OTA (Over-The-Air) updates.
 - **Admin Panel (`admin-panel`)**:
@@ -51,9 +49,9 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
    - **Proxy:** Caddy (`~/caddy-proxy`) routes to the Admin Panel (8081) and the Deploy Agent (8082).
 3. **Production Environment**:
    - **Domain:** `messaging-agent.globalnetservices.net`
-   - **Target:** Production VM (`10.10.10.192`), a headless Ubuntu Server instance.
-   - **Proxy:** Caddy (`~/caddy-proxy`) routes to the Production Admin Panel (8081).
-   - **Storage:** The main OS disk must use `.qcow2` format (not `.raw`) to support instantaneous Hypervisor snapshots.
+   - **Target:** Production K3s Cluster (`10.10.10.193` - `10.10.10.195`).
+   - **Proxy:** Edge routing through HAProxy on the Proxmox Host, passing through to K3s Traefik.
+
 
 ## 4. Deployment Dashboard and CI/CD
 
@@ -71,7 +69,7 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
 - **Maintain Aesthetics**: The `admin-panel` UI uses glassmorphism and modern dark mode styling. Do not introduce generic unstyled HTML components.
 - **Zero-Trust Credentials (CRITICAL)**: NEVER store plaintext passwords, API keys, or sensitive credentials on the DevBox, Proxmox host, or in any scripts (e.g., `askpass.sh` or setup scripts). Passwords must only be held by the user on their local connecting PC (e.g., in their RDP client or password manager).
 - **Continuous Knowledge Vault Updates**: Any time you introduce a new feature, fix a bug, or change architectural concepts (such as timers, polling intervals, or caching logic), you MUST actively update the respective artifacts inside `.agents/knowledge/artifacts/` (e.g., `system-timing-intervals.md`) and their `metadata.json` so the agent always retains accurate memory for future sessions.
-- **⛔ NEVER DEPLOY TO PRODUCTION DIRECTLY (ABSOLUTE RULE)**: The agent is strictly **FORBIDDEN** from SSH-ing into production nodes (`10.10.10.192`, `10.10.10.193`, `10.10.10.194`, `10.10.10.195`) to run deployment scripts (`deploy-k8s.sh` or any equivalent). The agent may ONLY deploy to the **Staging environment** (DevBox `10.10.10.96`). Production deployments are the USER's exclusive responsibility, triggered via the Staging Admin Panel Deploy Page UI. **There are ZERO exceptions to this rule.** If the user asks to "deploy", always deploy to Staging and inform them it is ready for testing. Never assume "deploy" means "deploy to production".
+- **⛔ NEVER DEPLOY TO PRODUCTION DIRECTLY (ABSOLUTE RULE)**: The agent is strictly **FORBIDDEN** from SSH-ing into production nodes (`10.10.10.193`, `10.10.10.194`, `10.10.10.195`) to run deployment scripts (`deploy-k8s.sh` or any equivalent). The agent may ONLY deploy to the **Staging environment** (DevBox `10.10.10.96`). Production deployments are the USER's exclusive responsibility, triggered via the Staging Admin Panel Deploy Page UI. **There are ZERO exceptions to this rule.** If the user asks to "deploy", always deploy to Staging and inform them it is ready for testing. Never assume "deploy" means "deploy to production".
 
 ## 6. Production Upgrades & Updates (CRITICAL GUIDELINES)
 
