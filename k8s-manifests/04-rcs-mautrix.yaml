@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: ma-rcs-mautrix
-        image: messaging-agent-ma-rcs-mautrix:latest
+        image: messaging-agent-rcs-mautrix:latest
         imagePullPolicy: IfNotPresent
         env:
         - name: JAVA_TOOL_OPTIONS

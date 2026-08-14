@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: ma-routing-engine
-        image: messaging-agent-ma-routing-engine:latest
+        image: messaging-agent-routing-engine:latest
         imagePullPolicy: IfNotPresent
         env:
         - name: JAVA_TOOL_OPTIONS

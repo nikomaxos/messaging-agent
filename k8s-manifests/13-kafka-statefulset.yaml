@@ -99,7 +99,7 @@ spec:
         command:
           - sh
           - -c
-          - "unset KAFKA_PORT && exec /etc/confluent/docker/run"
+          - "unset KAFKA_PORT KAFKA_PORT_9092_TCP KAFKA_PORT_9092_TCP_PROTO KAFKA_PORT_9092_TCP_PORT KAFKA_PORT_9092_TCP_ADDR && exec /etc/confluent/docker/run"
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: ma-smpp-edge
-        image: messaging-agent-ma-smpp-edge:latest
+        image: messaging-agent-smpp-edge:latest
         imagePullPolicy: IfNotPresent
         env:
         - name: JAVA_TOOL_OPTIONS
