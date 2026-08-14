@@ -103,3 +103,44 @@ Whenever the USER requests a new implementation, feature, or complex bug fix, yo
    - *QA:* Develops the testing strategy and actively verifies the work.
 3. **Testing First:** EVERY solution must be rigorously tested (by the QA persona) and confirmed to be working in the environment before it is presented to the user.
 4. **Final Approval:** The Architect must explicitly approve and accept the deliverables of the rest of the team before concluding the task.
+
+## 8. SSH Access Map & Security
+
+All infrastructure access is **SSH key-based only**. Password authentication is disabled on all K3s nodes. The DevBox has passwordless sudo for `nick`.
+
+### Node Inventory (Proxmox VMs)
+
+| VMID | Hostname | IP | User | Role |
+|------|----------|-----|------|------|
+| 100 | DevBox | 10.10.10.96 | `nick` | Staging environment, development workspace |
+| 301 | k3s-master-1 | 10.10.10.193 | `ubuntu` | K3s master node (Production) |
+| 302 | k3s-worker-1 | 10.10.10.194 | `ubuntu` | K3s worker node (Production) |
+| 303 | k3s-worker-2 | 10.10.10.195 | `ubuntu` | K3s worker node (Production) |
+| — | pve | 65.108.8.252 | `root` | Proxmox hypervisor host |
+
+> **No LXC containers exist.** Only the 4 VMs listed above.
+
+### SSH Config (DevBox `~/.ssh/config`)
+
+Host aliases are configured on the DevBox for clean access:
+- `ssh k3s-master` → `ubuntu@10.10.10.193`
+- `ssh k3s-worker-1` → `ubuntu@10.10.10.194`
+- `ssh k3s-worker-2` → `ubuntu@10.10.10.195`
+- `ssh proxmox` → `root@65.108.8.252`
+
+### Access Capabilities
+
+| From → To | Method | Sudo | Notes |
+|-----------|--------|------|-------|
+| DevBox → K3s nodes | SSH key (`~/.ssh/id_rsa`) | Passwordless (`ubuntu` user) | Used by `deploy-agent` and agent |
+| DevBox → Proxmox | SSH key (`~/.ssh/id_rsa`) | Already root | Used for VM management |
+| DevBox localhost | Direct | Passwordless (`/etc/sudoers.d/nick`) | Agent can run `docker`, `apt`, etc. |
+| K3s inter-node | SSH key | Passwordless | Used by `deploy-k8s.sh` for image sync |
+| K3s → DevBox | ❌ BLOCKED | — | No reverse SSH access (by design) |
+
+### Security Hardening
+
+- **Password auth disabled** on all K3s nodes (`PasswordAuthentication no` in `/etc/ssh/sshd_config`).
+- **SSH key only**: All access uses the DevBox RSA key pair at `~/.ssh/id_rsa`.
+- **Zero-Trust**: No passwords stored anywhere on any node. The user's RDP password is held only on their local PC.
+- **Keepalive**: SSH config includes `ServerAliveInterval 60` to prevent dropped connections.
