@@ -118,6 +118,8 @@ app.get('/api/deploy/production', async (req, res) => {
       echo "Triggering deployment on Target Node..."
       if [ ! -d ~/messaging-agent ]; then git clone https://github.com/nikomaxos/messaging-agent.git ~/messaging-agent; fi 
       cd ~/messaging-agent 
+      git fetch origin main && git reset --hard origin/main
+      chmod +x ./deploy-agent/deploy-k8s.sh
       ./deploy-agent/deploy-k8s.sh
     `;
 
