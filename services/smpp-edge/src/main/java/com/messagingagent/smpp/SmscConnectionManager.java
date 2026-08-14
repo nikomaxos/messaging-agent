@@ -135,20 +135,23 @@ public class SmscConnectionManager {
 
     private void loadAndConnectAll() {
         try {
-            SmscSupplier[] suppliers = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", SmscSupplier[].class);
-            if (suppliers != null) {
-                log.info("Loaded {} SMSC suppliers from core-service", suppliers.length);
-                for (SmscSupplier supplier : suppliers) {
-                    if (supplier.isActive()) {
-                        supplierCache.put(supplier.getId(), supplier);
-                        if (connectingSuppliers.add(supplier.getId())) {
-                            connectAsync(supplier);
+            com.fasterxml.jackson.databind.JsonNode rootNode = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", com.fasterxml.jackson.databind.JsonNode.class);
+            if (rootNode != null && rootNode.isArray()) {
+                log.info("Loaded {} SMSC suppliers from core-service", rootNode.size());
+                for (com.fasterxml.jackson.databind.JsonNode node : rootNode) {
+                    if (node.has("supplier")) {
+                        SmscSupplier supplier = objectMapper.treeToValue(node.get("supplier"), SmscSupplier.class);
+                        if (supplier != null && supplier.isActive()) {
+                            supplierCache.put(supplier.getId(), supplier);
+                            if (connectingSuppliers.add(supplier.getId())) {
+                                connectAsync(supplier);
+                            }
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            log.error("Failed to load SMSC suppliers from core-service: {}", e.getMessage());
+            log.error("Failed to load SMSC suppliers from core-service: {}", e.getMessage(), e);
         }
     }
 
@@ -209,10 +212,10 @@ public class SmscConnectionManager {
     private void monitorSessions() {
         // Periodically refresh cache from core-service and evict deleted/inactive suppliers
         try {
-            com.fasterxml.jackson.databind.JsonNode[] nodes = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", com.fasterxml.jackson.databind.JsonNode[].class);
-            if (nodes != null) {
+            com.fasterxml.jackson.databind.JsonNode rootNode = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", com.fasterxml.jackson.databind.JsonNode.class);
+            if (rootNode != null && rootNode.isArray()) {
                 java.util.Set<Long> validSupplierIds = new java.util.HashSet<>();
-                for (com.fasterxml.jackson.databind.JsonNode node : nodes) {
+                for (com.fasterxml.jackson.databind.JsonNode node : rootNode) {
                     if (node.has("supplier")) {
                         SmscSupplier s = objectMapper.treeToValue(node.get("supplier"), SmscSupplier.class);
                         if (s != null && s.isActive()) {
