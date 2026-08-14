@@ -71,14 +71,28 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
 - **Maintain Aesthetics**: The `admin-panel` UI uses glassmorphism and modern dark mode styling. Do not introduce generic unstyled HTML components.
 - **Zero-Trust Credentials (CRITICAL)**: NEVER store plaintext passwords, API keys, or sensitive credentials on the DevBox, Proxmox host, or in any scripts (e.g., `askpass.sh` or setup scripts). Passwords must only be held by the user on their local connecting PC (e.g., in their RDP client or password manager).
 - **Continuous Knowledge Vault Updates**: Any time you introduce a new feature, fix a bug, or change architectural concepts (such as timers, polling intervals, or caching logic), you MUST actively update the respective artifacts inside `.agents/knowledge/artifacts/` (e.g., `system-timing-intervals.md`) and their `metadata.json` so the agent always retains accurate memory for future sessions.
+- **⛔ NEVER DEPLOY TO PRODUCTION DIRECTLY (ABSOLUTE RULE)**: The agent is strictly **FORBIDDEN** from SSH-ing into production nodes (`10.10.10.192`, `10.10.10.193`, `10.10.10.194`, `10.10.10.195`) to run deployment scripts (`deploy-k8s.sh` or any equivalent). The agent may ONLY deploy to the **Staging environment** (DevBox `10.10.10.96`). Production deployments are the USER's exclusive responsibility, triggered via the Staging Admin Panel Deploy Page UI. **There are ZERO exceptions to this rule.** If the user asks to "deploy", always deploy to Staging and inform them it is ready for testing. Never assume "deploy" means "deploy to production".
 
 ## 6. Production Upgrades & Updates (CRITICAL GUIDELINES)
 
-To ensure the production system **never hangs** during major architectural updates, you MUST strictly follow these guidelines:
-1. **Never Deploy Blindly to Prod:** Major updates (like breaking a monolith into microservices, adding new databases, or changing core dependencies) MUST be built, deployed, and thoroughly tested on the Staging environment (DevBox) first.
-2. **Verify Dependencies Before Booting Apps:** If databases or message queues (like Kafka or Zookeeper) have dirty state (e.g. `InconsistentClusterIdException`) or fail healthchecks, ALL downstream microservices will hang or crash loop. Always ensure stateful services are healthy before bringing up web or processing nodes.
-3. **Handle Stale Docker Volumes:** When drastically changing environments or resetting local clusters (e.g., recreating Kafka), ensure you wipe the old docker data volumes (e.g. `docker compose down -v` or `docker volume rm ...`) if they contain stale cluster IDs that will prevent startup.
-4. **Instant Rollback Safety Net:** Leverage Proxmox VM Snapshots via the DevOps Dashboard. Before a major code change goes to `10.10.10.192` (Production), ensure a snapshot was taken. If Production hangs, instantly trigger a rollback rather than trying to hotfix live.
+To ensure the production system **never hangs** and the USER retains full control over what goes live, the following **MANDATORY deployment workflow** must be followed **WITHOUT EXCEPTION**:
+
+### ⛔ Mandatory Deployment Workflow (Staging → User Approval → Production)
+
+| Step | Who | Action |
+|------|-----|--------|
+| 1 | **Agent** | Makes code changes and pushes to `git` (origin main). |
+| 2 | **Agent** | Deploys **ONLY to Staging** (DevBox `10.10.10.96`). |
+| 3 | **Agent** | Notifies the USER: _"Changes are deployed to Staging and ready for your testing at `staging-messaging-agent.globalnetservices.net`."_ |
+| 4 | **USER** | Tests the changes on the Staging environment. |
+| 5 | **USER** | Triggers Production deployment via the **Staging Admin Panel → Deploy Page UI**. |
+
+> **VIOLATION**: Any agent action that directly executes deployment scripts on production nodes (`10.10.10.192`–`10.10.10.195`) is a **critical violation** of this workflow. This includes SSH commands, `kubectl` rollouts, or running `deploy-k8s.sh` against the production cluster. The agent does NOT have authorization to perform these actions under ANY circumstances.
+
+### Additional Safety Rules
+1. **Verify Dependencies Before Booting Apps:** If databases or message queues (like Kafka or Zookeeper) have dirty state (e.g. `InconsistentClusterIdException`) or fail healthchecks, ALL downstream microservices will hang or crash loop. Always ensure stateful services are healthy before bringing up web or processing nodes.
+2. **Handle Stale Docker Volumes:** When drastically changing environments or resetting local clusters (e.g., recreating Kafka), ensure you wipe the old docker data volumes (e.g. `docker compose down -v` or `docker volume rm ...`) if they contain stale cluster IDs that will prevent startup.
+3. **Instant Rollback Safety Net:** Leverage Proxmox VM Snapshots via the DevOps Dashboard. Before a major code change goes to `10.10.10.192` (Production), ensure a snapshot was taken. If Production hangs, instantly trigger a rollback rather than trying to hotfix live.
 
 ## 7. Multi-Agent Environment Workflow
 
