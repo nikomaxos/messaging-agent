@@ -75,9 +75,8 @@ app.get('/api/deploy/production', async (req, res) => {
   // 1. Auto-Push Local Changes First
   res.write(`data: ${JSON.stringify({ log: 'Committing and pushing local changes to GitHub...' })}\n\n`);
   try {
+    await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
     const gitCmds = `
-      mkdir -p /tmp/.ssh && cp -r /root/.ssh/* /tmp/.ssh/ && chown -R root:root /tmp/.ssh && chmod -R 600 /tmp/.ssh/* &&
-      export HOME=/tmp &&
       git config --global --add safe.directory /repo &&
       git config --global user.email "deploy-agent@messaging-agent.local" &&
       git config --global user.name "Deploy Agent" &&
@@ -136,6 +135,11 @@ app.post('/api/deploy/info', async (req, res) => {
     return res.status(400).json({ error: 'IP and username are required' });
   }
 
+  // Make sure SSH keys are ready
+  try {
+    await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
+  } catch(e) {}
+
   const ssh = new NodeSSH();
   try {
     await ssh.connect({ host: ip, username, password: password || undefined, privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'), tryKeyboard: true, readyTimeout: 5000 });
@@ -176,6 +180,11 @@ app.get('/api/rollback/production', async (req, res) => {
 
   res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH for Rollback...` })}\n\n`);
   
+  // Make sure SSH keys are ready
+  try {
+    await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
+  } catch(e) {}
+
   const ssh = new NodeSSH();
   try {
     await ssh.connect({
