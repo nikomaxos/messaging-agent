@@ -1,6 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
-import { Rocket, Server, RefreshCw, Terminal, Undo2, PlayCircle, Key, User, Network } from 'lucide-react'
+import { Rocket, Server, RefreshCw, Terminal, Undo2, PlayCircle, Key, User, Network, CheckCircle2, Circle } from 'lucide-react'
 import packageJson from '../../package.json'
+
+const DEPLOYMENT_STEPS = [
+  { step: 1, title: 'Fetch Latest Code', desc: 'Syncs the target node with the latest committed code branch from GitHub.' },
+  { step: 2, title: 'Build & Distribute Images', desc: 'Compiles all microservices into Docker containers and securely transfers them to the Kubernetes worker nodes.' },
+  { step: 3, title: 'Apply Kubernetes Configs', desc: 'Updates the cluster configurations to reflect the latest networking and deployment manifests.' },
+  { step: 4, title: 'Initialize Databases', desc: 'Ensures the stateful persistence layer (PostgreSQL, Matrix Synapse) is fully booted and ready.' },
+  { step: 5, title: 'Trigger Rolling Updates', desc: 'Instructs the cluster to gracefully cycle pods and transition traffic to the newly built images.' },
+  { step: 6, title: 'Verify Pod Health', desc: 'Monitors the deployment rollout status until all replacement pods pass their readiness probes.' },
+  { step: 7, title: 'Scan Host Systems', desc: 'Queries the underlying Ubuntu nodes for pending security patches or system package updates.' },
+  { step: 8, title: 'Analyze Cluster Stability', desc: 'Performs a deep diagnostic sweep across all namespaces to detect any crashing or evicting pods.' },
+  { step: 9, title: 'Prune Stale Resources', desc: 'Executes garbage collection to free disk space by deleting previous Docker layers and orphaned images.' }
+];
 
 export default function DeployPage() {
   const [logs, setLogs] = useState<string[]>([])
@@ -234,6 +246,50 @@ export default function DeployPage() {
                     style={{ width: `${(Math.min(currentStep, totalSteps) / totalSteps) * 100}%` }}
                   ></div>
                 </div>
+              </div>
+
+              {/* Step Explanations */}
+              <div className="mt-6 flex flex-col gap-3">
+                {DEPLOYMENT_STEPS.map((s) => {
+                  const isCompleted = currentStep > s.step || (!isDeploying && currentStep === totalSteps);
+                  const isActive = currentStep === s.step && isDeploying;
+                  const isPending = currentStep < s.step && isDeploying;
+                  
+                  return (
+                    <div 
+                      key={s.step} 
+                      className={`flex gap-3 p-3 rounded-lg border transition-all duration-300 ${
+                        isActive ? 'bg-brand-500/10 border-brand-500/30' :
+                        isCompleted ? 'bg-emerald-500/5 border-emerald-500/10 opacity-70' :
+                        'bg-white/[0.02] border-white/[0.05] opacity-40'
+                      }`}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {isCompleted ? (
+                          <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+                            ✓
+                          </div>
+                        ) : isActive ? (
+                          <div className="w-5 h-5 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center text-xs animate-pulse">
+                            <RefreshCw size={12} className="animate-spin" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-white/10 text-white/40 flex items-center justify-center text-xs">
+                            {s.step}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className={`text-sm font-semibold ${isActive ? 'text-brand-300' : isCompleted ? 'text-emerald-400' : 'text-slate-400'}`}>
+                          {s.title}
+                        </div>
+                        <div className={`text-xs mt-1 ${isActive ? 'text-brand-200/70' : isCompleted ? 'text-emerald-400/50' : 'text-slate-500'}`}>
+                          {s.desc}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               
               {!isDeploying && currentStep === totalSteps && (
