@@ -3,6 +3,7 @@ package com.messagingagent.controller;
 import com.messagingagent.model.SmppClient;
 import com.messagingagent.repository.SmppClientRepository;
 import com.messagingagent.dto.SmppClientDto;
+import com.messagingagent.dto.SmppSessionDto;
 import com.messagingagent.service.RedisConfigSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +37,7 @@ public class SmppClientController {
                 String[] parts = value.split("\\|");
                 String bindType = parts.length > 0 ? parts[0] : "UNKNOWN";
                 long uptime = parts.length > 1 ? Long.parseLong(parts[1]) : 0;
-                activeSessions.add(new com.messagingagent.dto.SmppSessionDto(sessionId, bindType, uptime));
+                activeSessions.add(new SmppSessionDto(sessionId, bindType, uptime));
             }
             return SmppClientDto.fromEntity(client, activeSessions);
         }).collect(Collectors.toList());
