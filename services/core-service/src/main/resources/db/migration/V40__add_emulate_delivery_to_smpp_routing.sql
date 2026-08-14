@@ -1,2 +1,2 @@
-ALTER TABLE smpp_routing ADD COLUMN emulate_delivery BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE smpp_routing ADD COLUMN emulated_error_code VARCHAR(20);
+ALTER TABLE smpp_routing ADD COLUMN IF NOT EXISTS emulate_delivery BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE smpp_routing ADD COLUMN IF NOT EXISTS emulated_error_code VARCHAR(20);
