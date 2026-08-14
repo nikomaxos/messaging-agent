@@ -144,3 +144,11 @@ Host aliases are configured on the DevBox for clean access:
 - **SSH key only**: All access uses the DevBox RSA key pair at `~/.ssh/id_rsa`.
 - **Zero-Trust**: No passwords stored anywhere on any node. The user's RDP password is held only on their local PC.
 - **Keepalive**: SSH config includes `ServerAliveInterval 60` to prevent dropped connections.
+
+## 9. Database Schema and Migration Safety (CRITICAL)
+
+To prevent downtime, missing data in the UI, or disconnections from upstream SMSCs (like Melrose), the following database rules MUST be strictly enforced:
+1. **Never Mix Manual SQL and Flyway**: Do NOT execute manual `psql` `ALTER TABLE` commands if you are also creating a Flyway migration (`VXX__...sql`). Write the Flyway migration and apply it properly by rebuilding the `core-service` container (`docker compose up -d --build core-service`).
+2. **Idempotent Migrations**: EVERY Flyway script must be strictly idempotent. Always use `ADD COLUMN IF NOT EXISTS` and `DROP COLUMN IF EXISTS` to prevent Flyway from crashing the Spring Boot application if the database state is slightly out of sync.
+3. **Downstream Service Checks**: `smpp-edge`, `routing-engine`, and `device-gateway` rely entirely on `core-service` for their configurations. If `core-service` crashes due to a bad migration, `smpp-edge` will fail to load suppliers and disconnect from upstream. If `core-service` is taken down or restarted, you MUST verify the health of `smpp-edge` and restart it (`docker restart ma-smpp-edge`) if it failed to reconnect to the core API.
+4. **Data Backups**: Before performing any complex migrations, take a backup of the `messagingagent` database using `pg_dump` to ensure data is never lost.
