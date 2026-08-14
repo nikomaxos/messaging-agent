@@ -46,6 +46,7 @@ public class SecurityConfig {
                     "/api/devices/register/**",
                     "/api/screen-frame",   // Device screen frame upload (token-auth, no JWT)
                     "/api/public/**",
+                    "/api/admin/smsc-suppliers", // Internal inter-service supplier sync for smpp-edge
                     "/actuator/**",
                     "/ws/**",        // Android raw WebSocket
                     "/ws-admin/**",  // SockJS HTTP polling + WebSocket upgrade for admin panel
