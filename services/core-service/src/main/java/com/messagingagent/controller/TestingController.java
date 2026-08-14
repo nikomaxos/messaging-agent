@@ -68,10 +68,36 @@ public class TestingController {
         private String simulationMode; // "SIMULATE_DELIVERY" or "ACTUAL_SEND"
         private String forcedErrorCode; // e.g., "DELIVRD", "UNDELIV", "REJECTD"
         private Integer dataCoding;
+        private String specificNumbers;
     }
 
     @PostMapping("/stress")
     public ResponseEntity<?> sendStressTest(@RequestBody StressTestRequest request) {
+        int baseDc = request.getDataCoding() != null ? request.getDataCoding() : 0;
+
+        if (request.getSpecificNumbers() != null && !request.getSpecificNumbers().trim().isEmpty()) {
+            String[] numbers = request.getSpecificNumbers().split(",");
+            int count = 0;
+            for (String number : numbers) {
+                String dest = number.trim();
+                if (dest.isEmpty()) continue;
+                
+                Map<String, Object> event = new HashMap<>();
+                event.put("systemId", request.getClientSystemId() != null && !request.getClientSystemId().isEmpty() ? request.getClientSystemId() : "STRESS_TEST");
+                event.put("sourceAddress", request.getSenderId());
+                event.put("destinationAddress", dest);
+                event.put("messageText", request.getMessage());
+                event.put("dataCoding", baseDc);
+                event.put("correlationId", "TEST-STRESS-" + UUID.randomUUID().toString());
+                event.put("timestampMs", System.currentTimeMillis());
+                event.put("priority", 2);
+                
+                kafkaTemplate.send("sms.inbound.raw", event);
+                count++;
+            }
+            return ResponseEntity.ok().body("{\"status\":\"Generated " + count + " specific messages\"}");
+        }
+
         if (request.getAmount() <= 0 || request.getAmount() > 100000) {
             return ResponseEntity.badRequest().body("{\"error\":\"Invalid amount. Max 100,000\"}");
         }
@@ -83,7 +109,7 @@ public class TestingController {
 
         boolean simulateDelivery = "SIMULATE_DELIVERY".equals(request.getSimulationMode());
 
-        int baseDc = request.getDataCoding() != null ? request.getDataCoding() : 0;
+
 
         for (int i = 0; i < request.getAmount(); i++) {
             CountryPrefix randomPrefix = prefixes.get(random.nextInt(prefixes.size()));

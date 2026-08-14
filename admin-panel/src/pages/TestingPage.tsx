@@ -27,7 +27,7 @@ export default function TestingPage() {
   const [emuResult, setEmuResult] = useState<any>(null)
   
   // Stress Test State
-  const [stressForm, setStressForm] = useState({ senderId: '', message: '', clientSystemId: '', supplierId: '', protocol: 'SMS', amount: 100, countryName: '', simulationMode: 'SIMULATE_DELIVERY', forcedErrorCode: 'DELIVRD', dataCoding: '0' })
+  const [stressForm, setStressForm] = useState({ senderId: '', message: '', clientSystemId: '', supplierId: '', protocol: 'SMS', amount: 100, countryName: '', simulationMode: 'SIMULATE_DELIVERY', forcedErrorCode: 'DELIVRD', dataCoding: '0', sendTowards: 'RANDOM', specificNumbers: '' })
 
   const sendMut = useMutation({ mutationFn: sendTestMessage, onSuccess: () => alert("Message sent to queue!"), onError: (e: any) => alert(e.response?.data?.error || e.message) })
   const emuMut = useMutation({ mutationFn: emulateRouting, onSuccess: (data) => setEmuResult(data), onError: (e: any) => alert(e.response?.data?.error || e.message) })
@@ -229,19 +229,10 @@ export default function TestingPage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Sender ID</label>
                 <input type="text" value={stressForm.senderId} onChange={e => setStressForm({...stressForm, senderId: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Globe size={14}/> Destination Country</label>
-                <select value={stressForm.countryName} onChange={e => setStressForm({...stressForm, countryName: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white">
-                  <option value="">-- Select Country --</option>
-                  {uniqueCountries.map((c: any) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
               </div>
             </div>
             
@@ -264,12 +255,44 @@ export default function TestingPage() {
               </div>
             </div>
 
-            <div className="bg-black/20 p-4 border border-white/5 rounded-lg space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-slate-300 mb-1">Test Volume</label>
-                  <input type="number" min="1" value={stressForm.amount} onChange={e => setStressForm({...stressForm, amount: parseInt(e.target.value) || 1})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" />
+            <div>
+              <label className="block text-sm text-slate-300 mb-1">Send Towards</label>
+              <select value={stressForm.sendTowards} onChange={e => setStressForm({...stressForm, sendTowards: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white">
+                <option value="RANDOM">Randomly emulated</option>
+                <option value="SPECIFIC">Specific numbers</option>
+              </select>
+            </div>
+
+            {stressForm.sendTowards === 'SPECIFIC' && (
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">Specific Numbers (comma separated, international format)</label>
+                <textarea rows={2} value={stressForm.specificNumbers} onChange={e => setStressForm({...stressForm, specificNumbers: e.target.value})} placeholder="e.g. 306981860567, 306981860568" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white"></textarea>
+              </div>
+            )}
+
+            {stressForm.sendTowards === 'RANDOM' && (
+              <div className="bg-black/20 p-4 border border-white/5 rounded-lg space-y-4">
+                <h3 className="text-sm font-semibold text-slate-300 mb-2 border-b border-white/5 pb-2">Generate Test Numbers</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Globe size={14}/> Destination Country</label>
+                    <select value={stressForm.countryName} onChange={e => setStressForm({...stressForm, countryName: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white">
+                      <option value="">-- Select Country --</option>
+                      {uniqueCountries.map((c: any) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-1">Test Volume</label>
+                    <input type="number" min="1" value={stressForm.amount} onChange={e => setStressForm({...stressForm, amount: parseInt(e.target.value) || 1})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" />
+                  </div>
                 </div>
+              </div>
+            )}
+
+            <div className="bg-black/20 p-4 border border-white/5 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Server size={14}/> Supplier Connection</label>
                   <select value={stressForm.supplierId} onChange={e => setStressForm({...stressForm, supplierId: e.target.value})} className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white">

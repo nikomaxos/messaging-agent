@@ -58,6 +58,9 @@ public class SmppRoutingController {
         routing.setAutoFailEnabled(payload.isAutoFailEnabled());
         routing.setAutoFailTimeoutMinutes(payload.getAutoFailTimeoutMinutes() != 0 ? payload.getAutoFailTimeoutMinutes() : 15);
         
+        routing.setEmulateDelivery(payload.isEmulateDelivery());
+        routing.setEmulatedErrorCode(payload.getEmulatedErrorCode());
+        
         routing.setLoadBalancerEnabled(payload.isLoadBalancerEnabled());
         routing.setResendEnabled(payload.isResendEnabled());
         routing.setResendTrigger(payload.getResendTrigger());

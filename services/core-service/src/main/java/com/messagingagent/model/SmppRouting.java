@@ -68,6 +68,13 @@ public class SmppRouting {
     @Column(name = "auto_fail_timeout_minutes")
     private Integer autoFailTimeoutMinutes;
 
+    @Column(name = "emulate_delivery", nullable = false)
+    @Builder.Default
+    private boolean emulateDelivery = false;
+
+    @Column(name = "emulated_error_code", length = 20)
+    private String emulatedErrorCode;
+
     @CreationTimestamp
     private Instant createdAt;
 

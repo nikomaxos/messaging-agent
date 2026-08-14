@@ -28,6 +28,9 @@ public class SmppRoutingDto {
     private boolean autoFailEnabled;
     private int autoFailTimeoutMinutes;
 
+    private boolean emulateDelivery;
+    private String emulatedErrorCode;
+
     private boolean loadBalancerEnabled;
     private boolean resendEnabled;
     private Long fallbackSmscId;
@@ -96,7 +99,9 @@ public class SmppRoutingDto {
                 .isDefault(routing.isDefault())
                 .routingMode(routing.getRoutingMode() != null ? routing.getRoutingMode().name() : "WEBSOCKET")
                 .autoFailEnabled(routing.isAutoFailEnabled())
-                .autoFailTimeoutMinutes(routing.getAutoFailTimeoutMinutes() != 0 ? routing.getAutoFailTimeoutMinutes() : 15)
+                .autoFailTimeoutMinutes(routing.getAutoFailTimeoutMinutes() != null && routing.getAutoFailTimeoutMinutes() != 0 ? routing.getAutoFailTimeoutMinutes() : 15)
+                .emulateDelivery(routing.isEmulateDelivery())
+                .emulatedErrorCode(routing.getEmulatedErrorCode())
                 .loadBalancerEnabled(routing.isLoadBalancerEnabled())
                 .resendEnabled(routing.isResendEnabled())
                 .fallbackSmscId(routing.getFallbackSmsc() != null ? routing.getFallbackSmsc().getId() : null)

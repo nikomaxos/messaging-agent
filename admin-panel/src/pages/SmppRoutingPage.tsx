@@ -21,8 +21,15 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
     fallbackSmscId: '',
     resendTrigger: 'ALL_FAILURES',
     rcsExpirationSeconds: 30,
+    emulateDelivery: false,
+    emulatedErrorCode: 'DELIVRD',
     destinations: [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '' }]
   })
+
+  const [selectedCountry, setSelectedCountry] = useState<string>('')
+  
+  const uniqueCountries = [...new Set(prefixes?.map((p: any) => p.countryName).filter(Boolean))].sort()
+
 
   useEffect(() => {
     if (route) {
@@ -38,6 +45,8 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
         fallbackSmscId: route.fallbackSmscId || '',
         resendTrigger: route.resendTrigger || 'ALL_FAILURES',
         rcsExpirationSeconds: route.rcsExpirationSeconds || 30,
+        emulateDelivery: route.emulateDelivery || false,
+        emulatedErrorCode: route.emulatedErrorCode || 'DELIVRD',
         destinations: route.destinations?.length > 0 
           ? route.destinations.map((d: any) => ({
               deviceGroupId: d.deviceGroupId || '',
@@ -46,6 +55,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             }))
           : [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '' }]
       })
+      setSelectedCountry(route.countryPrefix?.countryName || '')
     } else {
       setFormData({
         smppClientId: '',
@@ -59,8 +69,11 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
         fallbackSmscId: '',
         resendTrigger: 'ALL_FAILURES',
         rcsExpirationSeconds: 30,
+        emulateDelivery: false,
+        emulatedErrorCode: 'DELIVRD',
         destinations: [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '' }]
       })
+      setSelectedCountry('')
     }
   }, [route, isOpen])
 
@@ -134,7 +147,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
           
           {/* Client Selection */}
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Incoming SMPP Client</label>
                 <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
@@ -143,15 +156,27 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                   {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.systemId})</option>)}
                 </select>
               </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Country</label>
+                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
+                  value={selectedCountry} onChange={(e: any) => { setSelectedCountry(e.target.value); setFormData({...formData, countryPrefixId: ''}) }}>
+                  <option value="">-- ALL COUNTRIES --</option>
+                  {(uniqueCountries as string[]).map((c: string) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Target Network (MCC/MNC)</label>
                 <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
                   value={formData.countryPrefixId} onChange={(e: any) => setFormData({...formData, countryPrefixId: e.target.value})}>
-                  <option value="">-- ALL NETWORKS --</option>
-                  {prefixes?.map((p: any) => <option key={p.id} value={p.id}>{p.countryName} - {p.networkName} ({p.mcc}/{p.mnc})</option>)}
+                  <option value="">-- ALL NETWORKS {selectedCountry ? `IN ${selectedCountry.toUpperCase()}` : ''} --</option>
+                  {prefixes?.filter((p: any) => !selectedCountry || p.countryName === selectedCountry).map((p: any) => <option key={p.id} value={p.id}>{p.countryName} - {p.networkName} ({p.mcc}/{p.mnc})</option>)}
                 </select>
               </div>
             </div>
+
             <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit">
               <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
                  checked={formData.isDefault} onChange={(e: any) => setFormData({...formData, isDefault: e.target.checked})} />
@@ -171,6 +196,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                   value={formData.routingMode} onChange={(e: any) => setFormData({...formData, routingMode: e.target.value})}>
                   <option value="WEBSOCKET">WebSocket (Native App)</option>
                   <option value="MATRIX">Matrix (Mautrix Bridge)</option>
+                  <option value="SMS">Native SMS Channel</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -184,6 +210,24 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                     <input type="number" min="1" className="w-20 bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm text-center"
                       value={formData.autoFailTimeoutMinutes} onChange={(e: any) => setFormData({...formData, autoFailTimeoutMinutes: parseInt(e.target.value) || 0})} />
                     <span className="text-xs text-slate-400">Time (mins) before marking dropped</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2 col-span-2 pt-2 border-t border-white/5">
+                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit">
+                  <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
+                    checked={formData.emulateDelivery} onChange={(e: any) => setFormData({...formData, emulateDelivery: e.target.checked})} />
+                  <span className="font-medium text-amber-400">Emulate (Fake) Delivery (Do not send)</span>
+                </label>
+                {formData.emulateDelivery && (
+                  <div className="flex items-center gap-3 pl-6 mt-1">
+                    <label className="text-xs text-slate-400">Simulated Final Status:</label>
+                    <select className="bg-[#12121f] border border-white/10 rounded px-3 py-1.5 text-white text-sm"
+                      value={formData.emulatedErrorCode} onChange={(e: any) => setFormData({...formData, emulatedErrorCode: e.target.value})}>
+                      <option value="DELIVRD">DELIVRD (Success)</option>
+                      <option value="UNDELIV">UNDELIV (Undelivered)</option>
+                      <option value="REJECTD">REJECTD (Rejected)</option>
+                    </select>
                   </div>
                 )}
               </div>
@@ -425,6 +469,11 @@ export default function SmppRoutingPage() {
                      {r.autoFailEnabled && (
                        <div className="text-[10px] text-amber-500/70 mt-1 uppercase tracking-wide">
                          Auto-fail: {r.autoFailTimeoutMinutes}m
+                       </div>
+                     )}
+                     {r.emulateDelivery && (
+                       <div className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 mt-2 rounded inline-block uppercase tracking-wide">
+                         Fake Delivery ({r.emulatedErrorCode})
                        </div>
                      )}
                      
