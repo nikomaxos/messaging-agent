@@ -76,13 +76,13 @@ sudo kubectl rollout status statefulset ma-synapse --timeout=120s 2>&1 | tee -a 
 
 log "--- Step 4.1: Migrating Legacy Postgres Data to K8s ---"
 # Check if the DB is already populated to avoid duplicate restores
-DB_CHECK=$(sudo kubectl exec -i ma-postgres-0 -- psql -U postgres -d messaging_agent -c "\dt" || echo "empty")
+DB_CHECK=$(sudo kubectl exec -i ma-postgres-0 -- psql -U msgagent -d messagingagent -c "\dt" || echo "empty")
 if [[ "$DB_CHECK" == *"empty"* || "$DB_CHECK" == *"Did not find any relations"* ]]; then
     log "Database is empty. Starting pg_dump from legacy VM (10.10.10.192)..."
-    sudo kubectl exec -i ma-postgres-0 -- pg_dump -h 10.10.10.192 -U postgres -d messaging_agent > /tmp/legacy_dump.sql || log "pg_dump failed"
+    sudo kubectl exec -i ma-postgres-0 -- bash -c "PGPASSWORD=msgagent pg_dump -h 10.10.10.192 -U msgagent -d messagingagent" > /tmp/legacy_dump.sql || log "pg_dump failed"
     if [ -f /tmp/legacy_dump.sql ]; then
         log "Restoring SQL dump to ma-postgres-0..."
-        cat /tmp/legacy_dump.sql | sudo kubectl exec -i ma-postgres-0 -- psql -U postgres -d messaging_agent || log "psql restore failed"
+        cat /tmp/legacy_dump.sql | sudo kubectl exec -i ma-postgres-0 -- bash -c "PGPASSWORD=msgagent psql -U msgagent -d messagingagent" || log "psql restore failed"
         rm /tmp/legacy_dump.sql
         log "Postgres Migration Complete."
     fi
