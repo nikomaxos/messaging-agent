@@ -76,13 +76,14 @@ app.get('/api/deploy/production', async (req, res) => {
   res.write(`data: ${JSON.stringify({ log: 'Committing and pushing local changes to GitHub...' })}\n\n`);
   try {
     const gitCmds = `
+      mkdir -p /tmp/.ssh && cp -r /root/.ssh/* /tmp/.ssh/ && chown -R root:root /tmp/.ssh && chmod -R 600 /tmp/.ssh/* &&
       git config --global --add safe.directory /repo &&
       git config --global user.email "deploy-agent@messaging-agent.local" &&
       git config --global user.name "Deploy Agent" &&
       git remote set-url origin git@github.com:nikomaxos/messaging-agent.git &&
       git add . &&
       (git commit -m "Auto-Deploy: Pushed from Admin Panel" || true) &&
-      GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
+      HOME=/tmp GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
     `;
     await execPromise(gitCmds, { cwd: '/repo' });
     res.write(`data: ${JSON.stringify({ log: 'Successfully pushed local changes.' })}\n\n`);

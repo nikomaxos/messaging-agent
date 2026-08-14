@@ -57,6 +57,17 @@ for proj in "${JAVA_PROJECTS[@]}"; do
 done
 
 echo ""
+echo "--- Bumping Android App ---"
+if [ -d "android-app" ]; then
+    echo "Bumping android-app/app..."
+    sed -i "s/versionName = \".*\"/versionName = \"$NEW_VERSION\"/" android-app/app/build.gradle.kts
+    echo "Bumping android-app/guardian..."
+    sed -i "s/versionName = \".*\"/versionName = \"$NEW_VERSION\"/" android-app/guardian/build.gradle.kts
+else
+    echo "Warning: Directory android-app not found, skipping."
+fi
+
+echo ""
 echo "========================================="
 echo " Successfully bumped system to v$NEW_VERSION!"
 echo " Please commit the changes:"
