@@ -149,6 +149,26 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
+  smpp-edge:
+    build:
+      context: ./services/smpp-edge
+      dockerfile: Dockerfile
+    container_name: ma-smpp-edge
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+      CORE_SERVICE_URL: http://core-service:8080
+    ports:
+      - "2775:2775"
+
   admin-panel:
     build:
       context: ./admin-panel
