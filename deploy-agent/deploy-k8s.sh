@@ -33,10 +33,10 @@ log "Now at commit: $COMMIT_SHA"
 
 # Step 2: Build and Import Images
 log "--- Step 2: Building and Importing Docker Images ---"
-if ! dpkg -l | grep -q docker-buildx-plugin; then
-    log "Installing docker-buildx-plugin to fix legacy builder warnings..."
+if ! docker buildx version >/dev/null 2>&1; then
+    log "Installing docker-buildx to fix legacy builder warnings..."
     sudo apt-get update >/dev/null 2>&1
-    sudo apt-get install -y docker-buildx-plugin >/dev/null 2>&1
+    sudo apt-get install -y docker-buildx >/dev/null 2>&1
 fi
 cd "$REPO_DIR"
 

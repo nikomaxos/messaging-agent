@@ -23,7 +23,7 @@ async function runSshCommandStream(ssh, cmd, res, onExit) {
   }, 15000);
 
   try {
-    await ssh.execCommand(cmd, {
+    const result = await ssh.execCommand(cmd, {
       onStdout(chunk) {
         res.write(`data: ${JSON.stringify({ log: chunk.toString('utf8').trim() })}\n\n`);
       },
@@ -32,8 +32,14 @@ async function runSshCommandStream(ssh, cmd, res, onExit) {
       }
     });
     clearInterval(keepAlive);
-    res.write(`data: ${JSON.stringify({ log: `Command completed successfully.` })}\n\n`);
-    if (onExit) onExit(0);
+    
+    if (result.code !== 0) {
+      res.write(`data: ${JSON.stringify({ log: `Command failed with exit code ${result.code}`, error: true })}\n\n`);
+      if (onExit) onExit(result.code);
+    } else {
+      res.write(`data: ${JSON.stringify({ log: `Command completed successfully.` })}\n\n`);
+      if (onExit) onExit(0);
+    }
   } catch (err) {
     clearInterval(keepAlive);
     res.write(`data: ${JSON.stringify({ log: `Command failed: ${err.message}`, error: true })}\n\n`);
