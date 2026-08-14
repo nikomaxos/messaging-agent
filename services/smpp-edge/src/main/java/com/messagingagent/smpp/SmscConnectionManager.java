@@ -204,6 +204,7 @@ public class SmscConnectionManager {
         log.info("Successfully bound to SMSC [{}] (id={})", supplier.getName(), supplier.getId());
     }
 
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 2000)
     private void monitorSessions() {
         // Periodically refresh cache from core-service and evict deleted/inactive suppliers
         try {
