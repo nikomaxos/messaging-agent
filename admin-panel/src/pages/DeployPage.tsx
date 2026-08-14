@@ -248,48 +248,56 @@ export default function DeployPage() {
                 </div>
               </div>
 
-              {/* Step Explanations */}
-              <div className="mt-6 flex flex-col gap-3">
-                {DEPLOYMENT_STEPS.map((s) => {
-                  const isCompleted = currentStep > s.step || (!isDeploying && currentStep === totalSteps);
-                  const isActive = currentStep === s.step && isDeploying;
-                  const isPending = currentStep < s.step && isDeploying;
-                  
-                  return (
-                    <div 
-                      key={s.step} 
-                      className={`flex gap-3 p-3 rounded-lg border transition-all duration-300 ${
-                        isActive ? 'bg-brand-500/10 border-brand-500/30' :
-                        isCompleted ? 'bg-emerald-500/5 border-emerald-500/10 opacity-70' :
-                        'bg-white/[0.02] border-white/[0.05] opacity-40'
-                      }`}
-                    >
-                      <div className="flex-shrink-0 mt-0.5">
-                        {isCompleted ? (
-                          <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
-                            ✓
-                          </div>
-                        ) : isActive ? (
-                          <div className="w-5 h-5 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center text-xs animate-pulse">
-                            <RefreshCw size={12} className="animate-spin" />
-                          </div>
-                        ) : (
-                          <div className="w-5 h-5 rounded-full bg-white/10 text-white/40 flex items-center justify-center text-xs">
-                            {s.step}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className={`text-sm font-semibold ${isActive ? 'text-brand-300' : isCompleted ? 'text-emerald-400' : 'text-slate-400'}`}>
-                          {s.title}
+              {/* Step Explanations (Auto-rolling) */}
+              <div className="mt-6 relative h-[88px] overflow-hidden rounded-lg">
+                {/* Fade overlays for smooth scrolling effect */}
+                <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#1a1a2e] to-transparent z-10 pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#1a1a2e] to-transparent z-10 pointer-events-none"></div>
+                
+                <div 
+                  className="flex flex-col gap-3 transition-transform duration-700 ease-in-out"
+                  style={{ transform: `translateY(-${Math.max(0, currentStep - 1) * 84}px)` }}
+                >
+                  {DEPLOYMENT_STEPS.map((s) => {
+                    const isCompleted = currentStep > s.step || (!isDeploying && currentStep === totalSteps);
+                    const isActive = currentStep === s.step && isDeploying;
+                    
+                    return (
+                      <div 
+                        key={s.step} 
+                        className={`flex gap-3 p-3 rounded-lg border transition-all duration-500 h-[72px] shrink-0 ${
+                          isActive ? 'bg-brand-500/10 border-brand-500/30' :
+                          isCompleted ? 'bg-emerald-500/5 border-emerald-500/10 opacity-70' :
+                          'bg-white/[0.02] border-white/[0.05] opacity-40'
+                        }`}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {isCompleted ? (
+                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+                              ✓
+                            </div>
+                          ) : isActive ? (
+                            <div className="w-5 h-5 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center text-xs animate-pulse">
+                              <RefreshCw size={12} className="animate-spin" />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-white/10 text-white/40 flex items-center justify-center text-xs">
+                              {s.step}
+                            </div>
+                          )}
                         </div>
-                        <div className={`text-xs mt-1 ${isActive ? 'text-brand-200/70' : isCompleted ? 'text-emerald-400/50' : 'text-slate-500'}`}>
-                          {s.desc}
+                        <div className="flex-1 overflow-hidden">
+                          <div className={`text-sm font-semibold truncate ${isActive ? 'text-brand-300' : isCompleted ? 'text-emerald-400' : 'text-slate-400'}`}>
+                            {s.title}
+                          </div>
+                          <div className={`text-xs mt-1 truncate ${isActive ? 'text-brand-200/70' : isCompleted ? 'text-emerald-400/50' : 'text-slate-500'}`}>
+                            {s.desc}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
               
               {!isDeploying && currentStep === totalSteps && (
