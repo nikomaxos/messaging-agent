@@ -44,6 +44,10 @@ public class SmscSupplier {
     @Builder.Default
     private String bindType = "TRANSCEIVER"; // TRANSMITTER, RECEIVER, TRANSCEIVER
 
+    @Column(nullable = false)
+    @Builder.Default
+    private int maxBinds = 1;
+
     @Column(length = 64)
     private String addressRange;
 

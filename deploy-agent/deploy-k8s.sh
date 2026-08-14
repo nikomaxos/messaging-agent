@@ -82,12 +82,26 @@ for dep in $DEPLOYMENTS; do
     sudo kubectl rollout restart deployment "$dep" 2>&1 | tee -a "$LOG_FILE"
 done
 
-# Step 5: Wait for rollout
-log "--- Step 5: Waiting for Rollouts ---"
+# Step 6: Wait for rollout
+log "--- Step 6: Waiting for Rollouts ---"
 DEPLOYMENTS=$(sudo kubectl get deployments -o jsonpath='{.items[*].metadata.name}')
 for dep in $DEPLOYMENTS; do
     log "Waiting for deployment $dep..."
     sudo kubectl rollout status deployment "$dep" --timeout=90s 2>&1 | tee -a "$LOG_FILE"
+done
+
+# Step 7: Check VM System Updates
+log "--- Step 7: Checking VM System Updates ---"
+for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
+    log "Checking updates on $node..."
+    UPGRADABLE=$(ssh -o StrictHostKeyChecking=no "ubuntu@$node" "sudo apt-get update >/dev/null 2>&1 && sudo apt-get -s upgrade | grep -P '^\d+ upgraded'" || true)
+    if [ ! -z "$UPGRADABLE" ]; then
+        # Extract the number of upgraded packages from string "X upgraded, ..."
+        NUM_UPGRADES=$(echo "$UPGRADABLE" | awk '{print $1}')
+        if [ "$NUM_UPGRADES" != "0" ]; then
+            log "[VM_UPDATE_NEEDED] Node $node: $NUM_UPGRADES packages can be upgraded"
+        fi
+    fi
 done
 
 log "========== DEPLOY SUCCEEDED =========="

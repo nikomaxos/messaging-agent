@@ -7,6 +7,10 @@ export default function DeployPage() {
   const [isDeploying, setIsDeploying] = useState(false)
   const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | null>(null)
   
+  const [currentStep, setCurrentStep] = useState(0)
+  const totalSteps = 7
+  const [vmWarnings, setVmWarnings] = useState<string[]>([])
+  
   const [targetIp, setTargetIp] = useState('10.10.10.193')
   
   const [prodVersion, setProdVersion] = useState<string>('Unknown')
@@ -60,6 +64,8 @@ export default function DeployPage() {
     setLogs([`>>> Initiating ${isRollback ? 'Rollback' : 'Deployment'} to ${targetIp}...`])
     setIsDeploying(true)
     setActiveEnv(env)
+    setCurrentStep(0)
+    setVmWarnings([])
 
     try {
       // Step 1: Initialize session to get token
@@ -80,9 +86,22 @@ export default function DeployPage() {
           const data = JSON.parse(event.data)
           if (data.log) {
             setLogs(prev => [...prev, data.log])
+            
+            const stepMatch = data.log.match(/--- Step (\d+):/)
+            if (stepMatch) {
+              setCurrentStep(parseInt(stepMatch[1], 10))
+            }
+            
+            const vmMatch = data.log.match(/\[VM_UPDATE_NEEDED\] (.*)/)
+            if (vmMatch) {
+              setVmWarnings(prev => [...prev, vmMatch[1]])
+            }
           }
           if (data.done) {
             setLogs(prev => [...prev, `>>> Process completed with code ${data.code}`])
+            if (data.code === 0 && !isRollback) {
+              setCurrentStep(totalSteps)
+            }
             setIsDeploying(false)
             setActiveEnv(null)
             eventSource.close()
@@ -188,6 +207,45 @@ export default function DeployPage() {
               </button>
             </div>
           </div>
+          
+          {/* Progress Overview (Only show during or after deployment) */}
+          {(currentStep > 0 || logs.length > 0) && (
+            <div className="rounded-xl border border-white/[0.07] bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                <RefreshCw size={18} className={isDeploying ? "animate-spin text-brand-400" : "text-emerald-400"} />
+                Deployment Progress
+              </h2>
+              
+              <div className="mb-4">
+                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                  <span>Step {Math.min(currentStep, totalSteps)} of {totalSteps}</span>
+                  <span>{Math.round((Math.min(currentStep, totalSteps) / totalSteps) * 100)}%</span>
+                </div>
+                <div className="w-full bg-[#12121f] rounded-full h-2.5 border border-white/5 overflow-hidden">
+                  <div 
+                    className={`h-2.5 rounded-full transition-all duration-500 ease-out ${isDeploying ? 'bg-brand-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${(Math.min(currentStep, totalSteps) / totalSteps) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {!isDeploying && currentStep === totalSteps && (
+                <div className="mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex flex-col gap-2">
+                  <div className="font-bold">✅ Deployment Successful</div>
+                  {vmWarnings.length > 0 ? (
+                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded text-amber-300 text-xs">
+                      <div className="font-bold mb-1">⚠️ VM Updates Recommended:</div>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {vmWarnings.map((w, idx) => <li key={idx}>{w}</li>)}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-emerald-400/80">All nodes are up to date.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
         </div>
 

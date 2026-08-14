@@ -12,6 +12,7 @@ public class SmscSupplier {
     private String password;
     private String systemType;
     private String bindType;
+    private int maxBinds = 1;
     private int sourceTon;
     private int sourceNpi;
     private int destTon;

@@ -52,7 +52,7 @@ export default function SmscsPage() {
     setEditingId(null)
     setFormData({
       name: '', host: '', port: 2775, systemId: '', password: '',
-      systemType: '', bindType: 'TRANSCEIVER', addressRange: '',
+      systemType: '', bindType: 'TRANSCEIVER', maxBinds: 1, addressRange: '',
       sourceTon: 0, sourceNpi: 0, destTon: 0, destNpi: 0,
       throughput: 0, enquireLinkInterval: 30000, maxSessionLifetime: 5, active: true
     })
@@ -151,14 +151,19 @@ export default function SmscsPage() {
                 <td className="px-5 py-3 font-mono text-xs text-slate-400">{s.host}:{s.port}</td>
                 <td className="px-5 py-3">
                   <div className="flex flex-col items-start gap-1">
-                    {wrapper.connected 
-                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">Bound</span>
-                      : s.active 
-                        ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Attempting...</span>
-                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Unbound</span>}
+                    <div className="flex items-center gap-2">
+                      {wrapper.connected 
+                        ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">Bound</span>
+                        : s.active 
+                          ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Attempting...</span>
+                          : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Unbound</span>}
+                      <span className="text-[10px] font-medium text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-white/5">
+                        {s.maxBinds}{s.bindType === 'TRANSCEIVER' ? 'TRX' : s.bindType === 'TRANSMITTER' ? 'TX' : s.bindType === 'RECEIVER' ? 'RX' : 'UNK'}
+                      </span>
+                    </div>
                     {wrapper.uptimeSeconds != null && (
                       <span className="text-[10px] text-slate-500">
-                        Up: {Math.floor(wrapper.uptimeSeconds / 3600)}h {Math.floor((wrapper.uptimeSeconds % 3600) / 60)}m ({s.bindType === 'TRANSCEIVER' ? '1TRX' : s.bindType === 'TRANSMITTER' ? '1TX' : s.bindType === 'RECEIVER' ? '1RX' : '1UNK'})
+                        Up: {Math.floor(wrapper.uptimeSeconds / 3600)}h {Math.floor((wrapper.uptimeSeconds % 3600) / 60)}m
                       </span>
                     )}
                   </div>
@@ -267,6 +272,11 @@ export default function SmscsPage() {
                     <option value="TRANSMITTER">TRANSMITTER</option>
                     <option value="RECEIVER">RECEIVER</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Max Binds</label>
+                  <input type="number" min="1" max="100" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                    value={formData.maxBinds || 1} onChange={e => setFormData({ ...formData, maxBinds: parseInt(e.target.value, 10) })} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">System Type</label>

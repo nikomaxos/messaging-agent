@@ -140,6 +140,7 @@ export interface SmscSupplierConfig {
   port: number
   systemType?: string
   bindType: string
+  maxBinds: number
   addressRange?: string
   sourceTon: number
   sourceNpi: number
