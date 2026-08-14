@@ -21,6 +21,7 @@ import com.cloudhopper.smpp.type.Address;
 import com.cloudhopper.smpp.type.SmppChannelException;
 import com.cloudhopper.smpp.type.SmppTimeoutException;
 import com.messagingagent.smpp.model.SmscSupplier;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -38,6 +39,7 @@ public class SmscConnectionManager {
     private final RestTemplate restTemplate;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redis;
     
     @Value("${core.service.url:http://ma-core-service:8080}")
     private String coreServiceUrl;
@@ -48,10 +50,11 @@ public class SmscConnectionManager {
     private final java.util.Set<Long> connectingSuppliers = ConcurrentHashMap.newKeySet();
     private final Map<Long, SmscSupplier> supplierCache = new ConcurrentHashMap<>();
     
-    public SmscConnectionManager(KafkaTemplate<String, String> kafkaTemplate) {
+    public SmscConnectionManager(KafkaTemplate<String, String> kafkaTemplate, StringRedisTemplate redis) {
         this.restTemplate = new RestTemplate();
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = new ObjectMapper();
+        this.redis = redis;
     }
     
     public Instant getDisconnectedAt(Long supplierId) {
@@ -202,12 +205,36 @@ public class SmscConnectionManager {
     }
 
     private void monitorSessions() {
-        // Periodically refresh cache from core-service
+        // Periodically refresh cache from core-service and evict deleted/inactive suppliers
         try {
             SmscSupplier[] suppliers = restTemplate.getForObject(coreServiceUrl + "/api/admin/smsc-suppliers", SmscSupplier[].class);
             if (suppliers != null) {
+                java.util.Set<Long> validSupplierIds = new java.util.HashSet<>();
                 for (SmscSupplier s : suppliers) {
-                    if (s.isActive()) supplierCache.put(s.getId(), s);
+                    if (s.isActive()) {
+                        validSupplierIds.add(s.getId());
+                        supplierCache.put(s.getId(), s);
+                    }
+                }
+                
+                // Evict any suppliers that were deleted or deactivated in DB (Ghost Connection Prevention)
+                java.util.Set<Long> cachedIds = new java.util.HashSet<>(supplierCache.keySet());
+                for (Long cachedId : cachedIds) {
+                    if (!validSupplierIds.contains(cachedId)) {
+                        log.info("SMSC Supplier id={} is no longer active in DB. Closing session and evicting...", cachedId);
+                        supplierCache.remove(cachedId);
+                        UpstreamSessionInfo info = activeSessions.remove(cachedId);
+                        if (info != null && info.session() != null) {
+                            try {
+                                info.session().unbind(3000);
+                                info.session().destroy();
+                            } catch (Exception ignored) {}
+                        }
+                        disconnectedAt.remove(cachedId);
+                        try {
+                            redis.delete("smsc:supplier:status:" + cachedId);
+                        } catch (Exception ignored) {}
+                    }
                 }
             }
         } catch (Exception ignored) {}
@@ -222,6 +249,7 @@ public class SmscConnectionManager {
                 if (session != null) {
                     activeSessions.remove(supplier.getId());
                     disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
+                    try { redis.delete("smsc:supplier:status:" + supplier.getId()); } catch(Exception ignored) {}
                     try { session.destroy(); } catch(Exception ignored) {}
                 }
                 
@@ -230,6 +258,10 @@ public class SmscConnectionManager {
                     connectAsync(supplier);
                 }
             } else {
+                // Update Redis status for active bound session
+                try {
+                    redis.opsForValue().set("smsc:supplier:status:" + supplier.getId(), info.boundAt().toString(), java.time.Duration.ofSeconds(15));
+                } catch (Exception ignored) {}
                 Integer lifetimeMin = supplier.getMaxSessionLifetime();
                 if (lifetimeMin != null && lifetimeMin > 0) {
                     long sessionAge = java.time.Duration.between(info.boundAt(), Instant.now()).toMillis();

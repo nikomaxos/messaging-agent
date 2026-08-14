@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class SmscSupplierController {
 
     private final SmscSupplierRepository smscSupplierRepository;
+    private final StringRedisTemplate redis;
 
     @GetMapping
     public List<SmscSupplierDto> getAllSuppliers() {
@@ -29,10 +32,24 @@ public class SmscSupplierController {
     }
 
     private SmscSupplierDto toDto(SmscSupplier supplier) {
+        boolean connected = false;
+        Long uptimeSeconds = null;
+
+        try {
+            String statusVal = redis.opsForValue().get("smsc:supplier:status:" + supplier.getId());
+            if (statusVal != null && !statusVal.isBlank()) {
+                connected = true;
+                try {
+                    java.time.Instant boundAt = java.time.Instant.parse(statusVal);
+                    uptimeSeconds = java.time.Duration.between(boundAt, java.time.Instant.now()).getSeconds();
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
         return SmscSupplierDto.builder()
                 .supplier(supplier)
-                .uptimeSeconds(null)
-                .connected(false)
+                .uptimeSeconds(uptimeSeconds)
+                .connected(connected)
                 .totalMessages(0L)
                 .dlrsReceived(0L)
                 .failed(0L)
