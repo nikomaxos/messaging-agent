@@ -204,6 +204,7 @@ public class SmscConnectionManager {
         log.info("Successfully bound to SMSC [{}] (id={})", supplier.getName(), supplier.getId());
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class SupplierDto {
         public SmscSupplier supplier;
     }
@@ -241,7 +242,9 @@ public class SmscConnectionManager {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Failed to monitor sessions: {}", e.getMessage());
+        }
         
         for (SmscSupplier supplier : supplierCache.values()) {
             if (!supplier.isActive()) continue;
