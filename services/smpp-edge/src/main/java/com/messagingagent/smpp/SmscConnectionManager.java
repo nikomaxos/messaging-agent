@@ -54,6 +54,7 @@ public class SmscConnectionManager {
         this.restTemplate = new RestTemplate();
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = new ObjectMapper();
+        this.objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.redis = redis;
     }
     
@@ -240,7 +241,7 @@ public class SmscConnectionManager {
                 }
             }
         } catch (Exception e) {
-            log.error("Failed to monitor sessions: {}", e.getMessage());
+            log.error("Failed to monitor sessions: {}", e.getMessage(), e);
         }
         
         for (SmscSupplier supplier : supplierCache.values()) {
