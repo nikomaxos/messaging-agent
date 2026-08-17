@@ -403,9 +403,44 @@ public class SmscConnectionManager {
                     }
 
                     if (receiptedMessageId != null) {
-                        log.info("DLR Received: id={}", receiptedMessageId);
-                        // Publish DLR event to Kafka instead of writing to Postgres directly!
-                        String dlrJson = String.format("{\"messageId\":\"%s\", \"status\":\"DELIVERED\", \"timestamp\":%d}", receiptedMessageId, System.currentTimeMillis());
+                        String parsedStatus = "DELIVERED";
+                        String parsedReason = "";
+                        
+                        // Parse status from message_state TLV if present (tag 0x0427)
+                        com.cloudhopper.smpp.tlv.Tlv stateTlv = deliverSm.getOptionalParameter((short) 0x0427);
+                        if (stateTlv != null && stateTlv.getValue() != null && stateTlv.getValue().length > 0) {
+                            byte state = stateTlv.getValue()[0];
+                            if (state == 2) parsedStatus = "DELIVERED"; // DELIVERED
+                            else if (state == 5) parsedStatus = "FAILED"; // UNDELIVERABLE
+                            else if (state != 1) parsedStatus = "FAILED"; // ENROUTE/etc treated as failed if not delivered, or maybe queued
+                        }
+                        
+                        // Parse from text
+                        if (deliverSm.getShortMessage() != null) {
+                            String msg = new String(deliverSm.getShortMessage(), java.nio.charset.StandardCharsets.UTF_8);
+                            java.util.regex.Matcher mStat = java.util.regex.Pattern.compile("(?i)stat:\\s*([^\\s]+)").matcher(msg);
+                            if (mStat.find()) {
+                                String statVal = mStat.group(1).toUpperCase();
+                                if (statVal.contains("DELIV")) parsedStatus = "DELIVERED";
+                                else if (statVal.contains("UNDEL") || statVal.contains("REJECT") || statVal.contains("FAIL")) parsedStatus = "FAILED";
+                            }
+                            java.util.regex.Matcher mErr = java.util.regex.Pattern.compile("(?i)err:\\s*([^\\s]+)").matcher(msg);
+                            if (mErr.find()) {
+                                parsedReason = mErr.group(1);
+                            }
+                        }
+
+                        // Try network_error_code TLV (tag 0x0423)
+                        com.cloudhopper.smpp.tlv.Tlv errTlv = deliverSm.getOptionalParameter((short) 0x0423);
+                        if (errTlv != null && errTlv.getValue() != null && errTlv.getValue().length >= 3) {
+                            int code = ((errTlv.getValue()[1] & 0xFF) << 8) | (errTlv.getValue()[2] & 0xFF);
+                            if (parsedReason.isEmpty()) parsedReason = String.format("%03d", code);
+                        }
+
+                        log.info("DLR Received: id={}, status={}, reason={}", receiptedMessageId, parsedStatus, parsedReason);
+                        
+                        String dlrJson = String.format("{\"messageId\":\"%s\", \"status\":\"%s\", \"reason\":\"%s\", \"timestamp\":%d}", 
+                                receiptedMessageId, parsedStatus, parsedReason, System.currentTimeMillis());
                         kafkaTemplate.send("sms.outbound.dlr", receiptedMessageId, dlrJson);
                     }
                 } catch (Exception e) {
