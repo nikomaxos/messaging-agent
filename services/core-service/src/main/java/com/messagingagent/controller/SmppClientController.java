@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin/smpp/clients")
+@RequestMapping("/api/smpp/clients")
 @RequiredArgsConstructor
 public class SmppClientController {
 
