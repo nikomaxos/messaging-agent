@@ -350,6 +350,12 @@ public class SmscConnectionManager {
                 }
                 sm.setRegisteredDelivery(SmppConstants.REGISTERED_DELIVERY_SMSC_RECEIPT_REQUESTED);
 
+                // Add random user_message_reference to safely bypass strict SMSC duplicate filters
+                short randRef = (short) (System.currentTimeMillis() % Short.MAX_VALUE);
+                sm.addOptionalParameter(new com.cloudhopper.smpp.tlv.Tlv(SmppConstants.TAG_USER_MESSAGE_REFERENCE, 
+                        new byte[] { (byte)(randRef >>> 8), (byte)randRef }));
+
+
                 SubmitSmResp resp = session.submit(sm, 10000);
                 if (resp.getCommandStatus() == SmppConstants.STATUS_OK) {
                     if (firstMessageId == null) {
