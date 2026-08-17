@@ -89,8 +89,13 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
 
   const handleSave = () => {
     if (!formData.smppClientId) return alert("Please select a Source Client")
-    for (const d of formData.destinations) {
-      if (!d.deviceGroupId) return alert("Please select a Target Device Group for all destinations")
+    
+    if (formData.routingMode !== 'SMS') {
+      for (const d of formData.destinations) {
+        if (!d.deviceGroupId) return alert("Please select a Target Device Group for all destinations")
+      }
+    } else {
+      if (!formData.fallbackSmscId) return alert("Please select a Target SMSC Supplier")
     }
 
     const payload = {
@@ -100,7 +105,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
       autoFailTimeoutMinutes: formData.autoFailTimeoutMinutes ? Number(formData.autoFailTimeoutMinutes) : 15,
       fallbackSmscId: formData.fallbackSmscId ? Number(formData.fallbackSmscId) : null,
       rcsExpirationSeconds: formData.rcsExpirationSeconds ? Number(formData.rcsExpirationSeconds) : null,
-      destinations: formData.destinations.map((d: any) => ({
+      destinations: formData.routingMode === 'SMS' ? [] : formData.destinations.map((d: any) => ({
         ...d,
         deviceGroupId: Number(d.deviceGroupId),
         weightPercent: Number(d.weightPercent),
@@ -239,62 +244,80 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
           {/* Destinations & Load Balancing */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400">Target Destinations</h3>
-              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500" 
-                  checked={formData.loadBalancerEnabled} onChange={(e: any) => setFormData({...formData, loadBalancerEnabled: e.target.checked})} />
-                <span>Enable Load Balancer</span>
-              </label>
+              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400">
+                {formData.routingMode === 'SMS' ? 'Target Supplier' : 'Target Destinations'}
+              </h3>
+              {formData.routingMode !== 'SMS' && (
+                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500" 
+                    checked={formData.loadBalancerEnabled} onChange={(e: any) => setFormData({...formData, loadBalancerEnabled: e.target.checked})} />
+                  <span>Enable Load Balancer</span>
+                </label>
+              )}
             </div>
 
             <div className="space-y-3">
-              {formData.destinations.map((dest: any, idx: number) => (
-                <div key={idx} className="bg-black/20 border border-white/5 rounded-lg p-4 space-y-3 relative group">
-                  {formData.loadBalancerEnabled && formData.destinations.length > 1 && (
-                    <button onClick={() => removeDestination(idx)} className="absolute right-3 top-3 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition">
-                      <Trash2 size={16} />
+              {formData.routingMode === 'SMS' ? (
+                <div className="bg-black/20 border border-white/5 rounded-lg p-4 space-y-3">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Target SMSC Supplier</label>
+                    <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                      value={formData.fallbackSmscId} onChange={(e: any) => setFormData({...formData, fallbackSmscId: e.target.value})}>
+                      <option value="">-- Select Target SMSC --</option>
+                      {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {formData.destinations.map((dest: any, idx: number) => (
+                    <div key={idx} className="bg-black/20 border border-white/5 rounded-lg p-4 space-y-3 relative group">
+                      {formData.loadBalancerEnabled && formData.destinations.length > 1 && (
+                        <button onClick={() => removeDestination(idx)} className="absolute right-3 top-3 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                      
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs text-slate-500 mb-1">Target Device Group</label>
+                          <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                            value={dest.deviceGroupId} onChange={(e: any) => updateDestination(idx, 'deviceGroupId', e.target.value)}>
+                            <option value="">-- Select Group --</option>
+                            {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                          </select>
+                        </div>
+                        {formData.loadBalancerEnabled && (
+                          <div className="w-24">
+                            <label className="block text-xs text-slate-500 mb-1">Weight %</label>
+                            <input type="number" min="1" max="100" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm text-center"
+                              value={dest.weightPercent} onChange={(e: any) => updateDestination(idx, 'weightPercent', parseInt(e.target.value) || 0)} />
+                          </div>
+                        )}
+                      </div>
+
+                      {formData.resendEnabled && (
+                        <div className="flex gap-4 items-end">
+                          <div className="flex-1 text-xs text-slate-400 pt-2 border-t border-white/5">
+                            <label className="block text-xs text-slate-500 mb-1">Per-Destination Fallback SMSC (Overrides Global)</label>
+                            <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                              value={dest.fallbackSmscId} onChange={(e: any) => updateDestination(idx, 'fallbackSmscId', e.target.value)}>
+                              <option value="">-- Use Global Fallback --</option>
+                              {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {formData.loadBalancerEnabled && (
+                    <button onClick={addDestination} className="text-sm text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 transition mt-2">
+                      <Plus size={14} /> Add Target Destination
                     </button>
                   )}
-                  
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <label className="block text-xs text-slate-500 mb-1">Target Device Group</label>
-                      <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
-                        value={dest.deviceGroupId} onChange={(e: any) => updateDestination(idx, 'deviceGroupId', e.target.value)}>
-                        <option value="">-- Select Group --</option>
-                        {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                      </select>
-                    </div>
-                    {formData.loadBalancerEnabled && (
-                      <div className="w-24">
-                        <label className="block text-xs text-slate-500 mb-1">Weight %</label>
-                        <input type="number" min="1" max="100" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm text-center"
-                          value={dest.weightPercent} onChange={(e: any) => updateDestination(idx, 'weightPercent', parseInt(e.target.value) || 0)} />
-                      </div>
-                    )}
-                  </div>
-
-                  {formData.resendEnabled && (
-                    <div className="flex gap-4 items-end">
-                      <div className="flex-1 text-xs text-slate-400 pt-2 border-t border-white/5">
-                        <label className="block text-xs text-slate-500 mb-1">Per-Destination Fallback SMSC (Overrides Global)</label>
-                        <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
-                          value={dest.fallbackSmscId} onChange={(e: any) => updateDestination(idx, 'fallbackSmscId', e.target.value)}>
-                          <option value="">-- Use Global Fallback --</option>
-                          {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                </>
+              )}
             </div>
-
-            {formData.loadBalancerEnabled && (
-              <button onClick={addDestination} className="text-sm text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 transition">
-                <Plus size={14} /> Add Target Destination
-              </button>
-            )}
           </div>
 
           <hr className="border-white/5" />

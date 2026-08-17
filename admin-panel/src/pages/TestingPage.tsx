@@ -324,7 +324,16 @@ export default function TestingPage() {
             </div>
 
             <button onClick={() => {
-              if (window.confirm(`Are you sure you want to test sending ${stressForm.amount} messages?`)) {
+              let countToConfirm = stressForm.amount;
+              if (stressForm.sendTowards === 'SPECIFIC') {
+                const numbers = stressForm.specificNumbers.split(',').map(n => n.trim()).filter(n => n.length > 0);
+                countToConfirm = numbers.length;
+                if (countToConfirm === 0) {
+                  alert("Please enter at least one specific number.");
+                  return;
+                }
+              }
+              if (window.confirm(`Are you sure you want to test sending ${countToConfirm} messages?`)) {
                 stressMut.mutate(stressForm)
               }
             }} disabled={stressMut.isPending} className="w-full bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-lg font-bold uppercase tracking-wider mt-2">
