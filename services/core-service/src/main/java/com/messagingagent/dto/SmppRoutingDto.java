@@ -71,8 +71,8 @@ public class SmppRoutingDto {
         public static DestinationDto fromEntity(SmppRoutingDestination dest) {
             return DestinationDto.builder()
                     .id(dest.getId())
-                    .deviceGroupId(dest.getDeviceGroup().getId())
-                    .deviceGroupName(dest.getDeviceGroup().getName())
+                    .deviceGroupId(dest.getDeviceGroup() != null ? dest.getDeviceGroup().getId() : null)
+                    .deviceGroupName(dest.getDeviceGroup() != null ? dest.getDeviceGroup().getName() : null)
                     .weightPercent(dest.getWeightPercent())
                     .fallbackSmscId(dest.getFallbackSmsc() != null ? dest.getFallbackSmsc().getId() : null)
                     .fallbackSmscName(dest.getFallbackSmsc() != null ? dest.getFallbackSmsc().getName() : null)

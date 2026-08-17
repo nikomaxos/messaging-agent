@@ -81,27 +81,38 @@ public class SmppRoutingController {
         if (payload.getDestinations() != null) {
             List<SmppRouting> allRoutings = repository.findAll();
             for (SmppRoutingDto.DestinationDto dto : payload.getDestinations()) {
-                var group = deviceGroupRepository.findById(dto.getDeviceGroupId());
-                if (group.isPresent()) {
-                    // Fail-safe: permit only one routing strategy per device (via its group)
-                    for (SmppRouting existing : allRoutings) {
-                        if (existing.getId().equals(routing.getId())) continue;
-                        boolean hasGroup = existing.getDestinations().stream()
-                            .anyMatch(d -> d.getDeviceGroup().getId().equals(group.get().getId()));
-                        if (hasGroup && existing.getRoutingMode() != routing.getRoutingMode()) {
-                            return ResponseEntity.badRequest().body(java.util.Map.of("message", "Device Group '" + group.get().getName() + "' is already assigned to a route with " + existing.getRoutingMode() + " strategy. A device can only have one routing strategy at a time."));
-                        }
-                    }
-                    
-                    SmppRoutingDestination dest = new SmppRoutingDestination();
-                    dest.setSmppRouting(routing);
-                    dest.setDeviceGroup(group.get());
-                    dest.setWeightPercent(dto.getWeightPercent());
+                SmppRoutingDestination dest = new SmppRoutingDestination();
+                dest.setSmppRouting(routing);
+                dest.setWeightPercent(dto.getWeightPercent());
 
-                    if (dto.getFallbackSmscId() != null) {
-                        smscSupplierRepository.findById(dto.getFallbackSmscId()).ifPresent(dest::setFallbackSmsc);
+                if (dto.getFallbackSmscId() != null) {
+                    smscSupplierRepository.findById(dto.getFallbackSmscId()).ifPresent(dest::setFallbackSmsc);
+                }
+
+                if (routing.getRoutingMode() == RoutingMode.SMS) {
+                    if (dest.getFallbackSmsc() == null) {
+                        return ResponseEntity.badRequest().body(java.util.Map.of("message", "Target SMSC Supplier is required for SMS destinations"));
                     }
                     routing.getDestinations().add(dest);
+                } else {
+                    if (dto.getDeviceGroupId() == null) {
+                        return ResponseEntity.badRequest().body(java.util.Map.of("message", "Device Group is required for non-SMS destinations"));
+                    }
+                    var group = deviceGroupRepository.findById(dto.getDeviceGroupId());
+                    if (group.isPresent()) {
+                        // Fail-safe: permit only one routing strategy per device (via its group)
+                        for (SmppRouting existing : allRoutings) {
+                            if (existing.getId().equals(routing.getId())) continue;
+                            boolean hasGroup = existing.getDestinations().stream()
+                                .filter(d -> d.getDeviceGroup() != null)
+                                .anyMatch(d -> d.getDeviceGroup().getId().equals(group.get().getId()));
+                            if (hasGroup && existing.getRoutingMode() != routing.getRoutingMode()) {
+                                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Device Group '" + group.get().getName() + "' is already assigned to a route with " + existing.getRoutingMode() + " strategy. A device can only have one routing strategy at a time."));
+                            }
+                        }
+                        dest.setDeviceGroup(group.get());
+                        routing.getDestinations().add(dest);
+                    }
                 }
             }
         }

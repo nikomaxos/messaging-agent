@@ -17,6 +17,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import java.util.ArrayList;
+import java.util.List;
+import com.messagingagent.model.SmppRoutingDestination;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -92,11 +96,25 @@ public class SmsInboundConsumer {
                     .build();
 
             if (routing != null) {
-                if (!routing.getDestinations().isEmpty()) {
-                    logEntry.setDeviceGroup(routing.getDestinations().iterator().next().getDeviceGroup());
-                }
                 logEntry.setRoutingMode(routing.getRoutingMode());
-                if (routing.getFallbackSmsc() != null) {
+
+                if (!routing.getDestinations().isEmpty()) {
+                    List<SmppRoutingDestination> destinations = new ArrayList<>(routing.getDestinations());
+                    SmppRoutingDestination selectedDest = selectDestinationByWeight(destinations);
+
+                    if (selectedDest != null) {
+                        if (routing.getRoutingMode() == com.messagingagent.model.RoutingMode.SMS) {
+                            logEntry.setFallbackSmsc(selectedDest.getFallbackSmsc());
+                        } else {
+                            logEntry.setDeviceGroup(selectedDest.getDeviceGroup());
+                            if (selectedDest.getFallbackSmsc() != null) {
+                                logEntry.setFallbackSmsc(selectedDest.getFallbackSmsc());
+                            } else if (routing.getFallbackSmsc() != null) {
+                                logEntry.setFallbackSmsc(routing.getFallbackSmsc());
+                            }
+                        }
+                    }
+                } else if (routing.getFallbackSmsc() != null) {
                     logEntry.setFallbackSmsc(routing.getFallbackSmsc());
                 }
             }
@@ -107,5 +125,23 @@ public class SmsInboundConsumer {
         } catch (Exception e) {
             log.error("Failed to process sms.inbound message", e);
         }
+    }
+
+    private SmppRoutingDestination selectDestinationByWeight(List<SmppRoutingDestination> destinations) {
+        if (destinations == null || destinations.isEmpty()) return null;
+        if (destinations.size() == 1) return destinations.get(0);
+
+        int totalWeight = destinations.stream().mapToInt(SmppRoutingDestination::getWeightPercent).sum();
+        if (totalWeight <= 0) return destinations.get(0);
+
+        int randomVal = new java.util.Random().nextInt(totalWeight);
+        int cumulativeWeight = 0;
+        for (SmppRoutingDestination dest : destinations) {
+            cumulativeWeight += dest.getWeightPercent();
+            if (randomVal < cumulativeWeight) {
+                return dest;
+            }
+        }
+        return destinations.get(0);
     }
 }

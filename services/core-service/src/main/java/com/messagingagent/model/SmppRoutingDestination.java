@@ -22,7 +22,7 @@ public class SmppRoutingDestination {
     @JsonIgnore
     private SmppRouting smppRouting;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = true)
     @JoinColumn(name = "device_group_id")
     private DeviceGroup deviceGroup;
 
