@@ -156,5 +156,6 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 ### Versioning & Releasing (Mandatory Rule)
 - A **Strict Semantic Versioning** workflow is enforced to prevent environment mismatch (e.g., Staging 2.3.2 but Production 2.4.1). 
 - **Production MUST NEVER exceed the Staging Version**. All updates must incrementally flow through Staging first.
-- Before committing new features or deployments, run `./bump-version.sh <version>` to synchronize the version across all microservices (Node.js and Java).
-- Whenever versions are bumped, you MUST rebuild the container on Staging (`docker compose up -d --build admin-panel`) so the UI displays the updated version correctly.
+- **Fully Automated Bumping**: The version bumping process is now fully automated and built into the deployment flow. When the USER triggers a Production deployment from the Admin Panel, the `deploy-agent` automatically parses the current version, increments the patch version (e.g., `2.4.4` to `2.4.5`), safely bumps all `package.json` and `pom.xml` files using `./bump-version.sh`, commits the new version, and pushes it to `origin main` before the deployment rolls out.
+- The agent DOES NOT need to run `./bump-version.sh` manually anymore.
+- Whenever versions are bumped during deployment, you MUST rebuild the container on Staging (`docker compose up -d --build admin-panel`) so the UI displays the updated version correctly.

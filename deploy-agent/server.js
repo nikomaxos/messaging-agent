@@ -87,8 +87,15 @@ app.get('/api/deploy/production', async (req, res) => {
       git config --global user.email "deploy-agent@messaging-agent.local" &&
       git config --global user.name "Deploy Agent" &&
       git remote set-url origin git@github.com:nikomaxos/messaging-agent.git &&
+      CURRENT_VERSION=\$(grep '"version"' admin-panel/package.json | head -1 | awk -F'"' '{print $4}') &&
+      V_MAJOR=\$(echo \$CURRENT_VERSION | cut -d. -f1) &&
+      V_MINOR=\$(echo \$CURRENT_VERSION | cut -d. -f2) &&
+      V_PATCH=\$(echo \$CURRENT_VERSION | cut -d. -f3) &&
+      NEXT_PATCH=\$((\$V_PATCH + 1)) &&
+      NEXT_VERSION="\$V_MAJOR.\$V_MINOR.\$NEXT_PATCH" &&
+      ./bump-version.sh \$NEXT_VERSION &&
       git add . &&
-      (git commit -m "Auto-Deploy: Pushed from Admin Panel" || true) &&
+      (git commit -m "Auto-Deploy: Version \$NEXT_VERSION - Pushed from Admin Panel" || true) &&
       GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
     `;
     await execPromise(gitCmds, { cwd: '/repo' });

@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# Install SSH client, Git, and Bash for remote execution
-RUN apk add --no-cache openssh-client bash curl git
+# Install SSH client, Git, Bash, and Maven/Java for version bumping
+RUN apk add --no-cache openssh-client bash curl git openjdk17 maven
 
 WORKDIR /app
 

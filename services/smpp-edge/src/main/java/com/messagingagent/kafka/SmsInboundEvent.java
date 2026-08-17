@@ -17,4 +17,5 @@ public class SmsInboundEvent {
     private Integer dlrDelayMinSec;
     private Integer dlrDelayMaxSec;
     private Integer priority;
+    private String rejectionReason;
 }

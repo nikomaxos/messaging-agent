@@ -225,6 +225,7 @@ public class SmppServerService {
                 
                 if (dstAddr == null || dstAddr.trim().isEmpty()) {
                     log.warn("Blocked SUBMIT_SM due to empty destination address");
+                    publishRejected(sm, "Empty destination address", "0x0000000B");
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                     resp.setCommandStatus(SmppConstants.STATUS_INVDSTADR);
                     return resp;
@@ -262,9 +263,11 @@ public class SmppServerService {
                         }
                         return resp;
                     } else if ("REJECT_THROTTLED".equals(aitBlockAction)) {
+                        publishRejected(sm, "AIT blocked (Throttled)", "0x00000058");
                         resp.setCommandStatus(SmppConstants.STATUS_THROTTLED);
                         return resp;
                     } else {
+                        publishRejected(sm, "AIT blocked (Invalid Dest)", "0x0000000B");
                         resp.setCommandStatus(SmppConstants.STATUS_INVDSTADR); // default to invalid destination address
                         return resp;
                     }
@@ -410,9 +413,39 @@ public class SmppServerService {
 
             } catch (Exception e) {
                 log.error("Error processing SUBMIT_SM", e);
+                publishRejected(sm, "Internal error processing SUBMIT_SM", "0x00000008");
                 SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                 resp.setCommandStatus(SmppConstants.STATUS_SYSERR);
                 return resp;
+            }
+        }
+
+        private void publishRejected(SubmitSm sm, String reason, String errorCode) {
+            try {
+                String srcAddr = sm.getSourceAddress() != null ? sm.getSourceAddress().getAddress() : "";
+                String dstAddr = sm.getDestAddress()   != null ? sm.getDestAddress().getAddress()   : "";
+                String correlationId = UUID.randomUUID().toString();
+                String text = "";
+                if (sm.getShortMessage() != null) {
+                    text = CharsetUtil.decode(sm.getShortMessage(), sm.getDataCoding() == 8 ? CharsetUtil.CHARSET_UCS_2 : CharsetUtil.CHARSET_GSM);
+                }
+
+                SmsInboundEvent event = SmsInboundEvent.builder()
+                        .correlationId(correlationId)
+                        .systemId(systemId)
+                        .sourceAddress(srcAddr)
+                        .destinationAddress(dstAddr)
+                        .messageText(text)
+                        .dataCoding(sm.getDataCoding())
+                        .timestampMs(System.currentTimeMillis())
+                        .priority(priority)
+                        .rejectionReason(reason + " (Code: " + errorCode + ")")
+                        .build();
+
+                kafkaTemplate.send("sms.inbound.raw", dstAddr, event);
+                log.info("Published rejected SUBMIT_SM to sms.inbound.raw with correlationId={}", correlationId);
+            } catch (Exception e) {
+                log.error("Failed to publish rejected event", e);
             }
         }
     }

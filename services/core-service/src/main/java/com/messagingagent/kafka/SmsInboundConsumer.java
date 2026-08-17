@@ -44,6 +44,24 @@ public class SmsInboundConsumer {
 
             log.info("Routing engine evaluating message correlationId={} systemId={}", correlationId, systemId);
 
+            String rejectionReason = (String) event.get("rejectionReason");
+            if (rejectionReason != null) {
+                log.info("Received edge-rejected message for correlationId={}: {}", correlationId, rejectionReason);
+                MessageLog logEntry = MessageLog.builder()
+                        .smppMessageId(correlationId)
+                        .customerMessageId(correlationId)
+                        .sourceAddress(sourceAddress)
+                        .destinationAddress(destinationAddress)
+                        .messageText(messageText)
+                        .status(MessageLog.Status.FAILED)
+                        .isEmulated(false)
+                        .errorDetail("REJECTED_AT_EDGE: " + rejectionReason)
+                        .routingMode(com.messagingagent.model.RoutingMode.SMS)
+                        .build();
+                messageLogRepository.save(logEntry);
+                return;
+            }
+
             Optional<SmppClient> clientOpt = smppClientRepository.findBySystemId(systemId);
             SmppRouting routing = null;
 
