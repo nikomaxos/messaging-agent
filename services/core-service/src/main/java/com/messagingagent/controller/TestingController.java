@@ -28,6 +28,7 @@ public class TestingController {
         private String senderId;
         private String message;
         private String destination;
+        private String clientSystemId;
         private Long supplierId;
         private String protocol; // SMS, RCS, WHATSAPP, WEBSOCKET
         private Integer dataCoding;
@@ -43,7 +44,7 @@ public class TestingController {
         }
         
         Map<String, Object> event = new HashMap<>();
-        event.put("systemId", "TEST_CLIENT");
+        event.put("systemId", request.getClientSystemId() != null && !request.getClientSystemId().isEmpty() ? request.getClientSystemId() : "TEST_CLIENT");
         event.put("sourceAddress", request.getSenderId());
         event.put("destinationAddress", request.getDestination());
         event.put("messageText", request.getMessage());
