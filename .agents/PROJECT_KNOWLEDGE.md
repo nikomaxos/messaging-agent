@@ -152,3 +152,9 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 2. **Idempotent Migrations**: EVERY Flyway script must be strictly idempotent. Always use `ADD COLUMN IF NOT EXISTS` and `DROP COLUMN IF EXISTS` to prevent Flyway from crashing the Spring Boot application if the database state is slightly out of sync.
 3. **Downstream Service Checks**: `smpp-edge`, `routing-engine`, and `device-gateway` rely entirely on `core-service` for their configurations. If `core-service` crashes due to a bad migration, `smpp-edge` will fail to load suppliers and disconnect from upstream. If `core-service` is taken down or restarted, you MUST verify the health of `smpp-edge` and restart it (`docker restart ma-smpp-edge`) if it failed to reconnect to the core API.
 4. **Data Backups**: Before performing any complex migrations, take a backup of the `messagingagent` database using `pg_dump` to ensure data is never lost.
+
+### Versioning & Releasing (Mandatory Rule)
+- A **Strict Semantic Versioning** workflow is enforced to prevent environment mismatch (e.g., Staging 2.3.2 but Production 2.4.1). 
+- **Production MUST NEVER exceed the Staging Version**. All updates must incrementally flow through Staging first.
+- Before committing new features or deployments, run `./bump-version.sh <version>` to synchronize the version across all microservices (Node.js and Java).
+- Whenever versions are bumped, you MUST rebuild the container on Staging (`docker compose up -d --build admin-panel`) so the UI displays the updated version correctly.

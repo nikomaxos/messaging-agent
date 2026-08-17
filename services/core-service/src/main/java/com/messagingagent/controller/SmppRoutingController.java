@@ -36,8 +36,10 @@ public class SmppRoutingController {
 
     @PostMapping
     public ResponseEntity<?> create(@RequestBody SmppRoutingDto payload) {
+        System.out.println("DEBUG: payload received: " + payload);
         var client = smppClientRepository.findById(payload.getSmppClientId());
         if (client.isEmpty()) {
+            System.out.println("DEBUG: client is empty for id: " + payload.getSmppClientId());
             return ResponseEntity.badRequest().build();
         }
 
@@ -91,11 +93,13 @@ public class SmppRoutingController {
 
                 if (routing.getRoutingMode() == RoutingMode.SMS) {
                     if (dest.getFallbackSmsc() == null) {
+                        System.out.println("DEBUG: dest.getFallbackSmsc() is null for dto: " + dto);
                         return ResponseEntity.badRequest().body(java.util.Map.of("message", "Target SMSC Supplier is required for SMS destinations"));
                     }
                     routing.getDestinations().add(dest);
                 } else {
                     if (dto.getDeviceGroupId() == null) {
+                        System.out.println("DEBUG: dto.getDeviceGroupId() is null for dto: " + dto);
                         return ResponseEntity.badRequest().body(java.util.Map.of("message", "Device Group is required for non-SMS destinations"));
                     }
                     var group = deviceGroupRepository.findById(dto.getDeviceGroupId());
@@ -117,7 +121,13 @@ public class SmppRoutingController {
             }
         }
 
-        return ResponseEntity.ok(SmppRoutingDto.fromEntity(repository.save(routing)));
+        try {
+            return ResponseEntity.ok(SmppRoutingDto.fromEntity(repository.save(routing)));
+        } catch (Exception e) {
+            System.out.println("DEBUG: Exception during save: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PutMapping("/{id}")
