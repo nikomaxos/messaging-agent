@@ -110,4 +110,8 @@ public class MessageLog {
     @JoinColumn(name = "fallback_smsc_id")
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private SmscSupplier fallbackSmsc;
+
+    @Column(name = "is_emulated", nullable = false)
+    @Builder.Default
+    private boolean isEmulated = false;
 }

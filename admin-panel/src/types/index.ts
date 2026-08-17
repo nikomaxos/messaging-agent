@@ -105,6 +105,7 @@ export interface MessageLog {
   routingMode?: 'WEBSOCKET' | 'MATRIX'
   device?: Pick<Device, 'id' | 'name' | 'hardwareId' | 'simCards'>
   errorDetail?: string
+  isEmulated?: boolean
   fallbackSmsc?: any
   createdAt: string
   dispatchedAt?: string

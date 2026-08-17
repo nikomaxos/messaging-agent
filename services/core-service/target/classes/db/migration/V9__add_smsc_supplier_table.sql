@@ -1,0 +1,20 @@
+CREATE TABLE smsc_supplier (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    host VARCHAR(100) NOT NULL,
+    port INTEGER NOT NULL,
+    system_id VARCHAR(64) NOT NULL,
+    password VARCHAR(64) NOT NULL,
+    system_type VARCHAR(64),
+    bind_type VARCHAR(32) NOT NULL DEFAULT 'TRANSCEIVER',
+    address_range VARCHAR(64),
+    source_ton INTEGER DEFAULT 0,
+    source_npi INTEGER DEFAULT 0,
+    dest_ton INTEGER DEFAULT 0,
+    dest_npi INTEGER DEFAULT 0,
+    throughput INTEGER DEFAULT 0,
+    enquire_link_interval INTEGER DEFAULT 30000,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE
+);

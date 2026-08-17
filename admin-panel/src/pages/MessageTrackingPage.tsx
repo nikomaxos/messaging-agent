@@ -385,7 +385,7 @@ export default function MessageTrackingPage() {
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
                   {l.messageText ?? '—'}
                 </td>
-                <td className="px-4 py-3"><span className={`pill ${l.status === 'DELIVERED' && l.fallbackStartedAt ? 'pill-green border-amber-500/30 object-contained' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : l.errorDetail && l.errorDetail.includes('EMULATED') ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : statusClass(l.status)}`}>{l.errorDetail && l.errorDetail.includes('EMULATED') ? 'EMULATED (FAKE)' : l.status === 'DELIVERED' && l.fallbackStartedAt ? 'DELIVERED (FALLBACK)' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'DISPATCHED TO RCS' : l.status}</span></td>
+                <td className="px-4 py-3"><span className={`pill ${l.status === 'DELIVERED' && l.fallbackStartedAt ? 'pill-green border-amber-500/30 object-contained' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : l.isEmulated ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : statusClass(l.status)}`}>{l.isEmulated ? 'EMULATED (FAKE)' : l.status === 'DELIVERED' && l.fallbackStartedAt ? 'DELIVERED (FALLBACK)' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'DISPATCHED TO RCS' : l.status}</span></td>
                 <td className="px-4 py-3 text-xs text-slate-400">
                   {l.fallbackStartedAt && l.deviceGroup && l.fallbackSmsc ? (
                     <div className="flex flex-col items-start gap-1">
@@ -415,7 +415,7 @@ export default function MessageTrackingPage() {
                       <div className="font-bold text-amber-500">{l.fallbackSmsc.name} (Direct)</div>
                       <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">DIRECT SMPP</span>
                     </div>
-                  ) : l.errorDetail && l.errorDetail.includes('EMULATED') ? (
+                  ) : l.isEmulated ? (
                     <div className="flex flex-col items-start gap-1">
                       <div className="font-bold text-indigo-400">Emulated Route</div>
                       <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase">NO TRANSMISSION</span>
@@ -424,7 +424,7 @@ export default function MessageTrackingPage() {
                     <span className="text-slate-600">Pending</span>
                   )}
                 </td>
-                <td className={`px-4 py-3 text-xs max-w-[150px] truncate ${l.errorDetail && (l.status === 'FAILED' || l.status === 'RCS_FAILED') ? 'text-red-400' : l.errorDetail === 'SEEN/READ' ? 'text-emerald-400' : l.errorDetail && l.errorDetail.includes('EMULATED') ? 'text-indigo-400' : 'text-slate-400'}`} title={l.errorDetail}>
+                <td className={`px-4 py-3 text-xs max-w-[150px] truncate ${l.errorDetail && (l.status === 'FAILED' || l.status === 'RCS_FAILED') ? 'text-red-400' : l.errorDetail === 'SEEN/READ' ? 'text-emerald-400' : l.isEmulated ? 'text-indigo-400' : 'text-slate-400'}`} title={l.errorDetail}>
                   {l.errorDetail ?? ''}
                 </td>
               </tr>
