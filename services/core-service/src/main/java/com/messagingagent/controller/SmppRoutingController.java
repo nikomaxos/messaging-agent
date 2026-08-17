@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/smpp/routings")
+@RequestMapping("/api/admin/smpp/routings")
 @RequiredArgsConstructor
 public class SmppRoutingController {
 
