@@ -17,12 +17,11 @@ for package_json in deploy-agent/package.json services/api-gateway/package.json 
   fi
 done
 
-# Bump pom.xml versions
-for pom_xml in services/routing-engine/pom.xml services/core-service/pom.xml services/smpp-edge/pom.xml services/rcs-mautrix/pom.xml services/device-gateway/pom.xml; do
-  if [ -f "$pom_xml" ]; then
-    # We only want to replace the first <version> tag which is the project version, not dependencies
-    sed -i "0,/<version>.*<\/version>/s/<version>.*<\/version>/<version>$NEW_VERSION<\/version>/" "$pom_xml"
-    echo "Updated $pom_xml"
+# Bump pom.xml versions safely using Maven
+for module_dir in services/routing-engine services/core-service services/smpp-edge services/rcs-mautrix services/device-gateway; do
+  if [ -d "$module_dir" ] && [ -f "$module_dir/pom.xml" ]; then
+    (cd "$module_dir" && mvn versions:set -DnewVersion=$NEW_VERSION -DgenerateBackupPoms=false)
+    echo "Updated $module_dir/pom.xml"
   fi
 done
 
