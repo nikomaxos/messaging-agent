@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient, disconnectSmppClient } from '../api/client'
 import { SmppClient } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Unplug, RefreshCw } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Unplug, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { ConfirmModal } from '../components/ConfirmModal'
 
@@ -11,6 +11,7 @@ export default function SmppClientsPage() {
   const { data: clients = [], isFetching, refetch, dataUpdatedAt } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients, refetchInterval: 5000 })
 
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<Partial<SmppClient>>({})
   const [isCreating, setIsCreating] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
@@ -47,6 +48,7 @@ export default function SmppClientsPage() {
   const startEdit = (c: SmppClient) => {
     setIsCreating(false)
     setEditingId(c.id)
+    setShowPassword(false)
     setFormData({ ...c, password: '' }) // Blank password field initially
   }
 
@@ -174,8 +176,24 @@ export default function SmppClientsPage() {
                           : c.systemId}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs text-slate-500">
-                    {isEd ? <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" value={formData.password || ''} onChange={(e: any) => setFormData({ ...formData, password: e.target.value })} placeholder="(unchanged)" />
-                          : '••••••••'}
+                    {isEd ? (
+                      <div className="relative flex items-center">
+                        <input 
+                          type={showPassword ? "text" : "password"}
+                          className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 pr-8 text-white text-sm" 
+                          value={formData.password || ''} 
+                          onChange={(e: any) => setFormData({ ...formData, password: e.target.value })} 
+                          placeholder={showPassword ? clients.find((cl: SmppClient) => cl.id === editingId)?.password : "(unchanged)"} 
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 text-slate-400 hover:text-white transition"
+                        >
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    ) : '••••••••'}
                   </td>
                   <td className="px-5 py-3">
                     {isEd ? (
