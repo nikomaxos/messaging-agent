@@ -19,6 +19,7 @@ public class SmscSupplier {
     private int destNpi;
     private int enquireLinkInterval;
     private Integer maxSessionLifetime;
+    private boolean bypassDuplicateFilter;
     private boolean active;
     private long sentCount;
 }

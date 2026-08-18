@@ -83,6 +83,10 @@ public class SmscSupplier {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "bypass_duplicate_filter", nullable = false)
+    @Builder.Default
+    private boolean bypassDuplicateFilter = false;
+
     @Column
     @Builder.Default
     private int sentCount = 0;

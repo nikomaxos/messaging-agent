@@ -230,6 +230,11 @@ export default function SmscsPage() {
                       checked={formData.active} onChange={e => setFormData({ ...formData, active: e.target.checked })} />
                     <span className="text-sm text-slate-300">Active Connection</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer" title="Inject random TLV to bypass strict routing loops (e.g. Melrose)">
+                    <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-[#12121f] border-white/20"
+                      checked={formData.bypassDuplicateFilter || false} onChange={e => setFormData({ ...formData, bypassDuplicateFilter: e.target.checked })} />
+                    <span className="text-sm text-slate-300">Bypass Duplicate Filters</span>
+                  </label>
                 </div>
               </div>
 

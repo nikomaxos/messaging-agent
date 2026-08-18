@@ -87,6 +87,7 @@ public class SmscSupplierController {
             existing.setThroughput(supplier.getThroughput());
             existing.setEnquireLinkInterval(supplier.getEnquireLinkInterval());
             existing.setActive(supplier.isActive());
+            existing.setBypassDuplicateFilter(supplier.isBypassDuplicateFilter());
             
             SmscSupplier saved = smscSupplierRepository.save(existing);
             return ResponseEntity.ok(toDto(saved));

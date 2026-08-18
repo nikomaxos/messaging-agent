@@ -151,6 +151,7 @@ export interface SmscSupplierConfig {
   enquireLinkInterval: number
   maxSessionLifetime?: number
   active: boolean
+  bypassDuplicateFilter: boolean
   createdAt: string
   updatedAt?: string
 }
