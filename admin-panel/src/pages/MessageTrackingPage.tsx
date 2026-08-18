@@ -392,8 +392,8 @@ export default function MessageTrackingPage() {
                     onChange={() => toggleSelect(l.id)} />
                 </td>
                 <td className="px-4 py-3 text-xs font-mono text-slate-500">{l.id}</td>
-                <td className="px-4 py-3 text-xs font-mono text-slate-400">
-                  {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}
+                <td className="px-4 py-3 text-slate-300">
+                  {l.createdAt ? format(new Date(l.createdAt), 'MMM d, HH:mm:ss') : '—'}
                 </td>
                 <td className="px-4 py-3 text-xs font-mono text-slate-400">
                   {l.rcsDlrReceivedAt ? format(new Date(l.rcsDlrReceivedAt), 'MMM d, HH:mm:ss') : 
@@ -416,7 +416,14 @@ export default function MessageTrackingPage() {
                 <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.sourceAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.destinationAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
-                  {l.messageText ?? '—'}
+                  <div className="flex flex-col items-start gap-1">
+                    <span>{l.messageText ?? '—'}</span>
+                    {(l.smppMessageId?.startsWith('TEST-') || l.smppClient?.systemId === 'TEST_CLIENT' || l.smppClient?.systemId === 'STRESS_TEST') && (
+                      <span className="w-fit inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-900/40 text-purple-400 border border-purple-500/20">
+                        TEST MSG
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-2 py-3 text-xs font-mono text-slate-400 text-center">
                   {l.dispatchAttempts > 0 ? <span className="px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">{l.dispatchAttempts}</span> : '0'}
@@ -561,7 +568,7 @@ export default function MessageTrackingPage() {
                 <div className="bg-[#1a1a2e] border border-white/5 rounded overflow-hidden">
                    <div className="grid grid-cols-2 text-xs divide-x divide-y divide-white/5">
                       <div className="p-2 text-slate-400">1. Received by Platform</div>
-                      <div className="p-2 font-mono text-slate-300">{format(new Date(selectedLog.createdAt), 'MMM d, yyyy HH:mm:ss')}</div>
+                      <div className="p-2 font-mono text-slate-300">{selectedLog.createdAt ? format(new Date(selectedLog.createdAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
 
                       <div className="p-2 text-slate-400">2. Dispatched to RCS/Device Group</div>
                       <div className="p-2 font-mono text-slate-300">{selectedLog.dispatchedAt ? format(new Date(selectedLog.dispatchedAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>

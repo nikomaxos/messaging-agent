@@ -97,6 +97,7 @@ export interface MessageLog {
   supplierMessageId?: string
   fallbackMessageId?: string
   customerMessageId?: string
+  smppClient?: SmppClient
   parentMessage?: MessageLog
   sourceAddress?: string
   destinationAddress?: string
