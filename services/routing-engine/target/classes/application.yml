@@ -20,7 +20,6 @@ spring:
       properties:
         session.timeout.ms: 45000
         max.poll.interval.ms: 300000
-        group.instance.id: routing-engine-1
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
