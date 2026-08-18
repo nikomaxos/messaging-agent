@@ -76,6 +76,7 @@ public class MessageLog {
     private String errorDetail;
 
     @Column(nullable = false, updatable = false)
+    @org.hibernate.annotations.CreationTimestamp
     private Instant createdAt;
 
     private Instant deliveredAt;

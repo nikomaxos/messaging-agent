@@ -8,6 +8,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/ScheduledReport.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/AiChatMessageRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/MessageLog.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/admin/MessageLogController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SimCardRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/AppUser.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/CountryPrefix.java

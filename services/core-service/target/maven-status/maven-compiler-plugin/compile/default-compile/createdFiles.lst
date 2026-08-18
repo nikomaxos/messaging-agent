@@ -16,6 +16,7 @@ com/messagingagent/service/AuditService.class
 com/messagingagent/service/SystemLogService.class
 com/messagingagent/model/SmppRoutingDestination$SmppRoutingDestinationBuilder.class
 com/messagingagent/repository/DeviceRepository.class
+com/messagingagent/admin/MessageLogController.class
 com/messagingagent/model/SmppRoutingDestination.class
 com/messagingagent/repository/CountryPrefixRepository.class
 com/messagingagent/model/AiAgentConfig$AiAgentConfigBuilder.class
