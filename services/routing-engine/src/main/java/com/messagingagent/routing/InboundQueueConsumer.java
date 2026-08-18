@@ -26,8 +26,9 @@ public class InboundQueueConsumer {
      * This protects the application and PostgreSQL from 100k TPS bursts.
      */
     @KafkaListener(topics = "sms.inbound.raw", groupId = "messaging-agent-raw-queue")
-    public void consumeRawInbound(SmsInboundEvent event) {
+    public void consumeRawInbound(String messageJson) {
         try {
+            SmsInboundEvent event = objectMapper.readValue(messageJson, SmsInboundEvent.class);
             // HLR lookup logic would go here to find actual Country and Network.
             // For now, default to ALL.
             String country = "ALL";
@@ -37,8 +38,8 @@ public class InboundQueueConsumer {
 
             String queueKey = "queue:" + systemId + ":" + country + ":" + network + ":" + supplierId;
             
-            // Serialize event
-            String jsonEvent = objectMapper.writeValueAsString(event);
+            // Re-serialize or use the original JSON
+            String jsonEvent = messageJson;
             
             // Calculate Composite Score for Priority Queueing
             // Score = (priority * 10,000,000,000,000) + timestampMs
