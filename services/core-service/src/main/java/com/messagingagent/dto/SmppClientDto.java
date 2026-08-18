@@ -15,6 +15,7 @@ public class SmppClientDto {
     private Long id;
     private String name;
     private String systemId;
+    private String password;
     private boolean active;
     private Instant createdAt;
     private List<SmppSessionDto> activeSessions;
@@ -24,6 +25,7 @@ public class SmppClientDto {
                 client.getId(),
                 client.getName(),
                 client.getSystemId(),
+                client.getPassword(),
                 client.isActive(),
                 client.getCreatedAt(),
                 activeSessions
