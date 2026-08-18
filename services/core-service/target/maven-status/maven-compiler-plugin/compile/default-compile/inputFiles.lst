@@ -41,7 +41,9 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/kafka/SmsInboundEvent.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/service/TrafficAnalyticsService.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/AuditLog.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/kafka/SmsOutboundStatusConsumer.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SystemLogRepository.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/kafka/SmsOutboundDlrConsumer.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/DeviceRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/NotificationConfigRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/DeviceLogRepository.java

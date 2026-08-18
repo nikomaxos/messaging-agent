@@ -90,8 +90,10 @@ com/messagingagent/model/AiChatMessage$AiChatMessageBuilder.class
 com/messagingagent/model/AuditLog$AuditLogBuilder.class
 com/messagingagent/controller/AuthController$LoginRequest.class
 com/messagingagent/repository/SmppClientRepository.class
+com/messagingagent/kafka/SmsOutboundStatusConsumer.class
 com/messagingagent/kafka/SmsInboundEvent$SmsInboundEventBuilder.class
 com/messagingagent/repository/ScheduledReportRepository.class
+com/messagingagent/kafka/SmsOutboundDlrConsumer.class
 com/messagingagent/model/Device$DeviceBuilder.class
 com/messagingagent/model/RoutingRateLimit.class
 com/messagingagent/model/DeadLetterMessage.class
