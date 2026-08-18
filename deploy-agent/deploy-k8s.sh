@@ -168,7 +168,9 @@ fi
 
 # Step 9: Cleaning up old images
 log "--- Step 9: Cleaning up old images ---"
-sudo docker system prune -f >/dev/null 2>&1 | tee -a "$LOG_FILE"
+sudo docker container prune -f >/dev/null 2>&1
+sudo docker image prune -a -f --filter "until=168h" >/dev/null 2>&1
+sudo docker builder prune -f --filter "until=168h" >/dev/null 2>&1
 for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
     log "Pruning k3s images on $node..."
     ssh -o StrictHostKeyChecking=no "ubuntu@$node" "sudo k3s crictl rmi --prune" 2>&1 | tee -a "$LOG_FILE" || true
