@@ -374,6 +374,7 @@ export default function MessageTrackingPage() {
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('sourceAddress')}>From <SortIcon field="sourceAddress" /></th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('destinationAddress')}>To <SortIcon field="destinationAddress" /></th>
             <th className="px-4">Message</th>
+            <th className="px-2">Retries</th>
             <th className="px-4">Status</th>
             <th className="px-4">Route</th>
             <th className="px-4">Status Details</th>
@@ -416,6 +417,9 @@ export default function MessageTrackingPage() {
                 <td className="px-4 py-3 text-sm font-mono text-slate-200">{l.destinationAddress ?? '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
                   {l.messageText ?? '—'}
+                </td>
+                <td className="px-2 py-3 text-xs font-mono text-slate-400 text-center">
+                  {l.dispatchAttempts > 0 ? <span className="px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">{l.dispatchAttempts}</span> : '0'}
                 </td>
                 <td className="px-4 py-3"><span className={`pill ${l.status === 'DELIVERED' && l.fallbackStartedAt ? 'pill-green border-amber-500/30 object-contained' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : l.isEmulated ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : statusClass(l.status)}`}>{l.isEmulated ? 'EMULATED (FAKE)' : l.status === 'DELIVERED' && l.fallbackStartedAt ? 'DELIVERED (FALLBACK)' : l.status === 'DISPATCHED' && l.rcsSentAt ? 'DISPATCHED TO RCS' : l.status}</span></td>
                 <td className="px-4 py-3 text-xs text-slate-400">
@@ -660,7 +664,7 @@ export default function MessageTrackingPage() {
                   <div className="max-h-60 overflow-y-auto space-y-1">
                     {resubmitResults.map((r: any, i: number) => (
                       <div key={i} className={`text-xs font-mono px-3 py-1.5 rounded ${r.status === 'OK' ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'}`}>
-                        #{r.originalId} → {r.status === 'OK' ? `✅ New ID: ${r.newId}` : `❌ ${r.error}`}
+                        #{r.originalId} → {r.status === 'OK' ? `✅ Resubmitted` : `❌ ${r.error}`}
                       </div>
                     ))}
                   </div>

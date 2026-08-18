@@ -100,37 +100,26 @@ public class MessageLogController {
 
         for (MessageLog originalLog : logs) {
             try {
-                String newCorrelationId = UUID.randomUUID().toString();
+                // Reuse the original log, increment attempts, and update status
+                originalLog.setDispatchAttempts(originalLog.getDispatchAttempts() + 1);
+                originalLog.setFallbackSmsc(fallbackSmsc);
+                originalLog.setStatus(MessageLog.Status.QUEUED);
+                originalLog.setFallbackStartedAt(java.time.Instant.now());
                 
-                MessageLog newLog = MessageLog.builder()
-                        .parentMessage(originalLog)
-                        .smppMessageId(newCorrelationId)
-                        .customerMessageId(originalLog.getCustomerMessageId())
-                        .smppClient(originalLog.getSmppClient())
-                        .sourceAddress(originalLog.getSourceAddress())
-                        .destinationAddress(originalLog.getDestinationAddress())
-                        .messageText(originalLog.getMessageText())
-                        .status(MessageLog.Status.QUEUED)
-                        .fallbackSmsc(fallbackSmsc)
-                        .routingMode(com.messagingagent.model.RoutingMode.SMS)
-                        .isEmulated(false)
-                        .build();
-
-                logRepository.save(newLog);
+                logRepository.save(originalLog);
 
                 Map<String, Object> outboundEvent = Map.of(
-                        "correlationId", newCorrelationId,
+                        "correlationId", originalLog.getSmppMessageId(),
                         "supplierId", fallbackSmsc.getId(),
-                        "sourceAddress", newLog.getSourceAddress() != null ? newLog.getSourceAddress() : "",
-                        "destinationAddress", newLog.getDestinationAddress() != null ? newLog.getDestinationAddress() : "",
-                        "messageText", newLog.getMessageText() != null ? newLog.getMessageText() : ""
+                        "sourceAddress", originalLog.getSourceAddress() != null ? originalLog.getSourceAddress() : "",
+                        "destinationAddress", originalLog.getDestinationAddress() != null ? originalLog.getDestinationAddress() : "",
+                        "messageText", originalLog.getMessageText() != null ? originalLog.getMessageText() : ""
                 );
                 
-                kafkaTemplate.send("outbound.smpp", newCorrelationId, objectMapper.writeValueAsString(outboundEvent));
+                kafkaTemplate.send("outbound.smpp", originalLog.getSmppMessageId(), objectMapper.writeValueAsString(outboundEvent));
 
                 results.add(Map.of(
                         "originalId", originalLog.getId(),
-                        "newId", newLog.getId(),
                         "status", "OK"
                 ));
             } catch (Exception e) {

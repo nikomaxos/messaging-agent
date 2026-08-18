@@ -101,7 +101,8 @@ export interface MessageLog {
   sourceAddress?: string
   destinationAddress?: string
   messageText?: string
-  status: 'RECEIVED' | 'DISPATCHED' | 'DELIVERED' | 'RCS_FAILED' | 'FAILED'
+  status: 'RECEIVED' | 'QUEUED' | 'DISPATCHED' | 'DELIVERED' | 'RCS_FAILED' | 'FAILED'
+  dispatchAttempts: number
   routingMode?: 'WEBSOCKET' | 'MATRIX'
   device?: Pick<Device, 'id' | 'name' | 'hardwareId' | 'simCards'>
   errorDetail?: string
