@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmscSuppliers, createSmscSupplier, updateSmscSupplier, deleteSmscSupplier, bindSmscSupplier, unbindSmscSupplier } from '../api/client'
 import { SmscSupplier, SmscSupplierConfig } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Server, RefreshCw, Play, Square } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Server, RefreshCw, Play, Square, HelpCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ConfirmModal } from '../components/ConfirmModal'
 
@@ -230,10 +230,16 @@ export default function SmscsPage() {
                       checked={formData.active} onChange={e => setFormData({ ...formData, active: e.target.checked })} />
                     <span className="text-sm text-slate-300">Active Connection</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer" title="Inject random TLV to bypass strict routing loops (e.g. Melrose)">
+                  <label className="flex items-center gap-2 cursor-pointer group relative">
                     <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-[#12121f] border-white/20"
                       checked={formData.bypassDuplicateFilter || false} onChange={e => setFormData({ ...formData, bypassDuplicateFilter: e.target.checked })} />
-                    <span className="text-sm text-slate-300">Bypass Duplicate Filters</span>
+                    <span className="text-sm text-slate-300 flex items-center gap-1">
+                      Bypass Duplicate Filters
+                      <HelpCircle size={14} className="text-slate-500" />
+                    </span>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-xs text-slate-300 rounded shadow-xl border border-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                      Injects a random user_message_reference TLV (0x0204) into each SUBMIT_SM to safely bypass strict duplicate detection loops at providers like Melrose Labs.
+                    </div>
                   </label>
                 </div>
               </div>
