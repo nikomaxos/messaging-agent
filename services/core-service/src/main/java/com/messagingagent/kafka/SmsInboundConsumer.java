@@ -32,6 +32,32 @@ public class SmsInboundConsumer {
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    @KafkaListener(topics = "sms.inbound.raw", groupId = "core-service-raw-group")
+    public void consumeRawInbound(String messageJson) {
+        try {
+            Map<String, Object> event = objectMapper.readValue(messageJson, Map.class);
+            String correlationId = (String) event.get("correlationId");
+            String sourceAddress = (String) event.get("sourceAddress");
+            String destinationAddress = (String) event.get("destinationAddress");
+            String messageText = (String) event.get("messageText");
+
+            if (messageLogRepository.findBySmppMessageId(correlationId).isEmpty()) {
+                MessageLog logEntry = MessageLog.builder()
+                        .smppMessageId(correlationId)
+                        .customerMessageId(correlationId)
+                        .sourceAddress(sourceAddress)
+                        .destinationAddress(destinationAddress)
+                        .messageText(messageText)
+                        .status(MessageLog.Status.RECEIVED)
+                        .isEmulated(false)
+                        .build();
+                messageLogRepository.save(logEntry);
+            }
+        } catch (Exception e) {
+            log.error("Failed to process sms.inbound.raw message", e);
+        }
+    }
+
     @KafkaListener(topics = "sms.inbound", groupId = "core-service-routing-group")
     public void consumeInbound(String messageJson) {
         try {
@@ -103,15 +129,17 @@ public class SmsInboundConsumer {
             }
 
             // Normal routing
-            MessageLog logEntry = MessageLog.builder()
-                    .smppMessageId(correlationId)
-                    .customerMessageId(correlationId)
-                    .sourceAddress(sourceAddress)
-                    .destinationAddress(destinationAddress)
-                    .messageText(messageText)
-                    .status(MessageLog.Status.QUEUED)
-                    .isEmulated(false)
-                    .build();
+            MessageLog logEntry = messageLogRepository.findBySmppMessageId(correlationId)
+                    .orElseGet(() -> MessageLog.builder()
+                            .smppMessageId(correlationId)
+                            .customerMessageId(correlationId)
+                            .sourceAddress(sourceAddress)
+                            .destinationAddress(destinationAddress)
+                            .messageText(messageText)
+                            .isEmulated(false)
+                            .build());
+
+            logEntry.setStatus(MessageLog.Status.QUEUED);
 
             if (routing != null) {
                 logEntry.setRoutingMode(routing.getRoutingMode());

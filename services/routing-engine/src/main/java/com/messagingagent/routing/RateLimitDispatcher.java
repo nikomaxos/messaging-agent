@@ -80,7 +80,7 @@ public class RateLimitDispatcher {
                     
                     // Route it to the main processing topic
                     SmsInboundEvent event = objectMapper.readValue(jsonEvent, SmsInboundEvent.class);
-                    kafkaTemplate.send("sms.inbound", event.getDestinationAddress(), event);
+                    kafkaTemplate.send("sms.inbound", event.getDestinationAddress(), jsonEvent);
                     
                     log.debug("Dispatched message id={} at TPS={}", event.getCorrelationId(), tps);
                 }
