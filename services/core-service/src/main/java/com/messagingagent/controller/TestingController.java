@@ -2,6 +2,7 @@ package com.messagingagent.controller;
 
 import com.messagingagent.model.CountryPrefix;
 import com.messagingagent.repository.CountryPrefixRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class TestingController {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final CountryPrefixRepository prefixRepository;
+    private final ObjectMapper objectMapper;
     private final Random random = new Random();
 
     @Data
@@ -53,8 +55,12 @@ public class TestingController {
         event.put("timestampMs", System.currentTimeMillis());
         event.put("priority", 2);
 
-        kafkaTemplate.send("sms.inbound.raw", event);
-        return ResponseEntity.ok().body("{\"status\":\"Sent to Kafka\"}");
+        try {
+            kafkaTemplate.send("sms.inbound.raw", request.getDestination(), objectMapper.writeValueAsString(event));
+            return ResponseEntity.ok().body("{\"status\":\"Sent to Kafka\"}");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("{\"error\":\"Failed to serialize or send message\"}");
+        }
     }
 
     @Data
@@ -93,8 +99,12 @@ public class TestingController {
                 event.put("timestampMs", System.currentTimeMillis());
                 event.put("priority", 2);
                 
-                kafkaTemplate.send("sms.inbound.raw", event);
-                count++;
+                try {
+                    kafkaTemplate.send("sms.inbound.raw", dest, objectMapper.writeValueAsString(event));
+                    count++;
+                } catch (Exception e) {
+                    // Ignore serialization error for individual messages in stress test
+                }
             }
             return ResponseEntity.ok().body("{\"status\":\"Generated " + count + " specific messages\"}");
         }
@@ -126,7 +136,11 @@ public class TestingController {
             event.put("timestampMs", System.currentTimeMillis());
             event.put("priority", 2);
             
-            kafkaTemplate.send("sms.inbound.raw", event);
+            try {
+                kafkaTemplate.send("sms.inbound.raw", dummyNumber, objectMapper.writeValueAsString(event));
+            } catch (Exception e) {
+                // Ignore
+            }
         }
 
         return ResponseEntity.ok().body("{\"status\":\"Generated " + request.getAmount() + " messages\"}");
