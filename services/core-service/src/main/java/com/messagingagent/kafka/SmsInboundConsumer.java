@@ -36,15 +36,22 @@ public class SmsInboundConsumer {
     public void consumeRawInbound(String messageJson) {
         try {
             Map<String, Object> event = objectMapper.readValue(messageJson, Map.class);
+            String systemId = (String) event.get("systemId");
             String correlationId = (String) event.get("correlationId");
             String sourceAddress = (String) event.get("sourceAddress");
             String destinationAddress = (String) event.get("destinationAddress");
             String messageText = (String) event.get("messageText");
 
+            SmppClient smppClient = null;
+            if (systemId != null) {
+                smppClient = smppClientRepository.findBySystemId(systemId).orElse(null);
+            }
+
             if (messageLogRepository.findBySmppMessageId(correlationId).isEmpty()) {
                 MessageLog logEntry = MessageLog.builder()
                         .smppMessageId(correlationId)
                         .customerMessageId(correlationId)
+                        .smppClient(smppClient)
                         .sourceAddress(sourceAddress)
                         .destinationAddress(destinationAddress)
                         .messageText(messageText)
@@ -76,6 +83,7 @@ public class SmsInboundConsumer {
                 MessageLog logEntry = MessageLog.builder()
                         .smppMessageId(correlationId)
                         .customerMessageId(correlationId)
+                        .smppClient(smppClientRepository.findBySystemId(systemId).orElse(null))
                         .sourceAddress(sourceAddress)
                         .destinationAddress(destinationAddress)
                         .messageText(messageText)
@@ -109,6 +117,7 @@ public class SmsInboundConsumer {
                 MessageLog logEntry = MessageLog.builder()
                         .smppMessageId(correlationId)
                         .customerMessageId(correlationId)
+                        .smppClient(clientOpt.orElse(null))
                         .sourceAddress(sourceAddress)
                         .destinationAddress(destinationAddress)
                         .messageText(messageText)
@@ -133,6 +142,7 @@ public class SmsInboundConsumer {
                     .orElseGet(() -> MessageLog.builder()
                             .smppMessageId(correlationId)
                             .customerMessageId(correlationId)
+                            .smppClient(clientOpt.orElse(null))
                             .sourceAddress(sourceAddress)
                             .destinationAddress(destinationAddress)
                             .messageText(messageText)
@@ -140,6 +150,9 @@ public class SmsInboundConsumer {
                             .build());
 
             logEntry.setStatus(MessageLog.Status.QUEUED);
+            if (logEntry.getSmppClient() == null && clientOpt.isPresent()) {
+                logEntry.setSmppClient(clientOpt.get());
+            }
 
             if (routing != null) {
                 logEntry.setRoutingMode(routing.getRoutingMode());

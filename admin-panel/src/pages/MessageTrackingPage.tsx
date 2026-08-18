@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLogs, getLogIds, getGroups, getDevices, resubmitMessages, getSmscSuppliers, cancelQueuedMessages } from '../api/client'
-import { MessageLog, DeviceGroup, Device, SmscSupplier } from '../types'
+import { getLogs, getLogIds, getGroups, getDevices, resubmitMessages, getSmscSuppliers, cancelQueuedMessages, getSmppClients } from '../api/client'
+import { MessageLog, DeviceGroup, Device, SmscSupplier, SmppClient } from '../types'
 import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare, Layers } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -17,9 +17,10 @@ const statusClass = (s: MessageLog['status']) => ({
 export default function MessageTrackingPage() {
   const [page, setPage] = useState(0)
   const [filters, setFilters] = useState({
-    status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', clientMessageId: '', supplierMessageId: '', startDate: '', endDate: ''
+    status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', customerId: '', clientMessageId: '', supplierMessageId: '', startDate: '', endDate: ''
   })
   const [appliedFilters, setAppliedFilters] = useState(filters)
+  const [customerSearch, setCustomerSearch] = useState('')
   
   const [selectedLog, setSelectedLog] = useState<MessageLog | null>(null)
   const [sortBy, setSortBy] = useState('createdAt')
@@ -33,12 +34,14 @@ export default function MessageTrackingPage() {
   const [allPagesSelected, setAllPagesSelected] = useState(false)
   const [loadingAllIds, setLoadingAllIds] = useState(false)
   const [showResubmitModal, setShowResubmitModal] = useState(false)
+  const [resubmitChannel, setResubmitChannel] = useState('SMS')
   const [resubmitSmscId, setResubmitSmscId] = useState<number | null>(null)
   const [resubmitResults, setResubmitResults] = useState<any[] | null>(null)
   const queryClient = useQueryClient()
 
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: getGroups })
   const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: getDevices })
+  const { data: smppClients = [] } = useQuery({ queryKey: ['smpp-clients'], queryFn: getSmppClients })
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['logs', page, appliedFilters, sortBy, sortDir, perPage],
     queryFn: () => getLogs(page, appliedFilters, sortBy, sortDir, perPage),
@@ -79,9 +82,10 @@ export default function MessageTrackingPage() {
   }
 
   const clearFilters = () => {
-    const empty = { status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', clientMessageId: '', supplierMessageId: '', startDate: '', endDate: '' }
+    const empty = { status: '', senderId: '', destinationNumber: '', deviceId: '', deviceGroupId: '', customerId: '', clientMessageId: '', supplierMessageId: '', startDate: '', endDate: '' }
     setFilters(empty)
     setAppliedFilters(empty)
+    setCustomerSearch('')
     setPage(0)
   }
 
@@ -134,11 +138,14 @@ export default function MessageTrackingPage() {
       setResubmitResults(data)
       queryClient.invalidateQueries({ queryKey: ['logs'] })
     },
+    onError: (err: any) => {
+      alert('Failed to resubmit messages: ' + (err?.response?.data?.message || err.message));
+    }
   })
 
   const handleResubmit = () => {
-    if (!resubmitSmscId || selectedIds.size === 0) return
-    resubmitMutation.mutate({ messageIds: Array.from(selectedIds), fallbackSmscId: resubmitSmscId })
+    if ((resubmitChannel === 'SMS' && !resubmitSmscId) || selectedIds.size === 0) return
+    resubmitMutation.mutate({ messageIds: Array.from(selectedIds), fallbackSmscId: resubmitSmscId! })
   }
 
   const cancelQueuedMutation = useMutation({
@@ -206,7 +213,7 @@ export default function MessageTrackingPage() {
               className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition flex items-center gap-2"
               onClick={() => { setShowResubmitModal(true); setResubmitResults(null) }}
             >
-              <Send size={14} /> Resubmit via Fallback SMSC
+              <Send size={14} /> Resubmit Via...
             </button>
           </div>
           {/* Gmail-style "Select all results" banner */}
@@ -230,6 +237,27 @@ export default function MessageTrackingPage() {
 
       {/* Filters Toolbar */}
       <form onSubmit={e => { e.preventDefault(); applyFilters() }} className="glass p-4 flex flex-wrap gap-3 items-end">
+        <div className="min-w-[180px] flex-1">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Customer</label>
+          <input 
+            type="text" 
+            list="customers-list"
+            className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
+            placeholder="Search System ID or Name..."
+            value={customerSearch}
+            onChange={e => {
+              const val = e.target.value;
+              setCustomerSearch(val);
+              const selected = smppClients.find((c: SmppClient) => `${c.systemId} - ${c.name}` === val);
+              setFilters(f => ({ ...f, customerId: selected ? selected.id.toString() : '' }));
+            }}
+          />
+          <datalist id="customers-list">
+            {smppClients.map((c: SmppClient) => (
+              <option key={c.id} value={`${c.systemId} - ${c.name}`} />
+            ))}
+          </datalist>
+        </div>
         <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
           <select className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
@@ -340,8 +368,9 @@ export default function MessageTrackingPage() {
                 onChange={toggleSelectAll} />
             </th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('id')}># <SortIcon field="id" /></th>
-            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('createdAt')}>Timestamp <SortIcon field="createdAt" /></th>
-            <th className="px-2">Time</th>
+            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('createdAt')}>Submission Time <SortIcon field="createdAt" /></th>
+            <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('rcsDlrReceivedAt')}>DLR Time <SortIcon field="rcsDlrReceivedAt" /></th>
+            <th className="px-2">Duration</th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('sourceAddress')}>From <SortIcon field="sourceAddress" /></th>
             <th className="px-4 cursor-pointer select-none hover:text-brand-400 transition" onClick={() => toggleSort('destinationAddress')}>To <SortIcon field="destinationAddress" /></th>
             <th className="px-4">Message</th>
@@ -362,11 +391,14 @@ export default function MessageTrackingPage() {
                     onChange={() => toggleSelect(l.id)} />
                 </td>
                 <td className="px-4 py-3 text-xs font-mono text-slate-500">{l.id}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">
-                  <div><span className="text-[10px] uppercase text-slate-600 font-bold inline-block mr-1 w-5">In</span> {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}</div>
-                  {l.fallbackStartedAt && (
-                    <div className="mt-0.5"><span className="text-[10px] uppercase text-amber-600/70 font-bold inline-block mr-1 w-5">Out</span> {format(new Date(l.fallbackStartedAt), 'MMM d, HH:mm:ss')}</div>
-                  )}
+                <td className="px-4 py-3 text-xs font-mono text-slate-400">
+                  {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}
+                </td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-400">
+                  {l.rcsDlrReceivedAt ? format(new Date(l.rcsDlrReceivedAt), 'MMM d, HH:mm:ss') : 
+                   l.fallbackDlrReceivedAt ? format(new Date(l.fallbackDlrReceivedAt), 'MMM d, HH:mm:ss') : 
+                   (l.status === 'DELIVERED' && l.fallbackStartedAt) ? format(new Date(l.fallbackStartedAt), 'MMM d, HH:mm:ss') : 
+                   l.deliveredAt ? format(new Date(l.deliveredAt), 'MMM d, HH:mm:ss') : '—'}
                 </td>
                 <td className="px-2 py-3">
                   {(() => {
@@ -571,29 +603,51 @@ export default function MessageTrackingPage() {
               {!resubmitResults ? (
                 <>
                   <p className="text-sm text-slate-400">
-                    Resubmit <strong className="text-white">{selectedIds.size}</strong> message{selectedIds.size > 1 ? 's' : ''} through a fallback SMSC supplier.
+                    Resubmit <strong className="text-white">{selectedIds.size}</strong> message{selectedIds.size > 1 ? 's' : ''}.
                     Original customer message IDs will be preserved.
                   </p>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Fallback SMSC Supplier</label>
-                    <select
-                      className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
-                      value={resubmitSmscId ?? ''}
-                      onChange={e => setResubmitSmscId(Number(e.target.value))}
-                    >
-                      <option value="">Select SMSC…</option>
-                      {smscSuppliers.map((s: SmscSupplier) => (
-                        <option key={s.supplier.id} value={s.supplier.id}>
-                          {s.supplier.name} ({s.connected ? '🟢 Connected' : '🔴 Disconnected'})
-                        </option>
-                      ))}
-                    </select>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Channel</label>
+                      <select
+                        className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                        value={resubmitChannel}
+                        onChange={e => {
+                          setResubmitChannel(e.target.value);
+                          if (e.target.value !== 'SMS') {
+                             setResubmitSmscId(null);
+                          }
+                        }}
+                      >
+                        <option value="SMS">SMS</option>
+                        <option value="RCS" disabled>RCS (Coming Soon)</option>
+                        <option value="WHATSAPP" disabled>WhatsApp (Coming Soon)</option>
+                        <option value="VIBER" disabled>Viber (Coming Soon)</option>
+                      </select>
+                    </div>
+                    {resubmitChannel === 'SMS' && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Fallback SMSC Supplier</label>
+                        <select
+                          className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                          value={resubmitSmscId ?? ''}
+                          onChange={e => setResubmitSmscId(Number(e.target.value))}
+                        >
+                          <option value="">Select SMSC…</option>
+                          {smscSuppliers.map((s: SmscSupplier) => (
+                            <option key={s.supplier.id} value={s.supplier.id}>
+                              {s.supplier.name} ({s.connected ? '🟢 Connected' : '🔴 Disconnected'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <button className="btn-secondary" onClick={() => setShowResubmitModal(false)}>Cancel</button>
                     <button
                       className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition disabled:opacity-40"
-                      disabled={!resubmitSmscId || resubmitMutation.isPending}
+                      disabled={(resubmitChannel === 'SMS' && !resubmitSmscId) || resubmitMutation.isPending}
                       onClick={handleResubmit}
                     >
                       {resubmitMutation.isPending ? 'Submitting…' : `Resubmit ${selectedIds.size} Messages`}

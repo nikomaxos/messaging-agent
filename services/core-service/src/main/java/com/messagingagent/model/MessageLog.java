@@ -63,6 +63,11 @@ public class MessageLog {
     private Integer dispatchAttempts = 0;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "smpp_client_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private SmppClient smppClient;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id")
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Device device;
