@@ -227,6 +227,60 @@ app.get('/api/rollback/production', async (req, res) => {
   }
 });
 
+// 5. Upgrade VM Packages (SSE)
+app.get('/api/deploy/upgrade-nodes', async (req, res) => {
+  const token = req.query.token;
+  const session = deploySessions.get(token);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  if (!session) {
+    res.write(`data: ${JSON.stringify({ log: 'Invalid or expired token.', error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    return res.end();
+  }
+
+  res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH to perform upgrades...` })}\n\n`);
+  
+  try {
+    await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
+  } catch(e) {}
+
+  const ssh = new NodeSSH();
+  try {
+    await ssh.connect({
+      host: session.ip,
+      username: session.username,
+      password: session.password || undefined,
+      privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
+      tryKeyboard: true,
+      readyTimeout: 10000
+    });
+    
+    res.write(`data: ${JSON.stringify({ log: 'Running system upgrades on Kubernetes nodes...' })}\n\n`);
+    const upgradeCmd = `
+      for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
+        echo "Updating node $node..."
+        ssh -o StrictHostKeyChecking=no ubuntu@$node "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"
+      done
+      echo "All nodes upgraded successfully."
+    `;
+    
+    await runSshCommandStream(ssh, upgradeCmd, res, (code) => {
+      ssh.dispose();
+      res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
+      res.end();
+    });
+
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ log: `SSH Connection Failed: ${err.message}`, error: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
+    res.end();
+  }
+});
+
 const PORT = process.env.PORT || 8082;
 app.listen(PORT, () => {
   console.log(`Deploy Agent listening on port ${PORT}`);

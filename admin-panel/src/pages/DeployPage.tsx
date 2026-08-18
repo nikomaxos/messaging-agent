@@ -142,6 +142,60 @@ export default function DeployPage() {
     }
   }
 
+  const triggerUpgrade = async () => {
+    if (isDeploying) return
+    if (!targetIp) {
+      alert("Please fill in Target IP before upgrading.")
+      return
+    }
+
+    if (!confirm(`Are you sure you want to upgrade packages on ${targetIp} nodes?`)) return
+    
+    setLogs([`>>> Initiating Package Upgrades on ${targetIp}...`])
+    setIsDeploying(true)
+    setActiveEnv(null)
+    setVmWarnings([])
+    setContainerErrors([])
+
+    try {
+      const initRes = await fetch('/api/deploy/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: targetIp, username: 'ubuntu', password: '' })
+      })
+      const initData = await initRes.json()
+      if (initData.error) throw new Error(initData.error)
+
+      const endpoint = `/api/deploy/upgrade-nodes?token=${initData.token}`
+      const eventSource = new EventSource(endpoint)
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.log) {
+            setLogs(prev => [...prev, data.log])
+          }
+          if (data.done) {
+            setLogs(prev => [...prev, `>>> Upgrades completed with code ${data.code}`])
+            setIsDeploying(false)
+            eventSource.close()
+            if (data.code === 0) alert('Nodes upgraded successfully!')
+          }
+        } catch (e) {}
+      }
+
+      eventSource.onerror = () => {
+        setLogs(prev => [...prev, `>>> Connection lost to upgrade stream.`])
+        setIsDeploying(false)
+        eventSource.close()
+      }
+      
+    } catch (e: any) {
+      setLogs(prev => [...prev, `>>> Error: ${e.message}`])
+      setIsDeploying(false)
+    }
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -305,8 +359,16 @@ export default function DeployPage() {
                   <div className="font-bold">✅ Deployment Successful</div>
                   {vmWarnings.length > 0 ? (
                     <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded text-amber-300 text-xs">
-                      <div className="font-bold mb-1">⚠️ VM Updates Recommended:</div>
-                      <ul className="list-disc pl-4 space-y-1">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="font-bold">⚠️ VM Updates Recommended:</div>
+                        <button 
+                          onClick={triggerUpgrade}
+                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/50 rounded transition flex items-center gap-1"
+                        >
+                          <RefreshCw size={12} /> Upgrade Nodes
+                        </button>
+                      </div>
+                      <ul className="list-disc pl-4 space-y-1 mt-2">
                         {vmWarnings.map((w, idx) => <li key={idx}>{w}</li>)}
                       </ul>
                     </div>

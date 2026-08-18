@@ -51,23 +51,54 @@ SERVICES=(
   ["admin-panel"]="admin-panel"
 )
 
-for service in "${!SERVICES[@]}"; do
-    path="${SERVICES[$service]}"
-    image_name="messaging-agent-${service}:latest"
-    log "Building $image_name from $path..."
-    sudo docker buildx build --load -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
-    
-    log "Importing $image_name into k3s local..."
-    sudo docker save "$image_name" > "/tmp/${image_name}.tar"
-    sudo k3s ctr images import "/tmp/${image_name}.tar" 2>&1 | tee -a "$LOG_FILE"
-    
-    for node in 10.10.10.194 10.10.10.195; do
-        log "Syncing $image_name to worker $node..."
-        scp -o StrictHostKeyChecking=no "/tmp/${image_name}.tar" "ubuntu@${node}:/tmp/" 2>&1 | tee -a "$LOG_FILE"
-        ssh -o StrictHostKeyChecking=no "ubuntu@${node}" "sudo k3s ctr images import /tmp/${image_name}.tar && rm /tmp/${image_name}.tar" 2>&1 | tee -a "$LOG_FILE"
+declare -A BUILD_LIST
+if [ -f "${REPO_DIR}/.last-deploy" ]; then
+    PREV_COMMIT=$(cat "${REPO_DIR}/.last-deploy")
+    log "Finding changed files since $PREV_COMMIT..."
+    if CHANGED_FILES=$(git diff --name-only $PREV_COMMIT $COMMIT_SHA 2>/dev/null); then
+        log "Changed files:"
+        echo "$CHANGED_FILES" | tee -a "$LOG_FILE"
+        if echo "$CHANGED_FILES" | grep -qE "^shared-libs/|^pom.xml$"; then
+            log "Shared dependencies changed. Building all services."
+            for service in "${!SERVICES[@]}"; do BUILD_LIST["$service"]="${SERVICES[$service]}"; done
+        else
+            for service in "${!SERVICES[@]}"; do
+                path="${SERVICES[$service]}"
+                if echo "$CHANGED_FILES" | grep -q "^${path}/"; then
+                    BUILD_LIST["$service"]="$path"
+                fi
+            done
+        fi
+    else
+        log "Could not calculate diff from $PREV_COMMIT. Building all services."
+        for service in "${!SERVICES[@]}"; do BUILD_LIST["$service"]="${SERVICES[$service]}"; done
+    fi
+else
+    log "No previous deployment found. Building all services."
+    for service in "${!SERVICES[@]}"; do BUILD_LIST["$service"]="${SERVICES[$service]}"; done
+fi
+
+if [ ${#BUILD_LIST[@]} -eq 0 ]; then
+    log "No service changes detected. Skipping Docker build phase."
+else
+    for service in "${!BUILD_LIST[@]}"; do
+        path="${BUILD_LIST[$service]}"
+        image_name="messaging-agent-${service}:latest"
+        log "Building $image_name from $path..."
+        sudo docker buildx build --load -t "$image_name" "$path" 2>&1 | tee -a "$LOG_FILE"
+        
+        log "Importing $image_name into k3s local..."
+        sudo docker save "$image_name" > "/tmp/${image_name}.tar"
+        sudo k3s ctr images import "/tmp/${image_name}.tar" 2>&1 | tee -a "$LOG_FILE"
+        
+        for node in 10.10.10.194 10.10.10.195; do
+            log "Syncing $image_name to worker $node..."
+            scp -o StrictHostKeyChecking=no "/tmp/${image_name}.tar" "ubuntu@${node}:/tmp/" 2>&1 | tee -a "$LOG_FILE"
+            ssh -o StrictHostKeyChecking=no "ubuntu@${node}" "sudo k3s ctr images import /tmp/${image_name}.tar && rm /tmp/${image_name}.tar" 2>&1 | tee -a "$LOG_FILE"
+        done
+        rm "/tmp/${image_name}.tar"
     done
-    rm "/tmp/${image_name}.tar"
-done
+fi
 
 # Step 3: Apply Manifests
 log "--- Step 3: Applying Kubernetes Manifests ---"
@@ -81,19 +112,31 @@ sudo kubectl rollout status statefulset ma-synapse --timeout=120s 2>&1 | tee -a 
 
 # Step 5: Force Rollout Restart for all deployments
 log "--- Step 5: Forcing Rollout Restarts ---"
-DEPLOYMENTS=$(sudo kubectl get deployments -o jsonpath='{.items[*].metadata.name}')
-for dep in $DEPLOYMENTS; do
-    log "Restarting deployment $dep..."
-    sudo kubectl rollout restart deployment "$dep" 2>&1 | tee -a "$LOG_FILE"
-done
+if [ ${#BUILD_LIST[@]} -eq 0 ]; then
+    log "No images built, skipping forced rollout restarts."
+else
+    for service in "${!BUILD_LIST[@]}"; do
+        dep="ma-${service}"
+        if sudo kubectl get deployment "$dep" >/dev/null 2>&1; then
+            log "Restarting deployment $dep..."
+            sudo kubectl rollout restart deployment "$dep" 2>&1 | tee -a "$LOG_FILE"
+        fi
+    done
+fi
 
 # Step 6: Wait for rollout
 log "--- Step 6: Waiting for Rollouts ---"
-DEPLOYMENTS=$(sudo kubectl get deployments -o jsonpath='{.items[*].metadata.name}')
-for dep in $DEPLOYMENTS; do
-    log "Waiting for deployment $dep..."
-    sudo kubectl rollout status deployment "$dep" --timeout=90s 2>&1 | tee -a "$LOG_FILE"
-done
+if [ ${#BUILD_LIST[@]} -eq 0 ]; then
+    log "No rollouts to wait for."
+else
+    for service in "${!BUILD_LIST[@]}"; do
+        dep="ma-${service}"
+        if sudo kubectl get deployment "$dep" >/dev/null 2>&1; then
+            log "Waiting for deployment $dep..."
+            sudo kubectl rollout status deployment "$dep" --timeout=90s 2>&1 | tee -a "$LOG_FILE"
+        fi
+    done
+fi
 
 # Step 7: Check VM System Updates
 log "--- Step 7: Checking VM System Updates ---"
