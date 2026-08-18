@@ -38,7 +38,7 @@ public class SmppServerService {
 
     private static final long CORRELATION_TTL_SECONDS = 300;
 
-    private final KafkaTemplate<String, SmsInboundEvent> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
     private final SmppSessionRegistry sessionRegistry;
     private final RedisTemplate<String, String> redis;
     
@@ -50,12 +50,16 @@ public class SmppServerService {
 
     private Instant uptimeStartedAt;
 
-    public SmppServerService(KafkaTemplate<String, SmsInboundEvent> kafkaTemplate,
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    public SmppServerService(KafkaTemplate<String, String> kafkaTemplate,
                               SmppSessionRegistry sessionRegistry,
-                              @org.springframework.beans.factory.annotation.Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis) {
+                              @org.springframework.beans.factory.annotation.Qualifier("smppCorrelationRedisTemplate") RedisTemplate<String, String> redis,
+                              com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.kafkaTemplate = kafkaTemplate;
         this.sessionRegistry = sessionRegistry;
         this.redis = redis;
+        this.objectMapper = objectMapper;
     }
 
     public Instant getUptimeStartedAt() {
@@ -380,7 +384,7 @@ public class SmppServerService {
                             .priority(priority)
                             .build();
 
-                    kafkaTemplate.send("sms.inbound.raw", dstAddr, event);
+                    kafkaTemplate.send("sms.inbound.raw", dstAddr, objectMapper.writeValueAsString(event));
 
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                     resp.setCommandStatus(SmppConstants.STATUS_OK);
@@ -403,7 +407,7 @@ public class SmppServerService {
                             .priority(priority)
                             .build();
 
-                    kafkaTemplate.send("sms.inbound.raw", dstAddr, event);
+                    kafkaTemplate.send("sms.inbound.raw", dstAddr, objectMapper.writeValueAsString(event));
 
                     SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
                     resp.setCommandStatus(SmppConstants.STATUS_OK);
@@ -442,7 +446,7 @@ public class SmppServerService {
                         .rejectionReason(reason + " (Code: " + errorCode + ")")
                         .build();
 
-                kafkaTemplate.send("sms.inbound.raw", dstAddr, event);
+                kafkaTemplate.send("sms.inbound.raw", dstAddr, objectMapper.writeValueAsString(event));
                 log.info("Published rejected SUBMIT_SM to sms.inbound.raw with correlationId={}", correlationId);
             } catch (Exception e) {
                 log.error("Failed to publish rejected event", e);

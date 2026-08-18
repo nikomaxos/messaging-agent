@@ -238,7 +238,7 @@ export default function SmscsPage() {
                       <HelpCircle size={14} className="text-slate-500" />
                     </span>
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-xs text-slate-300 rounded shadow-xl border border-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
-                      Injects a random user_message_reference TLV (0x0204) into each SUBMIT_SM to safely bypass strict duplicate detection loops at providers like Melrose Labs.
+                      Adds a random tlv parameter, to bypass loop detection systems from suppliers SMSCs
                     </div>
                   </label>
                 </div>

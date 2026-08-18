@@ -350,6 +350,7 @@ public class SmscConnectionManager {
                 }
                 sm.setRegisteredDelivery(SmppConstants.REGISTERED_DELIVERY_SMSC_RECEIPT_REQUESTED);
 
+                log.info("Supplier bypassDuplicateFilter for {}: {}", supplier.getName(), supplier.isBypassDuplicateFilter());
                 if (supplier.isBypassDuplicateFilter()) {
                     // Add random user_message_reference to safely bypass strict SMSC duplicate filters
                     short randRef = (short) (System.currentTimeMillis() % Short.MAX_VALUE);
