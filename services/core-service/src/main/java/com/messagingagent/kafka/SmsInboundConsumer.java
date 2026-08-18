@@ -168,6 +168,18 @@ public class SmsInboundConsumer {
             messageLogRepository.save(logEntry);
             log.info("Saved message correlationId={} as QUEUED for dispatch", correlationId);
 
+            if (logEntry.getRoutingMode() == com.messagingagent.model.RoutingMode.SMS && logEntry.getFallbackSmsc() != null) {
+                Map<String, Object> outboundEvent = Map.of(
+                    "correlationId", correlationId,
+                    "supplierId", logEntry.getFallbackSmsc().getId(),
+                    "sourceAddress", sourceAddress,
+                    "destinationAddress", destinationAddress,
+                    "messageText", messageText
+                );
+                kafkaTemplate.send("outbound.smpp", correlationId, objectMapper.writeValueAsString(outboundEvent));
+                log.info("Dispatched to outbound.smpp for correlationId={} supplierId={}", correlationId, logEntry.getFallbackSmsc().getId());
+            }
+
         } catch (Exception e) {
             log.error("Failed to process sms.inbound message", e);
         }
