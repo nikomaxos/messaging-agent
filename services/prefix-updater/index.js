@@ -26,7 +26,11 @@ app.post('/api/prefixes/sync', async (req, res) => {
         })).filter(r => r.mcc && r.mnc && r.iso); // Ensure essential fields
 
         console.log(`Prepared ${payload.length} records. Sending to core-service...`);
-        const response = await axios.post(`${CORE_SERVICE_URL}/api/routing/prefixes/bulk`, payload);
+        const response = await axios.post(`${CORE_SERVICE_URL}/api/routing/prefixes/bulk`, payload, {
+            headers: {
+                Authorization: req.headers.authorization
+            }
+        });
         
         res.json({ success: true, count: response.data });
     } catch (err) {
