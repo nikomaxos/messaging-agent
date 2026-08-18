@@ -325,7 +325,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             <div className="flex justify-between items-center bg-brand-900/10 p-4 rounded-lg border border-brand-500/20">
               <div>
                 <h3 className="text-sm font-bold text-brand-300">Message Resend & Fallback</h3>
-                <p className="text-xs text-brand-400/60 mt-0.5">Route failed RCS messages through upstream SMSC options</p>
+                <p className="text-xs text-brand-400/60 mt-0.5">Route failed {formData.routingMode === 'WEBSOCKET' ? 'WebSocket' : formData.routingMode === 'MATRIX' ? 'Matrix' : formData.routingMode === 'SMS' ? 'SMS' : 'Channel'} messages through upstream SMSC options</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" className="sr-only peer" checked={formData.resendEnabled} 
@@ -350,14 +350,15 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                     <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
                       value={formData.resendTrigger} onChange={(e: any) => setFormData({...formData, resendTrigger: e.target.value})}>
                       <option value="ALL_FAILURES">Message Failed (Any Reason / Timeout)</option>
-                      <option value="NO_RCS">RCS Feature Not Enabled (No RCS)</option>
+                      <option value="UNDELIVERED">Message Undelivered</option>
+                      {formData.routingMode !== 'SMS' && <option value="NO_RCS">RCS Feature Not Enabled (No RCS)</option>}
                     </select>
                   </div>
                 </div>
                 
                 <div className="pt-2 border-t border-white/5">
-                  <label className="block text-xs text-slate-400 mb-1">RCS Delivery Expiration (Seconds)</label>
-                  <p className="text-[10px] text-slate-500 mb-2">If RCS delivery is not confirmed within this timeframe, it triggers a timeout failure and activates the fallback automatically.</p>
+                  <label className="block text-xs text-slate-400 mb-1">Delivery Expiration (Seconds)</label>
+                  <p className="text-[10px] text-slate-500 mb-2">If delivery is not confirmed within this timeframe, it triggers a timeout failure and activates the fallback automatically.</p>
                   <input type="number" min="5" className="w-1/3 bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
                     value={formData.rcsExpirationSeconds} onChange={(e: any) => setFormData({...formData, rcsExpirationSeconds: parseInt(e.target.value) || 0})} />
                 </div>
@@ -543,7 +544,7 @@ export default function SmppRoutingPage() {
                      <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Failover State</div>
                      {r.resendEnabled ? (
                        <div className="space-y-1">
-                         <div className="text-sm text-amber-400 font-medium">{r.resendTrigger === 'ALL_FAILURES' ? 'On Any Error' : 'On Non-RCS Client'}</div>
+                         <div className="text-sm text-amber-400 font-medium">{r.resendTrigger === 'ALL_FAILURES' ? 'On Any Error' : r.resendTrigger === 'UNDELIVERED' ? 'On Undelivered' : 'On Non-RCS Client'}</div>
                          <div className="text-xs text-slate-400">Timer: {r.rcsExpirationSeconds}s</div>
                          {r.fallbackSmscId && r.fallbackSmscName && (
                             <div className="text-xs mt-2 px-2 py-1 bg-white/5 rounded line-clamp-2" title={r.fallbackSmscName}>
