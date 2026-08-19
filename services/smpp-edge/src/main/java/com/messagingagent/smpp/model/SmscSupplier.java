@@ -22,7 +22,6 @@ public class SmscSupplier {
     private boolean bypassDuplicateFilter;
     private boolean active;
     private long sentCount;
-    @Column(name = "trigger_resend_error_codes")
     private String triggerResendErrorCodes;
 
 }
