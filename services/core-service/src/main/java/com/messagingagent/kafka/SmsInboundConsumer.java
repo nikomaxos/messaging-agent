@@ -162,19 +162,28 @@ public class SmsInboundConsumer {
                     SmppRoutingDestination selectedDest = selectDestinationByWeight(destinations);
 
                     if (selectedDest != null) {
+                        logEntry.setFallbackRoutingMode(selectedDest.getFallbackRoutingMode() != null ? selectedDest.getFallbackRoutingMode() : routing.getFallbackRoutingMode());
+                        logEntry.setFallbackErrorCodes(selectedDest.getFallbackErrorCodes() != null ? selectedDest.getFallbackErrorCodes() : routing.getFallbackErrorCodes());
+
                         if (routing.getRoutingMode() == com.messagingagent.model.RoutingMode.SMS) {
                             logEntry.setFallbackSmsc(selectedDest.getFallbackSmsc());
+                            logEntry.setFallbackDeviceGroup(selectedDest.getFallbackDeviceGroup());
                         } else {
                             logEntry.setDeviceGroup(selectedDest.getDeviceGroup());
-                            if (selectedDest.getFallbackSmsc() != null) {
+                            if (selectedDest.getFallbackSmsc() != null || selectedDest.getFallbackDeviceGroup() != null) {
                                 logEntry.setFallbackSmsc(selectedDest.getFallbackSmsc());
-                            } else if (routing.getFallbackSmsc() != null) {
+                                logEntry.setFallbackDeviceGroup(selectedDest.getFallbackDeviceGroup());
+                            } else {
                                 logEntry.setFallbackSmsc(routing.getFallbackSmsc());
+                                logEntry.setFallbackDeviceGroup(routing.getFallbackDeviceGroup());
                             }
                         }
                     }
-                } else if (routing.getFallbackSmsc() != null) {
+                } else {
+                    logEntry.setFallbackRoutingMode(routing.getFallbackRoutingMode());
+                    logEntry.setFallbackErrorCodes(routing.getFallbackErrorCodes());
                     logEntry.setFallbackSmsc(routing.getFallbackSmsc());
+                    logEntry.setFallbackDeviceGroup(routing.getFallbackDeviceGroup());
                 }
             }
 

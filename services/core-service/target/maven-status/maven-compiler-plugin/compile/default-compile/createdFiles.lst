@@ -74,6 +74,7 @@ com/messagingagent/config/SecurityConfig.class
 com/messagingagent/dto/SmppRoutingDto$DestinationDto$DestinationDtoBuilder.class
 com/messagingagent/controller/TestingController$StressTestRequest.class
 com/messagingagent/repository/RoutingRateLimitRepository.class
+com/messagingagent/admin/MessageLogController$ResubmitRequest.class
 com/messagingagent/controller/SmppServerAdminController.class
 com/messagingagent/model/AiAgentConfig.class
 com/messagingagent/model/NotificationAlert$NotificationAlertBuilder.class
@@ -106,6 +107,7 @@ com/messagingagent/service/TrafficAnalyticsService.class
 com/messagingagent/repository/DeviceLogRepository.class
 com/messagingagent/controller/TestingController$SingleTestRequest.class
 com/messagingagent/repository/NotificationConfigRepository.class
+com/messagingagent/service/FallbackScheduler.class
 com/messagingagent/dto/SmppClientDto.class
 com/messagingagent/model/DeviceGroup$DeviceGroupBuilder.class
 com/messagingagent/model/NotificationAlert$Severity.class

@@ -54,7 +54,8 @@ export default function SmscsPage() {
       name: '', host: '', port: 2775, systemId: '', password: '',
       systemType: '', bindType: 'TRANSCEIVER', maxBinds: 1, addressRange: '',
       sourceTon: 0, sourceNpi: 0, destTon: 0, destNpi: 0,
-      throughput: 0, enquireLinkInterval: 30000, maxSessionLifetime: 5, active: true
+      throughput: 0, enquireLinkInterval: 30000, maxSessionLifetime: 5, active: true,
+      triggerResendErrorCodes: ''
     })
     setModalOpen(true)
   }
@@ -241,6 +242,11 @@ export default function SmscsPage() {
                       Adds a random tlv parameter, to bypass loop detection systems from suppliers SMSCs
                     </div>
                   </label>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Trigger Resend Error Codes (Comma separated)</label>
+                  <input className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                    value={formData.triggerResendErrorCodes || ''} onChange={e => setFormData({ ...formData, triggerResendErrorCodes: e.target.value })} placeholder="e.g. 500, UNDELIV, REJECTED" />
                 </div>
               </div>
 

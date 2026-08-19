@@ -14,4 +14,6 @@ public class SmscSupplierDto {
     private long dlrsReceived;
     private long failed;
     private long inQueue;
+    private int sentCount;
+    private String triggerResendErrorCodes;
 }

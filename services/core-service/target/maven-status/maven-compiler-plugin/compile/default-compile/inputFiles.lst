@@ -63,6 +63,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/security/JwtAuthFilter.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/AiChatMessage.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/SmppClient.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/service/FallbackScheduler.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SmppRoutingRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/SystemLog.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/SmppRouting.java

@@ -117,6 +117,18 @@ public class MessageLog {
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private SmscSupplier fallbackSmsc;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fallback_routing_mode", length = 20)
+    private RoutingMode fallbackRoutingMode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fallback_device_group_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private DeviceGroup fallbackDeviceGroup;
+
+    @Column(name = "fallback_error_codes")
+    private String fallbackErrorCodes;
+
     @Column(name = "is_emulated", nullable = false)
     @Builder.Default
     private boolean isEmulated = false;

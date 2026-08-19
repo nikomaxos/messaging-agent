@@ -106,8 +106,8 @@ export const getLogs = (page = 0, filters?: Record<string, any>, sortBy = 'creat
 export const getLogIds = (filters?: Record<string, any>) =>
   api.get('/logs/ids', { params: { ...filters } }).then((r: any) => r.data as number[])
 
-export const resubmitMessages = (messageIds: number[], fallbackSmscId: number) =>
-  api.post('/logs/resubmit', { messageIds, fallbackSmscId }).then((r: any) => r.data)
+export const resubmitMessages = (messageIds: number[], fallbackRoutingMode: string, fallbackSmscId: number | null, fallbackDeviceGroupId: number | null) =>
+  api.post('/logs/resubmit', { messageIds, fallbackRoutingMode, fallbackSmscId, fallbackDeviceGroupId }).then((r: any) => r.data)
 
 export const cancelQueuedMessages = () =>
   api.post('/logs/cancel-queued').then((r: any) => r.data)

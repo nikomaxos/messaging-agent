@@ -42,6 +42,17 @@ public class SmppRouting {
     @JoinColumn(name = "fallback_smsc_id")
     private SmscSupplier fallbackSmsc;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fallback_routing_mode", length = 20)
+    private RoutingMode fallbackRoutingMode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fallback_device_group_id")
+    private DeviceGroup fallbackDeviceGroup;
+
+    @Column(name = "fallback_error_codes")
+    private String fallbackErrorCodes;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "country_prefix_id")
     private CountryPrefix countryPrefix;

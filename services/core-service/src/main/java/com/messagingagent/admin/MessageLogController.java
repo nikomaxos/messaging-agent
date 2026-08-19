@@ -80,19 +80,35 @@ public class MessageLogController {
 
     public static class ResubmitRequest {
         public List<Long> messageIds;
+        public String fallbackRoutingMode; // SMS, WEBSOCKET, MATRIX
         public Long fallbackSmscId;
+        public Long fallbackDeviceGroupId;
     }
 
     /** POST /api/logs/resubmit */
     @PostMapping("/resubmit")
     public ResponseEntity<List<Map<String, Object>>> resubmitMessages(@RequestBody ResubmitRequest request) {
-        if (request.fallbackSmscId == null || request.messageIds == null || request.messageIds.isEmpty()) {
+        if (request.messageIds == null || request.messageIds.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
-        SmscSupplier fallbackSmsc = smscSupplierRepository.findById(request.fallbackSmscId).orElse(null);
-        if (fallbackSmsc == null) {
-            return ResponseEntity.badRequest().build();
+        SmscSupplier fallbackSmsc = null;
+        if ("SMS".equalsIgnoreCase(request.fallbackRoutingMode) || request.fallbackRoutingMode == null) {
+            if (request.fallbackSmscId != null) {
+                fallbackSmsc = smscSupplierRepository.findById(request.fallbackSmscId).orElse(null);
+                if (fallbackSmsc == null) return ResponseEntity.badRequest().build();
+            } else {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+
+        com.messagingagent.model.DeviceGroup fallbackDeviceGroup = null;
+        if ("WEBSOCKET".equalsIgnoreCase(request.fallbackRoutingMode)) {
+             // We don't have deviceGroupRepository wired here yet, but we can just pass the ID in the payload.
+             // Actually, we need to save it to MessageLog. Let's just create a proxy reference.
+             if (request.fallbackDeviceGroupId == null) return ResponseEntity.badRequest().build();
+             fallbackDeviceGroup = new com.messagingagent.model.DeviceGroup();
+             fallbackDeviceGroup.setId(request.fallbackDeviceGroupId);
         }
 
         List<Map<String, Object>> results = new ArrayList<>();
@@ -100,23 +116,59 @@ public class MessageLogController {
 
         for (MessageLog originalLog : logs) {
             try {
-                // Reuse the original log, increment attempts, and update status
+                // Cap retries to 1 to avoid endless loops (as per user request)
+                if (originalLog.getDispatchAttempts() >= 1) {
+                    throw new RuntimeException("Maximum dispatch attempts reached.");
+                }
+
+                // Increment dispatch attempts on the original log to mark it as processed
                 originalLog.setDispatchAttempts(originalLog.getDispatchAttempts() + 1);
-                originalLog.setFallbackSmsc(fallbackSmsc);
-                originalLog.setStatus(MessageLog.Status.QUEUED);
                 originalLog.setFallbackStartedAt(java.time.Instant.now());
-                
                 logRepository.save(originalLog);
 
-                Map<String, Object> outboundEvent = Map.of(
-                        "correlationId", originalLog.getSmppMessageId(),
-                        "supplierId", fallbackSmsc.getId(),
-                        "sourceAddress", originalLog.getSourceAddress() != null ? originalLog.getSourceAddress() : "",
-                        "destinationAddress", originalLog.getDestinationAddress() != null ? originalLog.getDestinationAddress() : "",
-                        "messageText", originalLog.getMessageText() != null ? originalLog.getMessageText() : ""
-                );
+                // Create a NEW message log for the retry
+                MessageLog retryLog = new MessageLog();
+                retryLog.setSmppMessageId("RETRY-" + UUID.randomUUID().toString());
+                retryLog.setSourceAddress(originalLog.getSourceAddress());
+                retryLog.setDestinationAddress(originalLog.getDestinationAddress());
+                retryLog.setMessageText(originalLog.getMessageText());
+                retryLog.setCustomerMessageId(originalLog.getCustomerMessageId());
+                retryLog.setSmppClient(originalLog.getSmppClient());
+                retryLog.setRoutingMode(com.messagingagent.model.RoutingMode.valueOf(
+                        request.fallbackRoutingMode != null ? request.fallbackRoutingMode.toUpperCase() : "SMS"
+                ));
+                retryLog.setEmulated(originalLog.isEmulated());
+                retryLog.setParentMessage(originalLog);
+                retryLog.setStatus(MessageLog.Status.QUEUED);
                 
-                kafkaTemplate.send("outbound.smpp", originalLog.getSmppMessageId(), objectMapper.writeValueAsString(outboundEvent));
+                if (fallbackSmsc != null) {
+                    retryLog.setFallbackSmsc(fallbackSmsc);
+                }
+                if (fallbackDeviceGroup != null) {
+                    retryLog.setFallbackDeviceGroup(fallbackDeviceGroup);
+                }
+                
+                logRepository.save(retryLog);
+
+                if (retryLog.getRoutingMode() == com.messagingagent.model.RoutingMode.SMS) {
+                    Map<String, Object> outboundEvent = Map.of(
+                            "correlationId", retryLog.getSmppMessageId(),
+                            "supplierId", fallbackSmsc.getId(),
+                            "sourceAddress", retryLog.getSourceAddress() != null ? retryLog.getSourceAddress() : "",
+                            "destinationAddress", retryLog.getDestinationAddress() != null ? retryLog.getDestinationAddress() : "",
+                            "messageText", retryLog.getMessageText() != null ? retryLog.getMessageText() : ""
+                    );
+                    kafkaTemplate.send("outbound.smpp", retryLog.getSmppMessageId(), objectMapper.writeValueAsString(outboundEvent));
+                } else if (retryLog.getRoutingMode() == com.messagingagent.model.RoutingMode.WEBSOCKET) {
+                    Map<String, Object> outboundEvent = Map.of(
+                            "correlationId", retryLog.getSmppMessageId(),
+                            "deviceGroupId", fallbackDeviceGroup.getId(),
+                            "sourceAddress", retryLog.getSourceAddress() != null ? retryLog.getSourceAddress() : "",
+                            "destinationAddress", retryLog.getDestinationAddress() != null ? retryLog.getDestinationAddress() : "",
+                            "messageText", retryLog.getMessageText() != null ? retryLog.getMessageText() : ""
+                    );
+                    kafkaTemplate.send("websocket.outbound.requests", retryLog.getSmppMessageId(), objectMapper.writeValueAsString(outboundEvent));
+                }
 
                 results.add(Map.of(
                         "originalId", originalLog.getId(),

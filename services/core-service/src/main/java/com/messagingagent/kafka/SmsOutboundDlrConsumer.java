@@ -21,6 +21,7 @@ public class SmsOutboundDlrConsumer {
     private final ObjectMapper objectMapper;
     private final MessageLogRepository messageLogRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.messagingagent.service.FallbackScheduler fallbackScheduler;
 
     @KafkaListener(topics = "sms.outbound.dlr", groupId = "core-service-dlr-group")
     public void consumeOutboundDlr(String messageJson) {
@@ -62,6 +63,38 @@ public class SmsOutboundDlrConsumer {
 
             messageLogRepository.save(messageLog);
             log.info("Processed DLR for MessageLog id={}, status={}", messageLog.getId(), statusStr);
+
+            if (messageLog.getStatus() == MessageLog.Status.FAILED) {
+                boolean triggerFallback = false;
+                
+                // 1. Check Routing Fallback Error Codes
+                if (messageLog.getFallbackErrorCodes() != null) {
+                    String[] errorCodes = messageLog.getFallbackErrorCodes().split(",");
+                    for (String code : errorCodes) {
+                        if (reason != null && reason.contains(code.trim())) {
+                            log.info("DLR error matches routing fallback trigger code: {}", code);
+                            triggerFallback = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // 2. Check Supplier Custom Error Codes
+                if (!triggerFallback && messageLog.getSmscSupplier() != null && messageLog.getSmscSupplier().getTriggerResendErrorCodes() != null) {
+                    String[] supplierCodes = messageLog.getSmscSupplier().getTriggerResendErrorCodes().split(",");
+                    for (String code : supplierCodes) {
+                        if (reason != null && reason.contains(code.trim())) {
+                            log.info("DLR error matches supplier resend trigger code: {}", code);
+                            triggerFallback = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (triggerFallback) {
+                    fallbackScheduler.triggerFallback(messageLog, "DLR_ERROR_MATCH");
+                }
+            }
 
             // Forward DLR to the ESME client (smpp-edge uses sms.delivery.receipt)
             if (messageLog.getSmppMessageId() != null) {

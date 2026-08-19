@@ -1,34 +1,59 @@
 import { useState, useEffect } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Smartphone, FileText, LogOut, Users, Route as RouteIcon,
   Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart,
-  PanelLeftClose, PanelLeftOpen, Rocket, Cpu
+  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown
 } from 'lucide-react'
 import PushSubscriptionPrompt from './PushSubscriptionPrompt'
 
 const nav = [
   { to: '/dashboard',     icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-  { to: '/infrastructure', icon: <Activity size={20} className="text-cyan-400" />, label: 'Infrastructure' },
-  { to: '/notifications', icon: <Bell size={20} className="text-amber-400" />, label: 'Notifications' },
   { to: '/ai-agent',      icon: <Bot size={20} className="text-emerald-400" />, label: 'AI Agent' },
   { to: '/devices',       icon: <Smartphone size={20} />,      label: 'Devices' },
-  { to: '/smpp/server',   icon: <Server size={20} />,          label: 'SMPP Server' },
-  { to: '/smpp/clients',  icon: <Users size={20} />,           label: 'SMPP Clients' },
-  { to: '/smpp/routing',  icon: <RouteIcon size={20} />,       label: 'Routing' },
-  { to: '/smpp/rate-limits', icon: <Activity size={20} />,     label: 'Rate Limits' },
-  { to: '/smscs',         icon: <Server size={20} className="text-blue-400" />, label: 'SMSc Suppliers' },
-  { to: '/logs/messages', icon: <FileText size={20} className="text-amber-400" />, label: 'Message Tracking' },
-  { to: '/analytics',    icon: <PieChart size={20} className="text-fuchsia-400" />, label: 'Traffic Analytics' },
-  { to: '/dead-letters',  icon: <Skull size={20} className="text-red-400" />, label: 'Dead-Letter Queue' },
-  { to: '/throughput',    icon: <BarChart3 size={20} className="text-orange-400" />, label: 'Throughput' },
-  { to: '/reports',       icon: <FileText size={20} className="text-sky-400" />, label: 'Reports' },
-  { to: '/logs/system',   icon: <Server size={20} className="text-indigo-400" />, label: 'System Logs' },
-  { to: '/audit',         icon: <Shield size={20} className="text-violet-400" />, label: 'Audit Log' },
-  { to: '/deploy',        icon: <Rocket size={20} className="text-teal-400" />, label: 'Auto-Deploy' },
+  
+  {
+    icon: <Server size={20} className="text-blue-400" />, label: 'SMPP',
+    children: [
+      { to: '/smpp/server',   icon: <Server size={20} />,          label: 'SMPP Server' },
+      { to: '/smpp/clients',  icon: <Users size={20} />,           label: 'SMPP Clients' },
+      { to: '/smscs',         icon: <Server size={20} className="text-blue-400" />, label: 'SMSc Suppliers' },
+    ]
+  },
+  
+  {
+    icon: <RouteIcon size={20} />, label: 'Routing',
+    children: [
+      { to: '/smpp/routing',  icon: <RouteIcon size={20} />,       label: 'Routing Configuration' },
+      { to: '/smpp/rate-limits', icon: <Activity size={20} />,     label: 'Rate Limits' },
+    ]
+  },
+
+  {
+    icon: <FileText size={20} className="text-fuchsia-400" />, label: 'Reports',
+    children: [
+      { to: '/logs/messages', icon: <FileText size={20} className="text-amber-400" />, label: 'Message Tracking' },
+      { to: '/analytics',    icon: <PieChart size={20} className="text-fuchsia-400" />, label: 'Traffic Analytics' },
+      { to: '/dead-letters',  icon: <Skull size={20} className="text-red-400" />, label: 'Dead-Letter Queue' },
+      { to: '/throughput',    icon: <BarChart3 size={20} className="text-orange-400" />, label: 'Throughput' },
+    ]
+  },
+
   { to: '/testing',       icon: <Activity size={20} className="text-yellow-400" />, label: 'Testing' },
-  { to: '/users',          icon: <UserCog size={20} className="text-rose-400" />, label: 'Users' },
+
+  {
+    icon: <Shield size={20} className="text-slate-400" />, label: 'Administration',
+    children: [
+      { to: '/deploy',        icon: <Rocket size={20} className="text-teal-400" />, label: 'Auto-Deploy' },
+      { to: '/users',          icon: <UserCog size={20} className="text-rose-400" />, label: 'Users' },
+      { to: '/infrastructure', icon: <Activity size={20} className="text-cyan-400" />, label: 'Infrastructure' },
+      { to: '/logs/system',   icon: <Server size={20} className="text-indigo-400" />, label: 'System Logs' },
+      { to: '/audit',         icon: <Shield size={20} className="text-violet-400" />, label: 'Audit Log' },
+      { to: '/reports',       icon: <FileText size={20} className="text-sky-400" />, label: 'Scheduled Reports' },
+      { to: '/notifications', icon: <Bell size={20} className="text-amber-400" />, label: 'Notifications' },
+    ]
+  }
 ]
 
 const COLLAPSED_KEY = 'sidebar-collapsed'
@@ -42,6 +67,71 @@ function useMediaQuery(query: string): boolean {
     return () => mql.removeEventListener('change', handler)
   }, [query])
   return matches
+}
+
+function NavGroup({ item, collapsed, setCollapsed }: any) {
+  const location = useLocation();
+  const isActive = item.children.some((child: any) => location.pathname.startsWith(child.to));
+  const [expanded, setExpanded] = useState(isActive);
+
+  useEffect(() => {
+    if (isActive && !collapsed) {
+      setExpanded(true);
+    }
+  }, [isActive, collapsed]);
+
+  return (
+    <div className="flex flex-col">
+      <button 
+        onClick={() => {
+          if (collapsed) {
+            setCollapsed(false);
+            setExpanded(true);
+          } else {
+            setExpanded(!expanded);
+          }
+        }}
+        className={`group relative flex items-center justify-between w-full gap-3 rounded-lg text-sm transition-all
+          ${collapsed ? 'px-0 py-2.5 justify-center' : 'px-3 py-2.5'}
+          ${isActive ? 'text-brand-400 font-medium' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'}
+        `}
+      >
+        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center w-full' : ''}`}>
+          <span className="shrink-0">{item.icon}</span>
+          {!collapsed && <span className="sidebar-label truncate">{item.label}</span>}
+        </div>
+        {!collapsed && (
+           <ChevronDown size={14} className={`shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+        )}
+        
+        {collapsed && (
+          <span className="sidebar-tooltip pointer-events-none absolute left-full ml-2 px-2.5 py-1.5 rounded-md bg-slate-800 text-slate-200 text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg border border-slate-700/50 z-50">
+            {item.label}
+          </span>
+        )}
+      </button>
+
+      {!collapsed && expanded && (
+        <div className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-0.5">
+          {item.children.map((child: any) => (
+            <NavLink
+              key={child.to}
+              to={child.to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg text-sm transition-all px-3 py-2
+                 ${isActive
+                   ? 'bg-brand-600/20 text-brand-400 font-medium border border-brand-600/30'
+                   : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
+              }
+            >
+              {child.icon && <span className="shrink-0 scale-90 opacity-80">{child.icon}</span>}
+              <span className="truncate">{child.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Layout() {
@@ -99,10 +189,14 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
-          {nav.map(item => (
+          {nav.map(item => {
+            if (item.children) {
+              return <NavGroup key={item.label} item={item} collapsed={collapsed} setCollapsed={setCollapsed} />;
+            }
+            return (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={item.to!}
               title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 `group relative flex items-center gap-3 rounded-lg text-sm transition-all
@@ -121,7 +215,7 @@ export default function Layout() {
                 </span>
               )}
             </NavLink>
-          ))}
+          )})}
         </nav>
 
         {/* User */}

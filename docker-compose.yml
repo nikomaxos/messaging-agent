@@ -167,7 +167,7 @@ services:
       SPRING_REDIS_HOST: redis
       CORE_SERVICE_URL: http://core-service:8080
     ports:
-      - "2775:2775"
+      - "2774:2775"
 
   admin-panel:
     build:

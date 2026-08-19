@@ -19,11 +19,14 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
     loadBalancerEnabled: false,
     resendEnabled: false,
     fallbackSmscId: '',
+    fallbackRoutingMode: 'SMS',
+    fallbackDeviceGroupId: '',
+    fallbackErrorCodes: '',
     resendTrigger: 'ALL_FAILURES',
     rcsExpirationSeconds: 30,
     emulateDelivery: false,
     emulatedErrorCode: 'DELIVRD',
-    destinations: [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '' }]
+    destinations: [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '', fallbackRoutingMode: 'SMS', fallbackDeviceGroupId: '', fallbackErrorCodes: '' }]
   })
 
   const [selectedCountry, setSelectedCountry] = useState<string>('')
@@ -43,6 +46,9 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
         loadBalancerEnabled: route.loadBalancerEnabled || false,
         resendEnabled: route.resendEnabled || false,
         fallbackSmscId: route.fallbackSmscId || '',
+        fallbackRoutingMode: route.fallbackRoutingMode || 'SMS',
+        fallbackDeviceGroupId: route.fallbackDeviceGroupId || '',
+        fallbackErrorCodes: route.fallbackErrorCodes || '',
         resendTrigger: route.resendTrigger || 'ALL_FAILURES',
         rcsExpirationSeconds: route.rcsExpirationSeconds || 30,
         emulateDelivery: route.emulateDelivery || false,
@@ -51,9 +57,12 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
           ? route.destinations.map((d: any) => ({
               deviceGroupId: d.deviceGroupId || '',
               weightPercent: d.weightPercent || 100,
-              fallbackSmscId: d.fallbackSmscId || ''
+              fallbackSmscId: d.fallbackSmscId || '',
+              fallbackRoutingMode: d.fallbackRoutingMode || 'SMS',
+              fallbackDeviceGroupId: d.fallbackDeviceGroupId || '',
+              fallbackErrorCodes: d.fallbackErrorCodes || ''
             }))
-          : [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '' }]
+          : [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '', fallbackRoutingMode: 'SMS', fallbackDeviceGroupId: '', fallbackErrorCodes: '' }]
       })
       setSelectedCountry(route.countryPrefix?.countryName || '')
     } else {
@@ -67,11 +76,14 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
         loadBalancerEnabled: false,
         resendEnabled: false,
         fallbackSmscId: '',
+        fallbackRoutingMode: 'SMS',
+        fallbackDeviceGroupId: '',
+        fallbackErrorCodes: '',
         resendTrigger: 'ALL_FAILURES',
         rcsExpirationSeconds: 30,
         emulateDelivery: false,
         emulatedErrorCode: 'DELIVRD',
-        destinations: [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '' }]
+        destinations: [{ deviceGroupId: '', weightPercent: 100, fallbackSmscId: '', fallbackRoutingMode: 'SMS', fallbackDeviceGroupId: '', fallbackErrorCodes: '' }]
       })
       setSelectedCountry('')
     }
@@ -107,11 +119,17 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
       autoFailTimeoutMinutes: formData.autoFailTimeoutMinutes ? Number(formData.autoFailTimeoutMinutes) : 15,
       fallbackSmscId: formData.fallbackSmscId ? Number(formData.fallbackSmscId) : null,
       rcsExpirationSeconds: formData.rcsExpirationSeconds ? Number(formData.rcsExpirationSeconds) : null,
+      fallbackRoutingMode: formData.fallbackRoutingMode,
+      fallbackDeviceGroupId: formData.fallbackDeviceGroupId ? Number(formData.fallbackDeviceGroupId) : null,
+      fallbackErrorCodes: formData.fallbackErrorCodes,
       destinations: formData.destinations.map((d: any) => ({
         ...d,
         deviceGroupId: d.deviceGroupId ? Number(d.deviceGroupId) : null,
         weightPercent: Number(d.weightPercent),
-        fallbackSmscId: d.fallbackSmscId ? Number(d.fallbackSmscId) : null
+        fallbackSmscId: d.fallbackSmscId ? Number(d.fallbackSmscId) : null,
+        fallbackRoutingMode: d.fallbackRoutingMode,
+        fallbackDeviceGroupId: d.fallbackDeviceGroupId ? Number(d.fallbackDeviceGroupId) : null,
+        fallbackErrorCodes: d.fallbackErrorCodes
       }))
     }
     
@@ -123,7 +141,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
   }
 
   const addDestination = () => {
-    setFormData({ ...formData, destinations: [...formData.destinations, { deviceGroupId: '', weightPercent: 0, fallbackSmscId: '' }] })
+    setFormData({ ...formData, destinations: [...formData.destinations, { deviceGroupId: '', weightPercent: 0, fallbackSmscId: '', fallbackRoutingMode: 'SMS', fallbackDeviceGroupId: '', fallbackErrorCodes: '' }] })
   }
   
   const updateDestination = (index: number, field: string, value: any) => {
@@ -296,15 +314,46 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                     )}
                   </div>
 
-                  {formData.resendEnabled && formData.routingMode !== 'SMS' && (
+                  {formData.resendEnabled && (
                     <div className="flex gap-4 items-end">
-                      <div className="flex-1 text-xs text-slate-400 pt-2 border-t border-white/5">
-                        <label className="block text-xs text-slate-500 mb-1">Per-Destination Fallback SMSC (Overrides Global)</label>
-                        <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
-                          value={dest.fallbackSmscId} onChange={(e: any) => updateDestination(idx, 'fallbackSmscId', e.target.value)}>
-                          <option value="">-- Use Global Fallback --</option>
-                          {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
-                        </select>
+                      <div className="flex-1 text-xs text-slate-400 pt-2 border-t border-white/5 space-y-3">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Per-Destination Fallback Channel</label>
+                            <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                              value={dest.fallbackRoutingMode} onChange={(e: any) => updateDestination(idx, 'fallbackRoutingMode', e.target.value)}>
+                              <option value="SMS">Native SMS</option>
+                              <option value="WEBSOCKET">WebSocket App</option>
+                            </select>
+                          </div>
+                          <div>
+                            {dest.fallbackRoutingMode === 'WEBSOCKET' ? (
+                              <>
+                                <label className="block text-xs text-slate-500 mb-1">Target Device Group</label>
+                                <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                                  value={dest.fallbackDeviceGroupId} onChange={(e: any) => updateDestination(idx, 'fallbackDeviceGroupId', e.target.value)}>
+                                  <option value="">-- Select Group --</option>
+                                  {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                              </>
+                            ) : (
+                              <>
+                                <label className="block text-xs text-slate-500 mb-1">Target SMSC Supplier</label>
+                                <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                                  value={dest.fallbackSmscId} onChange={(e: any) => updateDestination(idx, 'fallbackSmscId', e.target.value)}>
+                                  <option value="">-- Select Target SMSC --</option>
+                                  {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
+                                </select>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                           <label className="block text-xs text-slate-500 mb-1">Trigger Error Codes (Comma separated)</label>
+                           <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm placeholder-white/20"
+                             placeholder="e.g. 500, UNDELIV, 0x00000045"
+                             value={dest.fallbackErrorCodes} onChange={(e: any) => updateDestination(idx, 'fallbackErrorCodes', e.target.value)} />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -338,12 +387,42 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
               <div className="bg-black/20 p-4 rounded-lg border border-white/5 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Global Fallback SMSC</label>
+                    <label className="block text-xs text-slate-400 mb-1">Global Fallback Channel</label>
                     <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
-                      value={formData.fallbackSmscId} onChange={(e: any) => setFormData({...formData, fallbackSmscId: e.target.value})}>
-                      <option value="">-- Select Global Fallback --</option>
-                      {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
+                      value={formData.fallbackRoutingMode} onChange={(e: any) => setFormData({...formData, fallbackRoutingMode: e.target.value})}>
+                      <option value="SMS">Native SMS</option>
+                      <option value="WEBSOCKET">WebSocket App</option>
                     </select>
+                  </div>
+                  <div>
+                    {formData.fallbackRoutingMode === 'WEBSOCKET' ? (
+                      <>
+                        <label className="block text-xs text-slate-400 mb-1">Global Target Device Group</label>
+                        <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                          value={formData.fallbackDeviceGroupId} onChange={(e: any) => setFormData({...formData, fallbackDeviceGroupId: e.target.value})}>
+                          <option value="">-- Select Group --</option>
+                          {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <label className="block text-xs text-slate-400 mb-1">Global Fallback SMSC</label>
+                        <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                          value={formData.fallbackSmscId} onChange={(e: any) => setFormData({...formData, fallbackSmscId: e.target.value})}>
+                          <option value="">-- Select Global Fallback --</option>
+                          {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
+                        </select>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Trigger Error Codes (Comma separated)</label>
+                    <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm placeholder-white/20"
+                      placeholder="e.g. 500, UNDELIV, 0x00000045"
+                      value={formData.fallbackErrorCodes} onChange={(e: any) => setFormData({...formData, fallbackErrorCodes: e.target.value})} />
                   </div>
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Trigger Condition</label>
@@ -351,7 +430,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                       value={formData.resendTrigger} onChange={(e: any) => setFormData({...formData, resendTrigger: e.target.value})}>
                       <option value="ALL_FAILURES">Message Failed (Any Reason / Timeout)</option>
                       <option value="UNDELIVERED">Message Undelivered</option>
-                      {formData.routingMode !== 'SMS' && <option value="NO_RCS">RCS Feature Not Enabled (No RCS)</option>}
+                      <option value="NO_RCS">RCS Feature Not Enabled (No RCS)</option>
                     </select>
                   </div>
                 </div>
@@ -530,9 +609,9 @@ export default function SmppRoutingPage() {
                            {r.loadBalancerEnabled && (
                              <span className="text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded w-16 text-center">{dest.weightPercent}%</span>
                            )}
-                           {r.routingMode !== 'SMS' && dest.fallbackSmscId && dest.fallbackSmscName && (
+                           {(dest.fallbackSmscId || dest.fallbackDeviceGroupId) && (
                              <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 truncate">
-                               Fallback: {dest.fallbackSmscName}
+                               Fallback: {dest.fallbackRoutingMode === 'WEBSOCKET' ? dest.fallbackDeviceGroupName : dest.fallbackSmscName}
                              </span>
                            )}
                          </div>
@@ -546,11 +625,16 @@ export default function SmppRoutingPage() {
                        <div className="space-y-1">
                          <div className="text-sm text-amber-400 font-medium">{r.resendTrigger === 'ALL_FAILURES' ? 'On Any Error' : r.resendTrigger === 'UNDELIVERED' ? 'On Undelivered' : 'On Non-RCS Client'}</div>
                          <div className="text-xs text-slate-400">Timer: {r.rcsExpirationSeconds}s</div>
-                         {r.fallbackSmscId && r.fallbackSmscName && (
-                            <div className="text-xs mt-2 px-2 py-1 bg-white/5 rounded line-clamp-2" title={r.fallbackSmscName}>
-                              Global: {r.fallbackSmscName}
-                            </div>
-                         )}
+                          {r.fallbackErrorCodes && (
+                             <div className="text-[10px] text-amber-500/70 truncate" title={r.fallbackErrorCodes}>
+                               Codes: {r.fallbackErrorCodes}
+                             </div>
+                          )}
+                          {(r.fallbackSmscId || r.fallbackDeviceGroupId) && (
+                             <div className="text-xs mt-2 px-2 py-1 bg-white/5 rounded line-clamp-2" title={r.fallbackRoutingMode === 'WEBSOCKET' ? r.fallbackDeviceGroupName : r.fallbackSmscName}>
+                               Global: {r.fallbackRoutingMode === 'WEBSOCKET' ? r.fallbackDeviceGroupName : r.fallbackSmscName}
+                             </div>
+                          )}
                        </div>
                      ) : (
                        <div className="text-sm text-slate-500 italic">No Fallback</div>

@@ -91,6 +91,9 @@ public class SmscSupplier {
     @Builder.Default
     private int sentCount = 0;
 
+    @Column(name = "trigger_resend_error_codes")
+    private String triggerResendErrorCodes;
+
     @CreationTimestamp
     private Instant createdAt;
 

@@ -36,6 +36,7 @@ export default function MessageTrackingPage() {
   const [showResubmitModal, setShowResubmitModal] = useState(false)
   const [resubmitChannel, setResubmitChannel] = useState('SMS')
   const [resubmitSmscId, setResubmitSmscId] = useState<number | null>(null)
+  const [resubmitDeviceGroupId, setResubmitDeviceGroupId] = useState<number | null>(null)
   const [resubmitResults, setResubmitResults] = useState<any[] | null>(null)
   const queryClient = useQueryClient()
 
@@ -132,8 +133,8 @@ export default function MessageTrackingPage() {
   }
 
   const resubmitMutation = useMutation({
-    mutationFn: ({ messageIds, fallbackSmscId }: { messageIds: number[], fallbackSmscId: number }) =>
-      resubmitMessages(messageIds, fallbackSmscId),
+    mutationFn: ({ messageIds, fallbackRoutingMode, fallbackSmscId, fallbackDeviceGroupId }: { messageIds: number[], fallbackRoutingMode: string, fallbackSmscId: number | null, fallbackDeviceGroupId: number | null }) =>
+      resubmitMessages(messageIds, fallbackRoutingMode, fallbackSmscId, fallbackDeviceGroupId),
     onSuccess: (data: any) => {
       setResubmitResults(data)
       queryClient.invalidateQueries({ queryKey: ['logs'] })
@@ -144,8 +145,16 @@ export default function MessageTrackingPage() {
   })
 
   const handleResubmit = () => {
-    if ((resubmitChannel === 'SMS' && !resubmitSmscId) || selectedIds.size === 0) return
-    resubmitMutation.mutate({ messageIds: Array.from(selectedIds), fallbackSmscId: resubmitSmscId! })
+    if (selectedIds.size === 0) return
+    if (resubmitChannel === 'SMS' && !resubmitSmscId) return
+    if (resubmitChannel === 'WEBSOCKET' && !resubmitDeviceGroupId) return
+
+    resubmitMutation.mutate({ 
+      messageIds: Array.from(selectedIds), 
+      fallbackRoutingMode: resubmitChannel, 
+      fallbackSmscId: resubmitChannel === 'SMS' ? resubmitSmscId : null,
+      fallbackDeviceGroupId: resubmitChannel === 'WEBSOCKET' ? resubmitDeviceGroupId : null
+    })
   }
 
   const cancelQueuedMutation = useMutation({
@@ -418,11 +427,18 @@ export default function MessageTrackingPage() {
                 <td className="px-4 py-3 text-sm text-slate-400 max-w-[200px] truncate" title={l.messageText}>
                   <div className="flex flex-col items-start gap-1">
                     <span>{l.messageText ?? '—'}</span>
-                    {(l.smppMessageId?.startsWith('TEST-') || l.smppClient?.systemId === 'TEST_CLIENT' || l.smppClient?.systemId === 'STRESS_TEST') && (
-                      <span className="w-fit inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-900/40 text-purple-400 border border-purple-500/20">
-                        TEST MSG
-                      </span>
-                    )}
+                    <div className="flex gap-1 flex-wrap">
+                      {(l.smppMessageId?.startsWith('TEST-') || l.smppClient?.systemId === 'TEST_CLIENT' || l.smppClient?.systemId === 'STRESS_TEST') && (
+                        <span className="w-fit inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-900/40 text-purple-400 border border-purple-500/20">
+                          TEST MSG
+                        </span>
+                      )}
+                      {l.smppMessageId?.startsWith('RETRY-') && (
+                        <span className="w-fit inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-900/40 text-amber-400 border border-amber-500/20">
+                          RETRY
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-2 py-3 text-xs font-mono text-slate-400 text-center">
@@ -625,12 +641,15 @@ export default function MessageTrackingPage() {
                         value={resubmitChannel}
                         onChange={e => {
                           setResubmitChannel(e.target.value);
-                          if (e.target.value !== 'SMS') {
+                          if (e.target.value === 'SMS') {
+                             setResubmitDeviceGroupId(null);
+                          } else if (e.target.value === 'WEBSOCKET') {
                              setResubmitSmscId(null);
                           }
                         }}
                       >
-                        <option value="SMS">SMS</option>
+                        <option value="SMS">Native SMS</option>
+                        <option value="WEBSOCKET">WebSocket App (Android)</option>
                         <option value="RCS" disabled>RCS (Coming Soon)</option>
                         <option value="WHATSAPP" disabled>WhatsApp (Coming Soon)</option>
                         <option value="VIBER" disabled>Viber (Coming Soon)</option>
@@ -653,12 +672,29 @@ export default function MessageTrackingPage() {
                         </select>
                       </div>
                     )}
+                    {resubmitChannel === 'WEBSOCKET' && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Target Device Group</label>
+                        <select
+                          className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                          value={resubmitDeviceGroupId ?? ''}
+                          onChange={e => setResubmitDeviceGroupId(Number(e.target.value))}
+                        >
+                          <option value="">Select Target Group…</option>
+                          {groups.map((g: DeviceGroup) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <button className="btn-secondary" onClick={() => setShowResubmitModal(false)}>Cancel</button>
                     <button
                       className="bg-amber-600 hover:bg-amber-500 text-white rounded px-4 py-1.5 text-sm font-medium transition disabled:opacity-40"
-                      disabled={(resubmitChannel === 'SMS' && !resubmitSmscId) || resubmitMutation.isPending}
+                      disabled={(resubmitChannel === 'SMS' && !resubmitSmscId) || (resubmitChannel === 'WEBSOCKET' && !resubmitDeviceGroupId) || resubmitMutation.isPending}
                       onClick={handleResubmit}
                     >
                       {resubmitMutation.isPending ? 'Submitting…' : `Resubmit ${selectedIds.size} Messages`}

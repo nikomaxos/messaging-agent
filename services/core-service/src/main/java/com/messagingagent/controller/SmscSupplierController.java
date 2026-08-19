@@ -54,6 +54,8 @@ public class SmscSupplierController {
                 .dlrsReceived(0L)
                 .failed(0L)
                 .inQueue(0L)
+                .sentCount(supplier.getSentCount())
+                .triggerResendErrorCodes(supplier.getTriggerResendErrorCodes())
                 .build();
     }
 
@@ -88,6 +90,7 @@ public class SmscSupplierController {
             existing.setEnquireLinkInterval(supplier.getEnquireLinkInterval());
             existing.setActive(supplier.isActive());
             existing.setBypassDuplicateFilter(supplier.isBypassDuplicateFilter());
+            existing.setTriggerResendErrorCodes(supplier.getTriggerResendErrorCodes());
             
             SmscSupplier saved = smscSupplierRepository.save(existing);
             return ResponseEntity.ok(toDto(saved));

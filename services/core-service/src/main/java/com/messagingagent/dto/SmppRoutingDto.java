@@ -35,6 +35,10 @@ public class SmppRoutingDto {
     private boolean resendEnabled;
     private Long fallbackSmscId;
     private String fallbackSmscName;
+    private String fallbackRoutingMode;
+    private Long fallbackDeviceGroupId;
+    private String fallbackDeviceGroupName;
+    private String fallbackErrorCodes;
     private String resendTrigger;
     private Integer rcsExpirationSeconds;
     
@@ -67,6 +71,10 @@ public class SmppRoutingDto {
         private int weightPercent;
         private Long fallbackSmscId;
         private String fallbackSmscName;
+        private String fallbackRoutingMode;
+        private Long fallbackDeviceGroupId;
+        private String fallbackDeviceGroupName;
+        private String fallbackErrorCodes;
 
         public static DestinationDto fromEntity(SmppRoutingDestination dest) {
             return DestinationDto.builder()
@@ -76,6 +84,10 @@ public class SmppRoutingDto {
                     .weightPercent(dest.getWeightPercent())
                     .fallbackSmscId(dest.getFallbackSmsc() != null ? dest.getFallbackSmsc().getId() : null)
                     .fallbackSmscName(dest.getFallbackSmsc() != null ? dest.getFallbackSmsc().getName() : null)
+                    .fallbackRoutingMode(dest.getFallbackRoutingMode() != null ? dest.getFallbackRoutingMode().name() : null)
+                    .fallbackDeviceGroupId(dest.getFallbackDeviceGroup() != null ? dest.getFallbackDeviceGroup().getId() : null)
+                    .fallbackDeviceGroupName(dest.getFallbackDeviceGroup() != null ? dest.getFallbackDeviceGroup().getName() : null)
+                    .fallbackErrorCodes(dest.getFallbackErrorCodes())
                     .build();
         }
     }
@@ -106,6 +118,10 @@ public class SmppRoutingDto {
                 .resendEnabled(routing.isResendEnabled())
                 .fallbackSmscId(routing.getFallbackSmsc() != null ? routing.getFallbackSmsc().getId() : null)
                 .fallbackSmscName(routing.getFallbackSmsc() != null ? routing.getFallbackSmsc().getName() : null)
+                .fallbackRoutingMode(routing.getFallbackRoutingMode() != null ? routing.getFallbackRoutingMode().name() : null)
+                .fallbackDeviceGroupId(routing.getFallbackDeviceGroup() != null ? routing.getFallbackDeviceGroup().getId() : null)
+                .fallbackDeviceGroupName(routing.getFallbackDeviceGroup() != null ? routing.getFallbackDeviceGroup().getName() : null)
+                .fallbackErrorCodes(routing.getFallbackErrorCodes())
                 .resendTrigger(routing.getResendTrigger())
                 .rcsExpirationSeconds(routing.getRcsExpirationSeconds())
                 .destinations(routing.getDestinations().stream()
