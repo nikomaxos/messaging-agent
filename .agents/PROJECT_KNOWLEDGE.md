@@ -8,7 +8,7 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 
 - **Core Service (`ma-core-service`)**:
   - A Java Spring Boot application (Port 18080).
-  - Handles UI CRUD operations, Admin APIs, and pushes active configuration/metadata to Redis.
+  - Handles UI CRUD operations, Admin APIs (including Traffic Analytics, DLQ, Throughput, Reports, System Logs, and Audit Logs ported from the old monolith), and pushes active configuration/metadata to Redis.
 - **Routing Engine (`ma-routing-engine`)**:
   - A Java Spring Boot application (Port 18081).
   - 100% Event-Driven. Consumes inbound SMS from Kafka, performs O(1) Redis lookups for rate limiting and routing, and dispatches to outbound queues.

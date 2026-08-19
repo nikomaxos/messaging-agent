@@ -5,6 +5,7 @@ com/messagingagent/service/DeadLetterService.class
 com/messagingagent/repository/PushSubscriptionRepository.class
 com/messagingagent/model/NotificationChannel.class
 com/messagingagent/model/ScheduledReport.class
+com/messagingagent/controller/ThroughputController.class
 com/messagingagent/security/JwtService.class
 com/messagingagent/model/AiChatSession.class
 com/messagingagent/dto/SmscSupplierDto$SmscSupplierDtoBuilder.class
@@ -21,6 +22,7 @@ com/messagingagent/model/SmppRoutingDestination.class
 com/messagingagent/repository/CountryPrefixRepository.class
 com/messagingagent/model/AiAgentConfig$AiAgentConfigBuilder.class
 com/messagingagent/dto/SmppRoutingDto$CountryPrefixDto$CountryPrefixDtoBuilder.class
+com/messagingagent/admin/AuditLogController.class
 com/messagingagent/repository/AppUserRepository.class
 com/messagingagent/model/CountryPrefix.class
 com/messagingagent/model/RoutingMode.class
@@ -80,6 +82,7 @@ com/messagingagent/model/AiAgentConfig.class
 com/messagingagent/model/NotificationAlert$NotificationAlertBuilder.class
 com/messagingagent/model/MessageLog$Status.class
 com/messagingagent/model/ScheduledReport$ScheduledReportBuilder.class
+com/messagingagent/controller/DeadLetterController.class
 com/messagingagent/controller/SmppRoutingController.class
 com/messagingagent/repository/SmscSupplierRepository.class
 com/messagingagent/repository/SimCardRepository.class
@@ -95,11 +98,13 @@ com/messagingagent/repository/SmppClientRepository.class
 com/messagingagent/kafka/SmsOutboundStatusConsumer.class
 com/messagingagent/kafka/SmsInboundEvent$SmsInboundEventBuilder.class
 com/messagingagent/repository/ScheduledReportRepository.class
+com/messagingagent/controller/TrafficAnalyticsController.class
 com/messagingagent/kafka/SmsOutboundDlrConsumer.class
 com/messagingagent/model/Device$DeviceBuilder.class
 com/messagingagent/model/RoutingRateLimit.class
 com/messagingagent/model/DeadLetterMessage.class
 com/messagingagent/repository/MessageLogRepository.class
+com/messagingagent/admin/SystemLogController.class
 com/messagingagent/model/SmppRouting$SmppRoutingBuilder.class
 com/messagingagent/model/RoutingRateLimit$RoutingRateLimitBuilder.class
 com/messagingagent/dto/SmppRoutingDto$CountryPrefixDto.class
@@ -112,6 +117,7 @@ com/messagingagent/dto/SmppClientDto.class
 com/messagingagent/model/DeviceGroup$DeviceGroupBuilder.class
 com/messagingagent/model/NotificationAlert$Severity.class
 com/messagingagent/model/DeviceLog.class
+com/messagingagent/controller/ReportController.class
 com/messagingagent/service/RedisConfigSyncService.class
 com/messagingagent/repository/DeadLetterRepository.class
 com/messagingagent/model/AiMemory.class
