@@ -159,3 +159,11 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 - **Fully Automated Bumping**: The version bumping process is now fully automated and built into the deployment flow. When the USER triggers a Production deployment from the Admin Panel, the `deploy-agent` automatically parses the current version, increments the patch version (e.g., `2.4.4` to `2.4.5`), safely bumps all `package.json` and `pom.xml` files using `./bump-version.sh`, commits the new version, and pushes it to `origin main` before the deployment rolls out.
 - The agent DOES NOT need to run `./bump-version.sh` manually anymore.
 - Whenever versions are bumped during deployment, you MUST rebuild the container on Staging (`docker compose up -d --build admin-panel`) so the UI displays the updated version correctly.
+
+## 10. Common Issues & Troubleshooting (Vault)
+
+### 1. Missing Data in Admin Panel (Message Tracking / Entities)
+- **Symptom**: Tables like Message Tracking, SMPP Clients, SMSC Suppliers, etc., show NO data (empty tables), but the database has data and Nginx logs show `504 Gateway Timeout` or `110: Operation timed out`.
+- **Root Cause 1 (Hibernate Proxies)**: Jackson serialization fails with `InvalidDefinitionException: No serializer found for class org.hibernate.proxy.pojo.bytebuddy.ByteBuddyInterceptor`. This happens when Spring Data JPA returns a lazy-loaded proxy (e.g., `MessageLog` self-referencing `parentMessage`). Because it fails silently in the background (HTTP 500 in core-service), the frontend receives no JSON array and renders an empty table.
+- **Fix**: Add `@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})` to the **Class level** of the JPA `@Entity` (e.g. `MessageLog.java`).
+- **Root Cause 2 (K8s Service Ports)**: Check if the Kubernetes Service exposes the correct port (e.g. `ma-api-gateway` must expose 3000, not 9090) so Nginx `proxy_pass` can route correctly in Production.
