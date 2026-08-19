@@ -11,146 +11,232 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// In-memory store for deployment sessions (to avoid passing passwords in GET EventSource URLs)
-const deploySessions = new Map();
+// Global Deployment State
+const activeDeploy = {
+  isRunning: false,
+  env: null, // 'production', 'rollback_prod', 'upgrade'
+  targetIp: null,
+  logs: [],
+  currentStep: 0,
+  vmWarnings: [],
+  containerErrors: [],
+  clients: [], // SSE connections
+  code: null,
+  done: false
+};
 
-// Helper to execute SSH commands and stream back to the SSE response
-async function runSshCommandStream(ssh, cmd, res, onExit) {
-  res.write(`data: ${JSON.stringify({ log: `> Executing SSH Task...` })}\n\n`);
+// Helper to broadcast to all clients
+function broadcast(event) {
+  const dataString = `data: ${JSON.stringify(event)}\n\n`;
+  activeDeploy.clients.forEach(res => res.write(dataString));
+}
 
-  const keepAlive = setInterval(() => {
-    res.write(':\n\n'); // SSE comment
-  }, 15000);
+function appendLog(logStr, error = false) {
+  activeDeploy.logs.push(logStr);
+  
+  // Parse progress logic from the deploy script output
+  const stepMatch = logStr.match(/--- Step (\d+):/);
+  if (stepMatch) {
+    activeDeploy.currentStep = parseInt(stepMatch[1], 10);
+  }
+  const vmMatch = logStr.match(/\[VM_UPDATE_NEEDED\] (.*)/);
+  if (vmMatch) {
+    activeDeploy.vmWarnings.push(vmMatch[1]);
+  }
+  const containerMatch = logStr.match(/\[CONTAINER_ERROR\] (.*)/);
+  if (containerMatch) {
+    activeDeploy.containerErrors.push(containerMatch[1]);
+  }
 
+  broadcast({ log: logStr, error });
+}
+
+// Helper to execute SSH commands and append to global logs
+async function runSshCommandBackground(ssh, cmd, onExit) {
+  appendLog(`> Executing SSH Task...`);
   try {
     const result = await ssh.execCommand(cmd, {
       onStdout(chunk) {
-        res.write(`data: ${JSON.stringify({ log: chunk.toString('utf8').trim() })}\n\n`);
+        appendLog(chunk.toString('utf8').trim());
       },
       onStderr(chunk) {
-        res.write(`data: ${JSON.stringify({ log: chunk.toString('utf8').trim(), error: true })}\n\n`);
+        appendLog(chunk.toString('utf8').trim(), true);
       }
     });
-    clearInterval(keepAlive);
     
     if (result.code !== 0) {
-      res.write(`data: ${JSON.stringify({ log: `Command failed with exit code ${result.code}`, error: true })}\n\n`);
+      appendLog(`Command failed with exit code ${result.code}`, true);
       if (onExit) onExit(result.code);
     } else {
-      res.write(`data: ${JSON.stringify({ log: `Command completed successfully.` })}\n\n`);
+      appendLog(`Command completed successfully.`);
       if (onExit) onExit(0);
     }
   } catch (err) {
-    clearInterval(keepAlive);
-    res.write(`data: ${JSON.stringify({ log: `Command failed: ${err.message}`, error: true })}\n\n`);
+    appendLog(`Command failed: ${err.message}`, true);
     if (onExit) onExit(1);
   }
 }
 
-// 1. Init Deployment Session
-app.post('/api/deploy/init', (req, res) => {
-  const { ip, username, password } = req.body;
-  if (!ip || !username) {
-    return res.status(400).json({ error: 'IP and username are required' });
+function finishDeploy(code) {
+  activeDeploy.isRunning = false;
+  activeDeploy.done = true;
+  activeDeploy.code = code;
+  broadcast({ done: true, code });
+}
+
+// 1. Trigger Deployment (POST)
+app.post('/api/deploy/trigger', async (req, res) => {
+  const { ip, username, password, env } = req.body;
+  if (!ip || !username || !env) {
+    return res.status(400).json({ error: 'IP, username, and env are required' });
   }
 
-  const token = crypto.randomUUID();
-  deploySessions.set(token, { ip, username, password, createdAt: Date.now() });
-
-  // Cleanup old sessions after 5 minutes
-  setTimeout(() => deploySessions.delete(token), 300000);
-
-  res.json({ token });
-});
-
-// 2. Execute Deployment (SSE)
-app.get('/api/deploy/production', async (req, res) => {
-  const token = req.query.token;
-  const session = deploySessions.get(token);
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  if (!session) {
-    res.write(`data: ${JSON.stringify({ log: 'Invalid or expired deployment token.', error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    return res.end();
+  if (activeDeploy.isRunning) {
+    return res.status(409).json({ error: 'A deployment is already in progress.' });
   }
 
-  // 1. Auto-Push Local Changes First
-  res.write(`data: ${JSON.stringify({ log: 'Committing and pushing local changes to GitHub...' })}\n\n`);
+  // Initialize state
+  activeDeploy.isRunning = true;
+  activeDeploy.done = false;
+  activeDeploy.code = null;
+  activeDeploy.env = env;
+  activeDeploy.targetIp = ip;
+  activeDeploy.logs = [];
+  activeDeploy.currentStep = 0;
+  activeDeploy.vmWarnings = [];
+  activeDeploy.containerErrors = [];
+  
+  res.json({ message: 'Deployment started' });
+
+  // Start background process
+  const isRollback = env === 'rollback_prod';
+  const isUpgrade = env === 'upgrade';
+  
+  const actionName = isRollback ? 'Rollback' : isUpgrade ? 'Package Upgrades' : 'Deployment';
+  appendLog(`>>> Initiating ${actionName} to ${ip}...`);
+
+  // Ensure SSH keys exist
   try {
     await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
-    const gitCmds = `
-      git config --global --add safe.directory /repo &&
-      git config --global user.email "deploy-agent@messaging-agent.local" &&
-      git config --global user.name "Deploy Agent" &&
-      git remote set-url origin git@github.com:nikomaxos/messaging-agent.git &&
-      CURRENT_VERSION=\$(grep '"version"' admin-panel/package.json | head -1 | awk -F'"' '{print $4}') &&
-      V_MAJOR=\$(echo \$CURRENT_VERSION | cut -d. -f1) &&
-      V_MINOR=\$(echo \$CURRENT_VERSION | cut -d. -f2) &&
-      V_PATCH=\$(echo \$CURRENT_VERSION | cut -d. -f3) &&
-      NEXT_PATCH=\$((\$V_PATCH + 1)) &&
-      NEXT_VERSION="\$V_MAJOR.\$V_MINOR.\$NEXT_PATCH" &&
-      ./bump-version.sh \$NEXT_VERSION &&
-      git add . &&
-      (git commit -m "Auto-Deploy: Version \$NEXT_VERSION - Pushed from Admin Panel" || true) &&
-      GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
-    `;
-    await execPromise(gitCmds, { cwd: '/repo' });
-    res.write(`data: ${JSON.stringify({ log: 'Successfully pushed local changes.' })}\n\n`);
-  } catch (err) {
-    res.write(`data: ${JSON.stringify({ log: `Failed to push local changes: ${err.message}`, error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    return res.end();
+  } catch(e) {}
+
+  if (env === 'production') {
+    // 1. Auto-Push Local Changes
+    appendLog('Committing and pushing local changes to GitHub...');
+    try {
+      const gitCmds = `
+        git config --global --add safe.directory /repo &&
+        git config --global user.email "deploy-agent@messaging-agent.local" &&
+        git config --global user.name "Deploy Agent" &&
+        git remote set-url origin git@github.com:nikomaxos/messaging-agent.git &&
+        CURRENT_VERSION=\$(grep '"version"' admin-panel/package.json | head -1 | awk -F'"' '{print $4}') &&
+        V_MAJOR=\$(echo \$CURRENT_VERSION | cut -d. -f1) &&
+        V_MINOR=\$(echo \$CURRENT_VERSION | cut -d. -f2) &&
+        V_PATCH=\$(echo \$CURRENT_VERSION | cut -d. -f3) &&
+        NEXT_PATCH=\$((\$V_PATCH + 1)) &&
+        NEXT_VERSION="\$V_MAJOR.\$V_MINOR.\$NEXT_PATCH" &&
+        ./bump-version.sh \$NEXT_VERSION &&
+        git add . &&
+        (git commit -m "Auto-Deploy: Version \$NEXT_VERSION - Pushed from Admin Panel" || true) &&
+        GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
+      `;
+      await execPromise(gitCmds, { cwd: '/repo' });
+      appendLog('Successfully pushed local changes.');
+    } catch (err) {
+      appendLog(`Failed to push local changes: ${err.message}`, true);
+      return finishDeploy(1);
+    }
   }
 
-  // 2. SSH into target and Deploy
-  res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH...` })}\n\n`);
-  
+  // 2. SSH into target
+  appendLog(`Connecting to ${ip} via SSH...`);
   const ssh = new NodeSSH();
   try {
     await ssh.connect({
-      host: session.ip,
-      username: session.username,
-      password: session.password || undefined,
+      host: ip,
+      username: username,
+      password: password || undefined,
       privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
       tryKeyboard: true,
       readyTimeout: 10000
     });
-    res.write(`data: ${JSON.stringify({ log: `SSH Connected successfully.` })}\n\n`);
+    appendLog(`SSH Connected successfully.`);
 
-    const cmd = `
-      echo "Triggering deployment on Target Node..."
-      if [ ! -d ~/messaging-agent ]; then git clone https://github.com/nikomaxos/messaging-agent.git ~/messaging-agent; fi 
-      cd ~/messaging-agent 
-      git fetch origin main && git reset --hard origin/main
-      chmod +x ./deploy-agent/deploy-k8s.sh
-      ./deploy-agent/deploy-k8s.sh
-    `;
+    let cmd = '';
+    if (env === 'production') {
+      cmd = `
+        echo "Triggering deployment on Target Node..."
+        if [ ! -d ~/messaging-agent ]; then git clone https://github.com/nikomaxos/messaging-agent.git ~/messaging-agent; fi 
+        cd ~/messaging-agent 
+        git fetch origin main && git reset --hard origin/main
+        chmod +x ./deploy-agent/deploy-k8s.sh
+        ./deploy-agent/deploy-k8s.sh
+      `;
+    } else if (env === 'rollback_prod') {
+      appendLog('Rolling back K3s deployments natively via kubectl...');
+      cmd = `kubectl rollout undo deployment --all`;
+    } else if (env === 'upgrade') {
+      appendLog('Running system upgrades on Kubernetes nodes...');
+      cmd = `
+        for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
+          echo "Updating node \$node..."
+          ssh -o StrictHostKeyChecking=no ubuntu@\$node "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"
+        done
+        echo "All nodes upgraded successfully."
+      `;
+    }
 
-    await runSshCommandStream(ssh, cmd, res, (code) => {
+    await runSshCommandBackground(ssh, cmd, (code) => {
       ssh.dispose();
-      res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
-      res.end();
+      finishDeploy(code);
     });
 
   } catch (err) {
-    res.write(`data: ${JSON.stringify({ log: `SSH Connection Failed: ${err.message}`, error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    res.end();
+    appendLog(`SSH Connection Failed: ${err.message}`, true);
+    finishDeploy(1);
   }
 });
 
-// 3. Get Deploy Info (Changed to POST to accept credentials safely)
+// 2. Global Stream Endpoint (GET)
+app.get('/api/deploy/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Immediately send current global state to sync the UI
+  res.write(`data: ${JSON.stringify({ 
+    sync: true, 
+    isRunning: activeDeploy.isRunning,
+    env: activeDeploy.env,
+    targetIp: activeDeploy.targetIp,
+    currentStep: activeDeploy.currentStep,
+    vmWarnings: activeDeploy.vmWarnings,
+    containerErrors: activeDeploy.containerErrors,
+    done: activeDeploy.done,
+    code: activeDeploy.code,
+    logs: activeDeploy.logs 
+  })}\n\n`);
+
+  activeDeploy.clients.push(res);
+
+  // Send a heartbeat every 15s to keep the connection open
+  const keepAlive = setInterval(() => {
+    res.write(':\n\n');
+  }, 15000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    activeDeploy.clients = activeDeploy.clients.filter(client => client !== res);
+  });
+});
+
+// 3. Get Deploy Info
 app.post('/api/deploy/info', async (req, res) => {
   const { ip, username, password } = req.body;
   if (!ip || !username) {
     return res.status(400).json({ error: 'IP and username are required' });
   }
 
-  // Make sure SSH keys are ready
   try {
     await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
   } catch(e) {}
@@ -159,11 +245,9 @@ app.post('/api/deploy/info', async (req, res) => {
   try {
     await ssh.connect({ host: ip, username, password: password || undefined, privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'), tryKeyboard: true, readyTimeout: 5000 });
     
-    // Get Prod version from last successful deploy, not from git (which updates before pods rebuild)
     const versionResult = await ssh.execCommand("cat ~/messaging-agent/.last-deploy 2>/dev/null || echo 'Never Deployed'");
     const commitHash = versionResult.stdout.trim();
     
-    // Read the package.json AT the last deployed commit (not HEAD which may be ahead)
     const pkgResult = await ssh.execCommand(`cd ~/messaging-agent && git show ${commitHash}:admin-panel/package.json 2>/dev/null || echo '{"version":"Unknown"}'`);
     let prodVersion = "Unknown";
     try {
@@ -175,109 +259,6 @@ app.post('/api/deploy/info', async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ error: `SSH Connection Failed: ${err.message}` });
-  }
-});
-
-// 4. Rollback Production (SSE)
-app.get('/api/rollback/production', async (req, res) => {
-  const token = req.query.token;
-  const session = deploySessions.get(token);
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  if (!session) {
-    res.write(`data: ${JSON.stringify({ log: 'Invalid or expired rollback token.', error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    return res.end();
-  }
-
-  res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH for Rollback...` })}\n\n`);
-  
-  // Make sure SSH keys are ready
-  try {
-    await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
-  } catch(e) {}
-
-  const ssh = new NodeSSH();
-  try {
-    await ssh.connect({
-      host: session.ip,
-      username: session.username,
-      password: session.password || undefined,
-      privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
-      tryKeyboard: true,
-      readyTimeout: 10000
-    });
-    
-    res.write(`data: ${JSON.stringify({ log: 'Rolling back K3s deployments natively via kubectl...' })}\n\n`);
-    const rollbackCmd = `kubectl rollout undo deployment --all`;
-    
-    await runSshCommandStream(ssh, rollbackCmd, res, (code) => {
-      ssh.dispose();
-      res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
-      res.end();
-    });
-
-  } catch (err) {
-    res.write(`data: ${JSON.stringify({ log: `SSH Connection Failed: ${err.message}`, error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    res.end();
-  }
-});
-
-// 5. Upgrade VM Packages (SSE)
-app.get('/api/deploy/upgrade-nodes', async (req, res) => {
-  const token = req.query.token;
-  const session = deploySessions.get(token);
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-
-  if (!session) {
-    res.write(`data: ${JSON.stringify({ log: 'Invalid or expired token.', error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    return res.end();
-  }
-
-  res.write(`data: ${JSON.stringify({ log: `Connecting to ${session.ip} via SSH to perform upgrades...` })}\n\n`);
-  
-  try {
-    await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*');
-  } catch(e) {}
-
-  const ssh = new NodeSSH();
-  try {
-    await ssh.connect({
-      host: session.ip,
-      username: session.username,
-      password: session.password || undefined,
-      privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
-      tryKeyboard: true,
-      readyTimeout: 10000
-    });
-    
-    res.write(`data: ${JSON.stringify({ log: 'Running system upgrades on Kubernetes nodes...' })}\n\n`);
-    const upgradeCmd = `
-      for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
-        echo "Updating node $node..."
-        ssh -o StrictHostKeyChecking=no ubuntu@$node "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"
-      done
-      echo "All nodes upgraded successfully."
-    `;
-    
-    await runSshCommandStream(ssh, upgradeCmd, res, (code) => {
-      ssh.dispose();
-      res.write(`data: ${JSON.stringify({ done: true, code })}\n\n`);
-      res.end();
-    });
-
-  } catch (err) {
-    res.write(`data: ${JSON.stringify({ log: `SSH Connection Failed: ${err.message}`, error: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true, code: 1 })}\n\n`);
-    res.end();
   }
 });
 

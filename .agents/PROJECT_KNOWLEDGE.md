@@ -167,3 +167,8 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 - **Root Cause 1 (Hibernate Proxies)**: Jackson serialization fails with `InvalidDefinitionException: No serializer found for class org.hibernate.proxy.pojo.bytebuddy.ByteBuddyInterceptor`. This happens when Spring Data JPA returns a lazy-loaded proxy (e.g., `MessageLog` self-referencing `parentMessage`). Because it fails silently in the background (HTTP 500 in core-service), the frontend receives no JSON array and renders an empty table.
 - **Fix**: Add `@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})` to the **Class level** of the JPA `@Entity` (e.g. `MessageLog.java`).
 - **Root Cause 2 (K8s Service Ports)**: Check if the Kubernetes Service exposes the correct port (e.g. `ma-api-gateway` must expose 3000, not 9090) so Nginx `proxy_pass` can route correctly in Production.
+
+### 2. Persistent Background Deployments
+- **Architecture**: The `deploy-agent` backend (`server.js`) now maintains a global background state for active deployments. The deployment execution is no longer tied to a specific HTTP GET request lifecycle.
+- **Triggering**: Deployments are initiated via a standard `POST /api/deploy/trigger` request.
+- **Monitoring**: The frontend (`DeployPage.tsx`) connects to `GET /api/deploy/stream` via EventSource on mount. This instantly syncs the UI with the active background deployment (fetching full log history and progress). This means agents can trigger deployments server-side, and the user will see the live progress in their browser, even if they refresh or navigate away.

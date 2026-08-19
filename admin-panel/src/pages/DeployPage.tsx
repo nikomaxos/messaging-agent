@@ -17,7 +17,7 @@ const DEPLOYMENT_STEPS = [
 export default function DeployPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [isDeploying, setIsDeploying] = useState(false)
-  const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | null>(null)
+  const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | 'upgrade' | null>(null)
   
   const [currentStep, setCurrentStep] = useState(0)
   const totalSteps = 9
@@ -37,6 +37,68 @@ export default function DeployPage() {
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs])
+
+  // Global SSE stream connection
+  useEffect(() => {
+    const eventSource = new EventSource('/api/deploy/stream')
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        
+        if (data.sync) {
+          setIsDeploying(data.isRunning)
+          setActiveEnv(data.env)
+          if (data.targetIp) setTargetIp(data.targetIp)
+          setLogs(data.logs || [])
+          setCurrentStep(data.currentStep || 0)
+          setVmWarnings(data.vmWarnings || [])
+          setContainerErrors(data.containerErrors || [])
+          
+          if (data.done) {
+            if (data.code === 0 && data.env === 'production') {
+              setCurrentStep(totalSteps)
+            }
+          }
+        } 
+        else if (data.log) {
+          setLogs(prev => [...prev, data.log])
+          
+          const stepMatch = data.log.match(/--- Step (\d+):/)
+          if (stepMatch) {
+            setCurrentStep(parseInt(stepMatch[1], 10))
+          }
+          
+          const vmMatch = data.log.match(/\[VM_UPDATE_NEEDED\] (.*)/)
+          if (vmMatch) {
+            setVmWarnings(prev => [...prev, vmMatch[1]])
+          }
+          
+          const containerMatch = data.log.match(/\[CONTAINER_ERROR\] (.*)/)
+          if (containerMatch) {
+            setContainerErrors(prev => [...prev, containerMatch[1]])
+          }
+        }
+        else if (data.done) {
+          setLogs(prev => [...prev, `>>> Process completed with code ${data.code}`])
+          if (data.code === 0 && activeEnv === 'production') {
+            setCurrentStep(totalSteps)
+          }
+          setIsDeploying(false)
+          setActiveEnv(null)
+          if (data.code === 0 && activeEnv === 'upgrade') alert('Nodes upgraded successfully!')
+        }
+      } catch (e) {}
+    }
+
+    eventSource.onerror = () => {
+      // Reconnects automatically, but we can log it visually
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [])
 
   const fetchDeployInfo = async () => {
     if (!targetIp) {
@@ -74,71 +136,16 @@ export default function DeployPage() {
     const isRollback = env === 'rollback_prod'
     if (!confirm(`Are you sure you want to ${isRollback ? 'ROLLBACK' : 'DEPLOY'} messaging-agent on ${targetIp}?`)) return
     
-    setLogs([`>>> Initiating ${isRollback ? 'Rollback' : 'Deployment'} to ${targetIp}...`])
-    setIsDeploying(true)
-    setActiveEnv(env)
-    setCurrentStep(0)
-    setVmWarnings([])
-    setContainerErrors([])
-
     try {
-      // Step 1: Initialize session to get token
-      const initRes = await fetch('/api/deploy/init', {
+      const res = await fetch('/api/deploy/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: targetIp, username: 'ubuntu', password: '' })
+        body: JSON.stringify({ ip: targetIp, username: 'ubuntu', password: '', env })
       })
-      const initData = await initRes.json()
-      if (initData.error) throw new Error(initData.error)
-
-      // Step 2: Open EventSource with token
-      const endpoint = `/api/${isRollback ? 'rollback/production' : 'deploy/production'}?token=${initData.token}`
-      const eventSource = new EventSource(endpoint)
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.log) {
-            setLogs(prev => [...prev, data.log])
-            
-            const stepMatch = data.log.match(/--- Step (\d+):/)
-            if (stepMatch) {
-              setCurrentStep(parseInt(stepMatch[1], 10))
-            }
-            
-            const vmMatch = data.log.match(/\[VM_UPDATE_NEEDED\] (.*)/)
-            if (vmMatch) {
-              setVmWarnings(prev => [...prev, vmMatch[1]])
-            }
-            
-            const containerMatch = data.log.match(/\[CONTAINER_ERROR\] (.*)/)
-            if (containerMatch) {
-              setContainerErrors(prev => [...prev, containerMatch[1]])
-            }
-          }
-          if (data.done) {
-            setLogs(prev => [...prev, `>>> Process completed with code ${data.code}`])
-            if (data.code === 0 && !isRollback) {
-              setCurrentStep(totalSteps)
-            }
-            setIsDeploying(false)
-            setActiveEnv(null)
-            eventSource.close()
-          }
-        } catch (e) {}
-      }
-
-      eventSource.onerror = () => {
-        setLogs(prev => [...prev, `>>> Connection lost to deployment stream.`])
-        setIsDeploying(false)
-        setActiveEnv(null)
-        eventSource.close()
-      }
-      
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
     } catch (e: any) {
-      setLogs(prev => [...prev, `>>> Error: ${e.message}`])
-      setIsDeploying(false)
-      setActiveEnv(null)
+      alert(`Error triggering deploy: ${e.message}`)
     }
   }
 
@@ -151,48 +158,16 @@ export default function DeployPage() {
 
     if (!confirm(`Are you sure you want to upgrade packages on ${targetIp} nodes?`)) return
     
-    setLogs([`>>> Initiating Package Upgrades on ${targetIp}...`])
-    setIsDeploying(true)
-    setActiveEnv(null)
-    setVmWarnings([])
-    setContainerErrors([])
-
     try {
-      const initRes = await fetch('/api/deploy/init', {
+      const res = await fetch('/api/deploy/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: targetIp, username: 'ubuntu', password: '' })
+        body: JSON.stringify({ ip: targetIp, username: 'ubuntu', password: '', env: 'upgrade' })
       })
-      const initData = await initRes.json()
-      if (initData.error) throw new Error(initData.error)
-
-      const endpoint = `/api/deploy/upgrade-nodes?token=${initData.token}`
-      const eventSource = new EventSource(endpoint)
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.log) {
-            setLogs(prev => [...prev, data.log])
-          }
-          if (data.done) {
-            setLogs(prev => [...prev, `>>> Upgrades completed with code ${data.code}`])
-            setIsDeploying(false)
-            eventSource.close()
-            if (data.code === 0) alert('Nodes upgraded successfully!')
-          }
-        } catch (e) {}
-      }
-
-      eventSource.onerror = () => {
-        setLogs(prev => [...prev, `>>> Connection lost to upgrade stream.`])
-        setIsDeploying(false)
-        eventSource.close()
-      }
-      
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
     } catch (e: any) {
-      setLogs(prev => [...prev, `>>> Error: ${e.message}`])
-      setIsDeploying(false)
+      alert(`Error triggering upgrade: ${e.message}`)
     }
   }
 
@@ -232,13 +207,14 @@ export default function DeployPage() {
                   type="text" 
                   value={targetIp} 
                   onChange={e => setTargetIp(e.target.value)}
-                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition"
+                  disabled={isDeploying}
+                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50"
                 />
               </div>
               
               <button
                 onClick={fetchDeployInfo}
-                disabled={isFetchingInfo}
+                disabled={isFetchingInfo || isDeploying}
                 className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-white/10 rounded-lg text-sm transition disabled:opacity-50"
               >
                 {isFetchingInfo ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
