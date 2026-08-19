@@ -40,5 +40,5 @@ spec:
   selector:
     app: ma-api-gateway
   ports:
-    - port: 9090
+    - port: 3000
       targetPort: 3000
