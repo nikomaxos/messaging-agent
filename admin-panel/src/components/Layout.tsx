@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Smartphone, FileText, LogOut, Users, Route as RouteIcon,
   Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart,
-  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown
+  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown, Globe
 } from 'lucide-react'
 import PushSubscriptionPrompt from './PushSubscriptionPrompt'
 
@@ -19,6 +19,7 @@ const nav = [
       { to: '/smpp/server',   icon: <Server size={20} />,          label: 'SMPP Server' },
       { to: '/smpp/clients',  icon: <Users size={20} />,           label: 'SMPP Clients' },
       { to: '/smscs',         icon: <Server size={20} className="text-blue-400" />, label: 'SMSc Suppliers' },
+      { to: '/smpp/proxy',    icon: <Globe size={20} className="text-purple-400" />, label: 'SMPP Proxy' },
     ]
   },
   
