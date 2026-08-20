@@ -136,6 +136,12 @@ export default function DeployPage() {
     const isRollback = env === 'rollback_prod'
     if (!confirm(`Are you sure you want to ${isRollback ? 'ROLLBACK' : 'DEPLOY'} messaging-agent on ${targetIp}?`)) return
     
+    setLogs([])
+    setCurrentStep(0)
+    setVmWarnings([])
+    setContainerErrors([])
+    setIsDeploying(true)
+
     try {
       const res = await fetch('/api/deploy/trigger', {
         method: 'POST',

@@ -106,6 +106,22 @@ app.post('/api/deploy/trigger', async (req, res) => {
   activeDeploy.vmWarnings = [];
   activeDeploy.containerErrors = [];
   
+  // Notify all connected clients to sync state (which clears logs)
+  activeDeploy.clients.forEach(client => {
+    client.write(`data: ${JSON.stringify({ 
+      sync: true, 
+      isRunning: activeDeploy.isRunning, 
+      env: activeDeploy.env,
+      targetIp: activeDeploy.targetIp,
+      currentStep: activeDeploy.currentStep,
+      vmWarnings: activeDeploy.vmWarnings,
+      containerErrors: activeDeploy.containerErrors,
+      done: activeDeploy.done,
+      code: activeDeploy.code,
+      logs: activeDeploy.logs 
+    })}\n\n`);
+  });
+  
   res.json({ message: 'Deployment started' });
 
   // Start background process
