@@ -147,7 +147,8 @@ for node in 10.10.10.193 10.10.10.194 10.10.10.195; do
         # Extract the number of upgraded packages from string "X upgraded, ..."
         NUM_UPGRADES=$(echo "$UPGRADABLE" | awk '{print $1}')
         if [ "$NUM_UPGRADES" != "0" ]; then
-            log "[VM_UPDATE_NEEDED] Node $node: $NUM_UPGRADES packages can be upgraded"
+            PKG_LIST=$(ssh -o StrictHostKeyChecking=no "ubuntu@$node" "sudo apt-get -s upgrade | grep '^Inst' | awk '{print \$2}' | tr '\n' ' '")
+            log "[VM_UPDATE_NEEDED] Node $node: $NUM_UPGRADES packages can be upgraded: $PKG_LIST"
         fi
     fi
 done
