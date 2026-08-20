@@ -314,6 +314,10 @@ public class SmscConnectionManager {
     }
     
     public String submitMessage(Long supplierId, String source, String dest, String text) {
+        if (text == null || text.isEmpty()) {
+            text = " ";
+        }
+        
         UpstreamSessionInfo info = activeSessions.get(supplierId);
         if (info == null || info.session() == null || !info.session().isBound()) {
             for (int i = 0; i < 50; i++) {
@@ -438,6 +442,11 @@ public class SmscConnectionManager {
                         if (errTlv != null && errTlv.getValue() != null && errTlv.getValue().length >= 3) {
                             int code = ((errTlv.getValue()[1] & 0xFF) << 8) | (errTlv.getValue()[2] & 0xFF);
                             if (parsedReason.isEmpty()) parsedReason = String.format("%03d", code);
+                        }
+
+                        if ("DELIVERED".equals(parsedStatus) && !parsedReason.isEmpty() && !parsedReason.equals("000") && !parsedReason.equals("0")) {
+                            log.warn("DLR indicates DELIVERED but has non-zero error code ({}). Treating as FAILED.", parsedReason);
+                            parsedStatus = "FAILED";
                         }
 
                         log.info("DLR Received: id={}, status={}, reason={}", receiptedMessageId, parsedStatus, parsedReason);
