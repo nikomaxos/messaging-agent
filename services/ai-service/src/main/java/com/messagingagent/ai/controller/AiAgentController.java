@@ -43,13 +43,21 @@ public class AiAgentController {
     @GetMapping("/config")
     public AiAgentConfig getConfig() {
         return configRepository.findAll().stream().findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No AI config found"));
+                .orElseGet(() -> configRepository.save(AiAgentConfig.builder()
+                        .provider(AiAgentConfig.Provider.GEMINI)
+                        .modelName("gemini-2.0-flash")
+                        .enabled(false)
+                        .build()));
     }
 
     @PutMapping("/config")
     public AiAgentConfig updateConfig(@RequestBody AiAgentConfig updates) {
         AiAgentConfig existing = configRepository.findAll().stream().findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No AI config found"));
+                .orElseGet(() -> AiAgentConfig.builder()
+                        .provider(AiAgentConfig.Provider.GEMINI)
+                        .modelName("gemini-2.0-flash")
+                        .enabled(false)
+                        .build());
         existing.setProvider(updates.getProvider());
         existing.setModelName(updates.getModelName());
         existing.setEnabled(updates.isEnabled());
