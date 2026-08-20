@@ -7,6 +7,8 @@ import com.messagingagent.model.SmppRouting;
 import com.messagingagent.repository.MessageLogRepository;
 import com.messagingagent.repository.SmppClientRepository;
 import com.messagingagent.repository.SmppRoutingRepository;
+import com.messagingagent.repository.SmscSupplierRepository;
+import com.messagingagent.model.SmscSupplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -28,6 +30,7 @@ public class SmsInboundConsumer {
 
     private final SmppClientRepository smppClientRepository;
     private final SmppRoutingRepository smppRoutingRepository;
+    private final SmscSupplierRepository smscSupplierRepository;
     private final MessageLogRepository messageLogRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -135,6 +138,47 @@ public class SmsInboundConsumer {
                 kafkaTemplate.send("sms.delivery.receipt", correlationId, dlrJson);
                 
                 return;
+            }
+
+            // Check for forced Supplier override
+            Number forcedSupplierId = (Number) event.get("forcedSupplierId");
+            if (forcedSupplierId != null) {
+                SmscSupplier forcedSupplier = smscSupplierRepository.findById(forcedSupplierId.longValue()).orElse(null);
+                if (forcedSupplier != null) {
+                    log.info("Bypassing routing for forced supplierId={}", forcedSupplierId);
+                    MessageLog logEntry = messageLogRepository.findBySmppMessageId(correlationId)
+                            .orElseGet(() -> MessageLog.builder()
+                                    .smppMessageId(correlationId)
+                                    .customerMessageId(correlationId)
+                                    .smppClient(clientOpt.orElse(null))
+                                    .sourceAddress(sourceAddress)
+                                    .destinationAddress(destinationAddress)
+                                    .messageText(messageText)
+                                    .isEmulated(false)
+                                    .build());
+
+                    logEntry.setStatus(MessageLog.Status.QUEUED);
+                    if (logEntry.getSmppClient() == null && clientOpt.isPresent()) {
+                        logEntry.setSmppClient(clientOpt.get());
+                    }
+                    
+                    logEntry.setRoutingMode(com.messagingagent.model.RoutingMode.SMS);
+                    logEntry.setFallbackSmsc(forcedSupplier);
+                    
+                    messageLogRepository.save(logEntry);
+                    log.info("Saved message correlationId={} as QUEUED for dispatch", correlationId);
+
+                    Map<String, Object> outboundEvent = Map.of(
+                        "correlationId", correlationId,
+                        "supplierId", forcedSupplier.getId(),
+                        "sourceAddress", sourceAddress,
+                        "destinationAddress", destinationAddress,
+                        "messageText", messageText
+                    );
+                    kafkaTemplate.send("outbound.smpp", correlationId, objectMapper.writeValueAsString(outboundEvent));
+                    log.info("Dispatched to outbound.smpp for correlationId={} supplierId={}", correlationId, forcedSupplier.getId());
+                    return;
+                }
             }
 
             // Normal routing

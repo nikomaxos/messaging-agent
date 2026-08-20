@@ -54,6 +54,9 @@ public class TestingController {
         event.put("correlationId", "TEST-" + UUID.randomUUID().toString());
         event.put("timestampMs", System.currentTimeMillis());
         event.put("priority", 2);
+        if (request.getSupplierId() != null) {
+            event.put("forcedSupplierId", request.getSupplierId());
+        }
 
         try {
             kafkaTemplate.send("sms.inbound.raw", request.getDestination(), objectMapper.writeValueAsString(event));
@@ -98,6 +101,9 @@ public class TestingController {
                 event.put("correlationId", "TEST-STRESS-" + UUID.randomUUID().toString());
                 event.put("timestampMs", System.currentTimeMillis());
                 event.put("priority", 2);
+                if (request.getSupplierId() != null) {
+                    event.put("forcedSupplierId", request.getSupplierId());
+                }
                 
                 try {
                     kafkaTemplate.send("sms.inbound.raw", dest, objectMapper.writeValueAsString(event));
@@ -135,6 +141,9 @@ public class TestingController {
             event.put("correlationId", "TEST-STRESS-" + UUID.randomUUID().toString());
             event.put("timestampMs", System.currentTimeMillis());
             event.put("priority", 2);
+            if (request.getSupplierId() != null) {
+                event.put("forcedSupplierId", request.getSupplierId());
+            }
             
             try {
                 kafkaTemplate.send("sms.inbound.raw", dummyNumber, objectMapper.writeValueAsString(event));
