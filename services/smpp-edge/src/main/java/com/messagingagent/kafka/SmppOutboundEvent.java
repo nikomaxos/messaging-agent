@@ -16,4 +16,5 @@ public class SmppOutboundEvent {
     private String destinationAddress;
     private String messageText;
     private String smppMessageId; // Original message ID for sending DLR
+    private Byte dataCoding;
 }

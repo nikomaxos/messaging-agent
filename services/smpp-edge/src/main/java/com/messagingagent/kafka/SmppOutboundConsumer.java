@@ -29,15 +29,17 @@ public class SmppOutboundConsumer {
             String dest = (String) event.get("destinationAddress");
             String text = (String) event.get("messageText");
             String correlationId = (String) event.get("correlationId");
+            Integer dataCodingInt = (Integer) event.get("dataCoding");
+            Byte dataCoding = dataCodingInt != null ? dataCodingInt.byteValue() : null;
 
             if (supplierId == null || dest == null || text == null) {
                 log.warn("Invalid outbound SMPP event: {}", messageJson);
                 return;
             }
 
-            log.info("Dispatching outbound SMS to supplierId={} dest={} correlationId={}", supplierId, dest, correlationId);
+            log.info("Dispatching outbound SMS to supplierId={} dest={} correlationId={} dataCoding={}", supplierId, dest, correlationId, dataCoding);
             
-            String supplierMessageId = smscConnectionManager.submitMessage(supplierId, source, dest, text);
+            String supplierMessageId = smscConnectionManager.submitMessage(supplierId, source, dest, text, dataCoding);
             
             if (supplierMessageId != null) {
                 log.info("Successfully submitted SMS to supplierId={}, supplierMessageId={}", supplierId, supplierMessageId);

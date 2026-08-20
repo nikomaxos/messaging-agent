@@ -151,13 +151,15 @@ public class MessageLogController {
                 logRepository.save(retryLog);
 
                 if (retryLog.getRoutingMode() == com.messagingagent.model.RoutingMode.SMS) {
-                    Map<String, Object> outboundEvent = Map.of(
-                            "correlationId", retryLog.getSmppMessageId(),
-                            "supplierId", fallbackSmsc.getId(),
-                            "sourceAddress", retryLog.getSourceAddress() != null ? retryLog.getSourceAddress() : "",
-                            "destinationAddress", retryLog.getDestinationAddress() != null ? retryLog.getDestinationAddress() : "",
-                            "messageText", retryLog.getMessageText() != null ? retryLog.getMessageText() : ""
-                    );
+                    java.util.Map<String, Object> outboundEvent = new java.util.HashMap<>();
+                    outboundEvent.put("correlationId", retryLog.getSmppMessageId());
+                    outboundEvent.put("supplierId", fallbackSmsc.getId());
+                    outboundEvent.put("sourceAddress", retryLog.getSourceAddress() != null ? retryLog.getSourceAddress() : "");
+                    outboundEvent.put("destinationAddress", retryLog.getDestinationAddress() != null ? retryLog.getDestinationAddress() : "");
+                    outboundEvent.put("messageText", retryLog.getMessageText() != null ? retryLog.getMessageText() : "");
+                    if (retryLog.getDataCoding() != null) {
+                        outboundEvent.put("dataCoding", retryLog.getDataCoding());
+                    }
                     kafkaTemplate.send("outbound.smpp", retryLog.getSmppMessageId(), objectMapper.writeValueAsString(outboundEvent));
                 } else if (retryLog.getRoutingMode() == com.messagingagent.model.RoutingMode.WEBSOCKET) {
                     Map<String, Object> outboundEvent = Map.of(

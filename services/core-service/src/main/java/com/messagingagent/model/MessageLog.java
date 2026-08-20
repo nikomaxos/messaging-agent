@@ -63,6 +63,9 @@ public class MessageLog {
     @Builder.Default
     private Integer dispatchAttempts = 0;
 
+    @Column(name = "data_coding")
+    private Byte dataCoding;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "smpp_client_id")
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

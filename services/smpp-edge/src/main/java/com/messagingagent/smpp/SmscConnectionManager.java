@@ -313,7 +313,7 @@ public class SmscConnectionManager {
         }
     }
     
-    public String submitMessage(Long supplierId, String source, String dest, String text) {
+    public String submitMessage(Long supplierId, String source, String dest, String text, Byte dataCoding) {
         if (text == null || text.isEmpty()) {
             text = " ";
         }
@@ -338,7 +338,7 @@ public class SmscConnectionManager {
         if (supplier == null) return null;
 
         try {
-            LongSmsHelper.SmsPart[] parts = LongSmsHelper.createParts(text);
+            LongSmsHelper.SmsPart[] parts = LongSmsHelper.createParts(text, dataCoding);
             String firstMessageId = null;
 
             for (LongSmsHelper.SmsPart part : parts) {

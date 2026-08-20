@@ -169,6 +169,30 @@ services:
     ports:
       - "2774:2775"
 
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    container_name: ma-ai-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: messagingagent
+      DB_USER: msgagent
+      DB_PASS: msgagent
+      CORE_SERVICE_URL: http://core-service:8080
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    volumes:
+      - .:/repo
+
   admin-panel:
     build:
       context: ./admin-panel

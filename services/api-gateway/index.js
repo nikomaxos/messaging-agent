@@ -12,6 +12,7 @@ const CORE_SERVICE_URL = process.env.CORE_SERVICE_URL || 'http://core-service:80
 const DEVICE_GATEWAY_URL = process.env.DEVICE_GATEWAY_URL || 'http://device-gateway:8083';
 const ROUTING_ENGINE_URL = process.env.ROUTING_ENGINE_URL || 'http://routing-engine:8084';
 const PREFIX_UPDATER_URL = process.env.PREFIX_UPDATER_URL || 'http://prefix-updater:8085';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://ai-service:8086';
 
 // Global Rate Limiting & Auth Logic will be placed here
 app.use((req, res, next) => {
@@ -40,6 +41,9 @@ app.use('/api/routing/emulate', createPreservingProxy(ROUTING_ENGINE_URL, '/api/
 
 // Proxy prefix updater sync
 app.use('/api/prefixes/sync', createPreservingProxy(PREFIX_UPDATER_URL, '/api/prefixes/sync'));
+
+// Proxy ai-agent routes
+app.use('/api/ai-agent', createPreservingProxy(AI_SERVICE_URL, '/api/ai-agent'));
 
 // Proxy all other routes to core-service
 app.use('/api', createPreservingProxy(CORE_SERVICE_URL, '/api'));

@@ -44,6 +44,8 @@ public class SmsInboundConsumer {
             String sourceAddress = (String) event.get("sourceAddress");
             String destinationAddress = (String) event.get("destinationAddress");
             String messageText = (String) event.get("messageText");
+            Integer dataCodingInt = (Integer) event.get("dataCoding");
+            Byte dataCoding = dataCodingInt != null ? dataCodingInt.byteValue() : null;
 
             SmppClient smppClient = null;
             if (systemId != null) {
@@ -60,6 +62,7 @@ public class SmsInboundConsumer {
                         .messageText(messageText)
                         .status(MessageLog.Status.RECEIVED)
                         .isEmulated(false)
+                        .dataCoding(dataCoding)
                         .build();
                 messageLogRepository.save(logEntry);
             }
@@ -77,6 +80,8 @@ public class SmsInboundConsumer {
             String sourceAddress = (String) event.get("sourceAddress");
             String destinationAddress = (String) event.get("destinationAddress");
             String messageText = (String) event.get("messageText");
+            Integer dataCodingInt = (Integer) event.get("dataCoding");
+            Byte dataCoding = dataCodingInt != null ? dataCodingInt.byteValue() : null;
 
             log.info("Routing engine evaluating message correlationId={} systemId={}", correlationId, systemId);
 
@@ -94,6 +99,7 @@ public class SmsInboundConsumer {
                         .isEmulated(false)
                         .errorDetail("REJECTED_AT_EDGE: " + rejectionReason)
                         .routingMode(com.messagingagent.model.RoutingMode.SMS)
+                        .dataCoding(dataCoding)
                         .build();
                 messageLogRepository.save(logEntry);
                 return;
@@ -127,6 +133,7 @@ public class SmsInboundConsumer {
                         .status(status)
                         .isEmulated(true)
                         .errorDetail("EMULATED " + (routing.getEmulatedErrorCode() != null ? routing.getEmulatedErrorCode() : "DELIVRD"))
+                        .dataCoding(dataCoding)
                         .build();
 
                 messageLogRepository.save(logEntry);
@@ -155,6 +162,7 @@ public class SmsInboundConsumer {
                                     .destinationAddress(destinationAddress)
                                     .messageText(messageText)
                                     .isEmulated(false)
+                                    .dataCoding(dataCoding)
                                     .build());
 
                     logEntry.setStatus(MessageLog.Status.QUEUED);
@@ -168,13 +176,16 @@ public class SmsInboundConsumer {
                     messageLogRepository.save(logEntry);
                     log.info("Saved message correlationId={} as QUEUED for dispatch", correlationId);
 
-                    Map<String, Object> outboundEvent = Map.of(
-                        "correlationId", correlationId,
-                        "supplierId", forcedSupplier.getId(),
-                        "sourceAddress", sourceAddress,
-                        "destinationAddress", destinationAddress,
-                        "messageText", messageText
-                    );
+                    java.util.Map<String, Object> outboundEvent = new java.util.HashMap<>();
+                    outboundEvent.put("correlationId", correlationId);
+                    outboundEvent.put("supplierId", forcedSupplier.getId());
+                    outboundEvent.put("sourceAddress", sourceAddress);
+                    outboundEvent.put("destinationAddress", destinationAddress);
+                    outboundEvent.put("messageText", messageText);
+                    if (logEntry.getDataCoding() != null) {
+                        outboundEvent.put("dataCoding", logEntry.getDataCoding());
+                    }
+                    
                     kafkaTemplate.send("outbound.smpp", correlationId, objectMapper.writeValueAsString(outboundEvent));
                     log.info("Dispatched to outbound.smpp for correlationId={} supplierId={}", correlationId, forcedSupplier.getId());
                     return;
@@ -191,6 +202,7 @@ public class SmsInboundConsumer {
                             .destinationAddress(destinationAddress)
                             .messageText(messageText)
                             .isEmulated(false)
+                            .dataCoding(dataCoding)
                             .build());
 
             logEntry.setStatus(MessageLog.Status.QUEUED);
@@ -235,13 +247,16 @@ public class SmsInboundConsumer {
             log.info("Saved message correlationId={} as QUEUED for dispatch", correlationId);
 
             if (logEntry.getRoutingMode() == com.messagingagent.model.RoutingMode.SMS && logEntry.getFallbackSmsc() != null) {
-                Map<String, Object> outboundEvent = Map.of(
-                    "correlationId", correlationId,
-                    "supplierId", logEntry.getFallbackSmsc().getId(),
-                    "sourceAddress", sourceAddress,
-                    "destinationAddress", destinationAddress,
-                    "messageText", messageText
-                );
+                java.util.Map<String, Object> outboundEvent = new java.util.HashMap<>();
+                outboundEvent.put("correlationId", correlationId);
+                outboundEvent.put("supplierId", logEntry.getFallbackSmsc().getId());
+                outboundEvent.put("sourceAddress", sourceAddress);
+                outboundEvent.put("destinationAddress", destinationAddress);
+                outboundEvent.put("messageText", messageText);
+                if (logEntry.getDataCoding() != null) {
+                    outboundEvent.put("dataCoding", logEntry.getDataCoding());
+                }
+                
                 kafkaTemplate.send("outbound.smpp", correlationId, objectMapper.writeValueAsString(outboundEvent));
                 log.info("Dispatched to outbound.smpp for correlationId={} supplierId={}", correlationId, logEntry.getFallbackSmsc().getId());
             }
