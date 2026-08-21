@@ -1,0 +1,15 @@
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/model/AiMemory.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/security/EncryptedStringConverter.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/repository/AiChatMessageRepository.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/ai/service/AiToolService.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/security/EncryptionService.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/repository/AiMemoryRepository.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/model/AiChatSession.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/repository/AiAgentConfigRepository.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/ai/controller/AiAgentController.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/repository/AiChatSessionRepository.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/ai/AiServiceApplication.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/ai/service/AiMemoryService.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/model/AiAgentConfig.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/model/AiChatMessage.java
+/home/nick/Development/messaging-agent/services/ai-service/src/main/java/com/messagingagent/ai/service/AiChatService.java
