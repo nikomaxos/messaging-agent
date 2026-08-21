@@ -1,6 +1,6 @@
 {
   "name": "api-gateway",
-  "version": "2.4.43",
+  "version": "2.4.44",
   "description": "API Gateway and Identity Service",
   "main": "index.js",
   "scripts": {
