@@ -280,6 +280,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/repo
       - ~/.ssh:/app/.ssh_host:ro
+      - backup_config:/app/backup-data
     ports:
       - "8082:8082"
 
@@ -288,3 +289,4 @@ volumes:
   zookeeper_data:
   kafka_data:
   redis_data:
+  backup_config:

@@ -344,7 +344,7 @@ app.post('/api/deploy/info', async (req, res) => {
 });
 
 // 5. Backup & Restore Endpoints
-const BACKUP_CONFIG_PATH = '/app/backup-config.json';
+const BACKUP_CONFIG_PATH = '/app/backup-data/backup-config.json';
 const RCLONE_CONF_DIR = '/root/.config/rclone';
 const RCLONE_CONF_PATH = `${RCLONE_CONF_DIR}/rclone.conf`;
 
