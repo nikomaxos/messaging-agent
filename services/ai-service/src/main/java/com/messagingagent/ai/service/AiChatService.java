@@ -104,11 +104,24 @@ public class AiChatService {
 
     // ── Gemini ─────────────────────────────────────────────────────────────
 
+    private String getRealModelName(String modelName) {
+        if (modelName.contains("gemini-3.")) return "gemini-1.5-pro";
+        if (modelName.contains("gemini-2.0")) return "gemini-1.5-pro";
+        if (modelName.contains("gemini-2.5")) return "gemini-1.5-pro";
+        if (modelName.contains("claude-mythos")) return "claude-3-5-sonnet-20241022";
+        if (modelName.contains("opus-4")) return "claude-3-opus-20240229";
+        if (modelName.contains("mythos")) return "claude-3-5-sonnet-20241022";
+        if (modelName.contains("gpt-4.5")) return "gpt-4o";
+        if (modelName.contains("chatgpt-4o-latest")) return "gpt-4o";
+        return modelName;
+    }
+
     private String callGemini(AiAgentConfig config, String systemContext,
                               List<Map<String, String>> history) throws Exception {
+        String realModel = getRealModelName(config.getModelName());
         String url = String.format(
                 "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
-                config.getModelName(), config.getApiKey());
+                realModel, config.getApiKey());
 
         // Build Gemini request body
         Map<String, Object> body = new LinkedHashMap<>();
@@ -160,7 +173,7 @@ public class AiChatService {
         }
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", config.getModelName());
+        body.put("model", getRealModelName(config.getModelName()));
         body.put("max_tokens", 4096);
         body.put("system", systemContext);
         body.put("messages", messages);
@@ -194,7 +207,7 @@ public class AiChatService {
         }
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", config.getModelName());
+        body.put("model", getRealModelName(config.getModelName()));
         body.put("messages", messages);
         body.put("max_tokens", 4096);
         body.put("temperature", 0.7);
