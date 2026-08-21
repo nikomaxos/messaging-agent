@@ -353,14 +353,24 @@ function setupRclone() {
   if (fs.existsSync(BACKUP_CONFIG_PATH)) {
     try {
       const config = JSON.parse(fs.readFileSync(BACKUP_CONFIG_PATH, 'utf8'));
+      fs.mkdirSync(RCLONE_CONF_DIR, { recursive: true });
+      
+      // Prefer OAuth2 token (user's personal account with storage quota)
+      if (config.oauthToken) {
+        let rcloneConf = `[gdrive]\ntype = drive\nscope = drive\ntoken = ${JSON.stringify(config.oauthToken)}\n`;
+        if (config.oauthClientId) rcloneConf += `client_id = ${config.oauthClientId}\n`;
+        if (config.oauthClientSecret) rcloneConf += `client_secret = ${config.oauthClientSecret}\n`;
+        if (config.driveFolderId) rcloneConf += `root_folder_id = ${config.driveFolderId}\n`;
+        fs.writeFileSync(RCLONE_CONF_PATH, rcloneConf);
+        return config;
+      }
+      
+      // Fallback to service account (only works for reading/listing, not uploading)
       if (config.serviceAccountJson) {
-        fs.mkdirSync(RCLONE_CONF_DIR, { recursive: true });
         const saPath = '/app/backup-data/gdrive-sa.json';
         fs.writeFileSync(saPath, config.serviceAccountJson);
         let rcloneConf = `[gdrive]\ntype = drive\nscope = drive\nservice_account_file = ${saPath}\n`;
-        if (config.driveFolderId) {
-          rcloneConf += `root_folder_id = ${config.driveFolderId}\n`;
-        }
+        if (config.driveFolderId) rcloneConf += `root_folder_id = ${config.driveFolderId}\n`;
         fs.writeFileSync(RCLONE_CONF_PATH, rcloneConf);
         return config;
       }
@@ -385,10 +395,73 @@ function writeBackupConfig(config) {
 
 app.get('/api/backup/config', (req, res) => {
   const config = readBackupConfig();
-  if (config && config.serviceAccountJson) {
-    res.json({ configured: true, gdrivePath: config.gdrivePath || '', driveFolderId: config.driveFolderId || '' });
+  if (config && (config.serviceAccountJson || config.oauthToken)) {
+    res.json({ 
+      configured: true, 
+      gdrivePath: config.gdrivePath || '', 
+      driveFolderId: config.driveFolderId || '',
+      hasOAuth: !!config.oauthToken,
+      hasSA: !!config.serviceAccountJson
+    });
   } else {
     res.json({ configured: false });
+  }
+});
+
+// --- Google OAuth2 Flow (for personal Gmail accounts) ---
+app.post('/api/backup/auth-url', (req, res) => {
+  const { clientId, clientSecret } = req.body;
+  if (!clientId || !clientSecret) return res.status(400).json({ error: 'clientId and clientSecret required' });
+  // Save client credentials
+  const config = readBackupConfig() || {};
+  config.oauthClientId = clientId;
+  config.oauthClientSecret = clientSecret;
+  writeBackupConfig(config);
+  
+  const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+  const scope = 'https://www.googleapis.com/auth/drive';
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+  res.json({ authUrl });
+});
+
+app.post('/api/backup/auth-callback', async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'Authorization code is required' });
+  const config = readBackupConfig();
+  if (!config || !config.oauthClientId || !config.oauthClientSecret) {
+    return res.status(400).json({ error: 'OAuth client credentials not configured' });
+  }
+  
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `code=${encodeURIComponent(code)}&client_id=${encodeURIComponent(config.oauthClientId)}&client_secret=${encodeURIComponent(config.oauthClientSecret)}&redirect_uri=${encodeURIComponent('urn:ietf:wg:oauth:2.0:oob')}&grant_type=authorization_code`
+    });
+    const tokenData = await tokenRes.json();
+    if (tokenData.error) {
+      return res.status(400).json({ error: `Token exchange failed: ${tokenData.error_description || tokenData.error}` });
+    }
+    
+    // Store token in rclone format
+    config.oauthToken = {
+      access_token: tokenData.access_token,
+      token_type: tokenData.token_type || 'Bearer',
+      refresh_token: tokenData.refresh_token,
+      expiry: new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString()
+    };
+    writeBackupConfig(config);
+    setupRclone();
+    
+    // Test the connection
+    try {
+      await execPromise('rclone lsd gdrive: 2>&1');
+      res.json({ message: 'Google Drive authorized successfully! Ready to backup.' });
+    } catch(err) {
+      res.json({ message: 'Token saved, but connection test failed.', testError: err.stderr || err.message });
+    }
+  } catch(err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -432,7 +505,7 @@ app.post('/api/backup/select-folder', (req, res) => {
   const { folderId, folderPath } = req.body;
   if (!folderId) return res.status(400).json({ error: 'folderId is required' });
   const config = readBackupConfig();
-  if (!config || !config.serviceAccountJson) return res.status(400).json({ error: 'Backup not configured yet' });
+  if (!config || (!config.serviceAccountJson && !config.oauthToken)) return res.status(400).json({ error: 'Backup not configured yet' });
   config.driveFolderId = folderId;
   config.gdrivePath = folderPath || '';
   writeBackupConfig(config);
@@ -489,16 +562,39 @@ async function getDriveAccessToken(saJsonStr) {
 
 app.get('/api/backup/browse', async (req, res) => {
   const config = readBackupConfig();
-  if (!config || !config.serviceAccountJson) return res.status(400).json({ error: 'Not configured' });
+  if (!config) return res.status(400).json({ error: 'Not configured' });
 
   const folderId = req.query.folderId;
   try {
-    const token = await getDriveAccessToken(config.serviceAccountJson);
+    let token;
+    if (config.oauthToken) {
+      // Use OAuth token - may need refresh
+      if (new Date(config.oauthToken.expiry) < new Date()) {
+        // Refresh the token
+        const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `refresh_token=${encodeURIComponent(config.oauthToken.refresh_token)}&client_id=${encodeURIComponent(config.oauthClientId)}&client_secret=${encodeURIComponent(config.oauthClientSecret)}&grant_type=refresh_token`
+        });
+        const refreshData = await refreshRes.json();
+        if (refreshData.access_token) {
+          config.oauthToken.access_token = refreshData.access_token;
+          config.oauthToken.expiry = new Date(Date.now() + (refreshData.expires_in || 3600) * 1000).toISOString();
+          writeBackupConfig(config);
+        }
+      }
+      token = config.oauthToken.access_token;
+    } else if (config.serviceAccountJson) {
+      token = await getDriveAccessToken(config.serviceAccountJson);
+    } else {
+      return res.status(400).json({ error: 'No authentication configured' });
+    }
+
     let query = `mimeType='application/vnd.google-apps.folder' and trashed=false`;
     if (folderId) {
       query += ` and '${folderId}' in parents`;
     } else {
-      query += ` and sharedWithMe=true`;
+      query += ` and 'root' in parents`;
     }
     const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&orderBy=name&pageSize=100`;
     const driveRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Save, DownloadCloud, AlertTriangle, Play, RefreshCw, Key, FolderOpen, ShieldAlert, Clock, Timer, Folder, ChevronRight, CheckCircle } from 'lucide-react';
+import { Database, Save, DownloadCloud, AlertTriangle, Play, RefreshCw, Key, FolderOpen, ShieldAlert, Clock, Timer, Folder, ChevronRight, CheckCircle, ExternalLink, LogIn } from 'lucide-react';
 
 export default function BackupRestorePage() {
   const [config, setConfig] = useState({ gdrivePath: '', serviceAccountJson: '', driveFolderId: '' });
@@ -26,6 +26,13 @@ export default function BackupRestorePage() {
   const [browseError, setBrowseError] = useState('');
   const [breadcrumbs, setBreadcrumbs] = useState<{id: string, name: string}[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<{id: string, name: string} | null>(null);
+
+  const [hasOAuth, setHasOAuth] = useState(false);
+  const [oauthClientId, setOauthClientId] = useState('');
+  const [oauthClientSecret, setOauthClientSecret] = useState('');
+  const [authUrl, setAuthUrl] = useState('');
+  const [authCode, setAuthCode] = useState('');
+  const [authStep, setAuthStep] = useState<'credentials' | 'authorize' | 'done'>('credentials');
   
   const fetchConfig = async () => {
     try {
@@ -34,6 +41,8 @@ export default function BackupRestorePage() {
       if (data.configured) {
         setIsConfigured(true);
         setConfig(prev => ({ ...prev, gdrivePath: data.gdrivePath, driveFolderId: data.driveFolderId || '' }));
+        setHasOAuth(!!data.hasOAuth);
+        if (data.hasOAuth) setAuthStep('done');
         fetchBackups();
       }
     } catch (e) {
@@ -249,20 +258,124 @@ export default function BackupRestorePage() {
         </div>
       </div>
       
-      {!isConfigured && (
+      {!hasOAuth && (
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
           <h2 className="text-lg font-medium text-blue-300 flex items-center gap-2 mb-4">
-            <Key size={18} /> First-time Setup Instructions
+            <Key size={18} /> Google Drive Setup
           </h2>
-          <ol className="list-decimal list-inside text-sm text-blue-200/80 space-y-2 mb-6">
+          <ol className="list-decimal list-inside text-sm text-blue-200/80 space-y-2 mb-4">
             <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 underline">Google Cloud Console</a>.</li>
             <li>Create a new Project (or select an existing one).</li>
             <li>Enable the <strong>Google Drive API</strong> in "APIs & Services" → "Library".</li>
-            <li>Go to "Credentials" &gt; "Create Credentials" &gt; "Service Account".</li>
-            <li>Once created, click the Service Account, go to "Keys" &gt; "Add Key" &gt; "Create new key" (JSON format).</li>
-            <li>Open the downloaded JSON file and paste its entire contents below.</li>
-            <li><strong>CRITICAL</strong>: Go to your Google Drive, create a folder for backups, and share it with the <code>client_email</code> address found in your JSON file, giving it "Editor" access.</li>
+            <li>Go to <strong>"APIs & Services" → "OAuth consent screen"</strong>. Set type to "External", fill in app name, and add your email. Under "Scopes", add <code>.../auth/drive</code>. Under "Test users", add <strong>your Gmail address</strong>. Publish or keep in testing mode.</li>
+            <li>Go to <strong>"Credentials" → "Create Credentials" → "OAuth client ID"</strong>. Set type to <strong>"Web application"</strong>.</li>
+            <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> and paste them below.</li>
           </ol>
+
+          {authStep === 'credentials' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">OAuth Client ID</label>
+                <input
+                  type="text"
+                  value={oauthClientId}
+                  onChange={e => setOauthClientId(e.target.value)}
+                  placeholder="123456789-abc.apps.googleusercontent.com"
+                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">OAuth Client Secret</label>
+                <input
+                  type="password"
+                  value={oauthClientSecret}
+                  onChange={e => setOauthClientSecret(e.target.value)}
+                  placeholder="GOCSPX-..."
+                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 outline-none font-mono"
+                />
+              </div>
+              {configError && <div className="text-red-400 text-xs p-2 bg-red-400/10 rounded border border-red-400/20">{configError}</div>}
+              <button
+                onClick={async () => {
+                  if (!oauthClientId || !oauthClientSecret) { setConfigError('Both Client ID and Client Secret are required'); return; }
+                  setConfigError('');
+                  setSavingConfig(true);
+                  try {
+                    const res = await fetch('/api/backup/auth-url', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ clientId: oauthClientId, clientSecret: oauthClientSecret })
+                    });
+                    const data = await res.json();
+                    if (data.authUrl) {
+                      setAuthUrl(data.authUrl);
+                      setAuthStep('authorize');
+                    } else {
+                      setConfigError(data.error || 'Failed to generate auth URL');
+                    }
+                  } catch(e: any) { setConfigError(e.message); } finally { setSavingConfig(false); }
+                }}
+                disabled={savingConfig}
+                className="w-full bg-brand-600 hover:bg-brand-500 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition flex items-center justify-center gap-2"
+              >
+                <LogIn size={16} /> Generate Authorization Link
+              </button>
+            </div>
+          )}
+
+          {authStep === 'authorize' && (
+            <div className="space-y-3">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <p className="text-amber-300 text-sm font-medium mb-2">Step 1: Click the link below to authorize access:</p>
+                <a href={authUrl} target="_blank" rel="noreferrer" className="text-blue-400 underline text-xs break-all flex items-center gap-1">
+                  <ExternalLink size={14} className="shrink-0" /> Open Google Authorization Page
+                </a>
+                <p className="text-amber-200/60 text-xs mt-2">Step 2: After authorizing, Google will show you a code. Copy it and paste below:</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Authorization Code</label>
+                <input
+                  type="text"
+                  value={authCode}
+                  onChange={e => setAuthCode(e.target.value)}
+                  placeholder="4/0Abc123..."
+                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 outline-none font-mono"
+                />
+              </div>
+              {configError && <div className="text-red-400 text-xs p-2 bg-red-400/10 rounded border border-red-400/20">{configError}</div>}
+              {configSuccess && <div className="text-emerald-400 text-xs p-2 bg-emerald-400/10 rounded border border-emerald-400/20">{configSuccess}</div>}
+              <button
+                onClick={async () => {
+                  if (!authCode) { setConfigError('Paste the authorization code from Google'); return; }
+                  setConfigError('');
+                  setSavingConfig(true);
+                  try {
+                    const res = await fetch('/api/backup/auth-callback', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ code: authCode })
+                    });
+                    const data = await res.json();
+                    if (res.ok && !data.testError) {
+                      setConfigSuccess(data.message);
+                      setHasOAuth(true);
+                      setIsConfigured(true);
+                      setAuthStep('done');
+                      setShowBrowser(true);
+                      loadFolders();
+                    } else {
+                      setConfigError(data.error || data.testError || 'Authorization failed');
+                    }
+                  } catch(e: any) { setConfigError(e.message); } finally { setSavingConfig(false); }
+                }}
+                disabled={savingConfig}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition flex items-center justify-center gap-2"
+              >
+                {savingConfig ? <RefreshCw className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                Complete Authorization
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -275,19 +388,6 @@ export default function BackupRestorePage() {
               <FolderOpen size={18} className="text-slate-400" /> Google Drive Configuration
             </h2>
             <form onSubmit={handleSaveConfig} className="space-y-4">
-              {!isConfigured && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Service Account JSON</label>
-                  <textarea
-                    value={config.serviceAccountJson}
-                    onChange={e => setConfig(prev => ({...prev, serviceAccountJson: e.target.value}))}
-                    placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
-                    className="w-full h-32 bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 outline-none font-mono"
-                    required
-                  />
-                </div>
-              )}
-
               {config.driveFolderId && (
                 <div className="flex items-center gap-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                   <CheckCircle size={16} className="text-emerald-400 shrink-0" />
@@ -311,15 +411,12 @@ export default function BackupRestorePage() {
               
               {configError && <div className="text-red-400 text-xs p-2 bg-red-400/10 rounded border border-red-400/20">{configError}</div>}
               {configSuccess && <div className="text-emerald-400 text-xs p-2 bg-emerald-400/10 rounded border border-emerald-400/20">{configSuccess}</div>}
-              
-              <button 
-                type="submit" 
-                disabled={savingConfig}
-                className="w-full bg-brand-600 hover:bg-brand-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition flex items-center justify-center gap-2"
-              >
-                {savingConfig ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-                {isConfigured ? 'Update Configuration' : 'Save & Authenticate'}
-              </button>
+
+              {hasOAuth && (
+                <div className="flex items-center gap-2 text-xs text-emerald-400/80">
+                  <CheckCircle size={14} /> OAuth2 Connected
+                </div>
+              )}
             </form>
           </div>
 
