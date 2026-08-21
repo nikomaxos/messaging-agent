@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Smartphone, FileText, LogOut, Users, Route as RouteIcon,
   Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart,
-  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown, Globe
+  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown, Globe, Database
 } from 'lucide-react'
 import PushSubscriptionPrompt from './PushSubscriptionPrompt'
 
@@ -47,6 +47,7 @@ const nav = [
     icon: <Shield size={20} className="text-slate-400" />, label: 'Administration',
     children: [
       { to: '/deploy',        icon: <Rocket size={20} className="text-teal-400" />, label: 'Auto-Deploy' },
+      { to: '/backup-restore',icon: <Database size={20} className="text-emerald-400" />, label: 'Backup/Restore' },
       { to: '/users',          icon: <UserCog size={20} className="text-rose-400" />, label: 'Users' },
       { to: '/infrastructure', icon: <Activity size={20} className="text-cyan-400" />, label: 'Infrastructure' },
       { to: '/logs/system',   icon: <Server size={20} className="text-indigo-400" />, label: 'System Logs' },

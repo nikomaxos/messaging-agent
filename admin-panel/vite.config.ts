@@ -6,6 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/api/backup': {
+        target: 'http://localhost:8082',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:9090',
         changeOrigin: true,

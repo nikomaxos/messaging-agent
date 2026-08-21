@@ -53,11 +53,12 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
    - **Proxy:** Edge routing through HAProxy on the Proxmox Host, passing through to K3s Traefik.
 
 
-## 4. Deployment Dashboard and CI/CD
+## 4. Deployment Dashboard, CI/CD, and Disaster Recovery
 
-- A dedicated DevOps dashboard is built into the `admin-panel` (DeployPage.tsx).
+- A dedicated DevOps dashboard is built into the `admin-panel` (DeployPage.tsx and BackupRestorePage.tsx).
+- **Disaster Recovery (Google Drive Backup)**: The `deploy-agent` is equipped with `rclone`. It can SSH into production, execute a `pg_dump` on the `ma-postgres-0` database, and push the snapshot to a configured Google Drive folder. It also supports one-click streaming restores directly from the UI.
 - **Security Check:** The Deploy Page UI dynamically locks down functionality based on the environment. In Production, deployments are disabled, leaving only the "Rollback" functionality accessible.
-- **Microservice:** Deployments are triggered via the `deploy-agent` (a Node.js Docker container running on DevBox port 8082).
+- **Microservice:** Deployments and Backups are triggered via the `deploy-agent` (a Node.js Docker container running on DevBox port 8082). Note: Caddy routes both `/api/deploy/*` and `/api/backup/*` to this service.
 - **Execution:** When triggered, the `deploy-agent` uses SSH to securely connect to Proxmox and the Production VM to execute commands.
 - **Rollbacks:** Before every deployment, an automatic Proxmox VM Snapshot is taken. Rollbacks instantly revert the entire Proxmox disk state (code, database, and containers) to the exact second before deployment.
 
