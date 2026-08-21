@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ma-ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ma-ai-service
+  template:
+    metadata:
+      labels:
+        app: ma-ai-service
+    spec:
+      containers:
+      - name: ma-ai-service
+        image: messaging-agent-ai-service:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: JAVA_TOOL_OPTIONS
+          value: "-Xmx256m -Xms64m -XX:MaxMetaspaceSize=128m"
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "messagingagent"
+        - name: DB_USER
+          value: "msgagent"
+        - name: DB_PASS
+          value: "msgagent"
+        - name: CORE_SERVICE_URL
+          value: "http://ma-core-service:8080"
+        ports:
+        - containerPort: 8086
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ma-ai-service
+spec:
+  selector:
+    app: ma-ai-service
+  ports:
+    - port: 8086
+      targetPort: 8086

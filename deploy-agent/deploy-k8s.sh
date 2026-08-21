@@ -48,6 +48,7 @@ SERVICES=(
   ["rcs-mautrix"]="services/rcs-mautrix"
   ["api-gateway"]="services/api-gateway"
   ["prefix-updater"]="services/prefix-updater"
+  ["ai-service"]="services/ai-service"
   ["admin-panel"]="admin-panel"
 )
 

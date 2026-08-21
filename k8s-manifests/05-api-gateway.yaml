@@ -27,6 +27,8 @@ spec:
           value: "http://ma-routing-engine:8084"
         - name: PREFIX_UPDATER_URL
           value: "http://ma-prefix-updater:8085"
+        - name: AI_SERVICE_URL
+          value: "http://ma-ai-service:8086"
         - name: JWT_SECRET
           value: "change-me-in-production-this-must-be-at-least-32-chars"
         ports:
