@@ -466,6 +466,67 @@ app.get('/api/backup/stream', (req, res) => {
   req.on('close', () => { activeBackup.clients = activeBackup.clients.filter(c => c !== res); });
 });
 
+// --- Retention Policy: 7 daily + 4 weekly + monthly forever ---
+async function pruneOldBackups() {
+  const config = setupRclone();
+  if (!config) return;
+  
+  try {
+    const { stdout } = await execPromise(`rclone lsjson gdrive:"${config.gdrivePath}" 2>/dev/null`);
+    const allFiles = JSON.parse(stdout || '[]').filter(f => !f.IsDir && f.Name.endsWith('.dump'));
+    if (allFiles.length <= 1) return; // Nothing to prune
+    
+    // Sort newest first
+    allFiles.sort((a, b) => new Date(b.ModTime).getTime() - new Date(a.ModTime).getTime());
+    
+    const now = new Date();
+    const DAY_MS = 86400000;
+    const keepers = new Set();
+    const weeklyKept = {};  // "YYYY-WW" -> newest file
+    const monthlyKept = {}; // "YYYY-MM" -> newest file
+    
+    for (const file of allFiles) {
+      const fileDate = new Date(file.ModTime);
+      const ageDays = (now.getTime() - fileDate.getTime()) / DAY_MS;
+      
+      if (ageDays <= 7) {
+        // Keep ALL backups from the last 7 days
+        keepers.add(file.Name);
+      } else if (ageDays <= 30) {
+        // Keep one per week (the newest in that week)
+        const weekStart = new Date(fileDate);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const weekKey = weekStart.toISOString().slice(0, 10);
+        if (!weeklyKept[weekKey]) {
+          weeklyKept[weekKey] = file.Name;
+          keepers.add(file.Name);
+        }
+      } else {
+        // Keep one per month (the newest in that month) — forever
+        const monthKey = fileDate.toISOString().slice(0, 7); // YYYY-MM
+        if (!monthlyKept[monthKey]) {
+          monthlyKept[monthKey] = file.Name;
+          keepers.add(file.Name);
+        }
+      }
+    }
+    
+    const toDelete = allFiles.filter(f => !keepers.has(f.Name));
+    if (toDelete.length > 0) {
+      bLog(`[Retention] Pruning ${toDelete.length} old backup(s)...`);
+      for (const file of toDelete) {
+        bLog(`[Retention] Deleting ${file.Name}`);
+        await execPromise(`rclone deletefile gdrive:"${config.gdrivePath}/${file.Name}"`).catch(() => {});
+      }
+      bLog(`[Retention] Cleanup complete. ${keepers.size} backup(s) retained.`);
+    } else {
+      bLog(`[Retention] All ${allFiles.length} backup(s) within retention policy.`);
+    }
+  } catch (err) {
+    bLog(`[Retention] Warning: cleanup failed: ${err.message}`, true);
+  }
+}
+
 app.post('/api/backup/trigger', async (req, res) => {
   const { ip } = req.body;
   if (!ip) return res.status(400).json({ error: 'Target IP is required' });
@@ -507,6 +568,7 @@ app.post('/api/backup/trigger', async (req, res) => {
     sshCleanup.dispose();
 
     bLog(`Backup completed successfully!`);
+    await pruneOldBackups();
     bBroadcast({ done: true, success: true });
   } catch (err) {
     bLog(`Backup failed: ${err.message}`, true);
@@ -616,6 +678,7 @@ async function runAutoBackup() {
       sshCleanup.dispose();
       
       bLog(`[Auto-Backup] Backup completed successfully!`);
+      await pruneOldBackups();
       bBroadcast({ done: true, success: true });
     } catch (err) {
       bLog(`[Auto-Backup] Backup failed: ${err.message}`, true);
