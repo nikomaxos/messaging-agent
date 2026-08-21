@@ -31,7 +31,6 @@ export default function BackupRestorePage() {
   const [oauthClientId, setOauthClientId] = useState('');
   const [oauthClientSecret, setOauthClientSecret] = useState('');
   const [authUrl, setAuthUrl] = useState('');
-  const [authCode, setAuthCode] = useState('');
   const [authStep, setAuthStep] = useState<'credentials' | 'authorize' | 'done'>('credentials');
   
   const fetchConfig = async () => {
@@ -269,6 +268,7 @@ export default function BackupRestorePage() {
             <li>Enable the <strong>Google Drive API</strong> in "APIs & Services" → "Library".</li>
             <li>Go to <strong>"APIs & Services" → "OAuth consent screen"</strong>. Set type to "External", fill in app name, and add your email. Under "Scopes", add <code>.../auth/drive</code>. Under "Test users", add <strong>your Gmail address</strong>. Publish or keep in testing mode.</li>
             <li>Go to <strong>"Credentials" → "Create Credentials" → "OAuth client ID"</strong>. Set type to <strong>"Web application"</strong>.</li>
+            <li>Under <strong>Authorized redirect URIs</strong>, add exactly: <code className="bg-slate-800 px-1 py-0.5 rounded text-brand-300">{window.location.origin}/api/backup/oauth-callback</code></li>
             <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> and paste them below.</li>
           </ol>
 
@@ -304,7 +304,11 @@ export default function BackupRestorePage() {
                     const res = await fetch('/api/backup/auth-url', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ clientId: oauthClientId, clientSecret: oauthClientSecret })
+                      body: JSON.stringify({ 
+                        clientId: oauthClientId, 
+                        clientSecret: oauthClientSecret,
+                        redirectUri: window.location.origin + '/api/backup/oauth-callback'
+                      })
                     });
                     const data = await res.json();
                     if (data.authUrl) {
@@ -327,44 +331,30 @@ export default function BackupRestorePage() {
             <div className="space-y-3">
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <p className="text-amber-300 text-sm font-medium mb-2">Step 1: Click the link below to authorize access:</p>
-                <a href={authUrl} target="_blank" rel="noreferrer" className="text-blue-400 underline text-xs break-all flex items-center gap-1">
+                <a href={authUrl} target="_blank" rel="noreferrer" className="text-blue-400 underline text-xs break-all flex items-center gap-1 mb-3">
                   <ExternalLink size={14} className="shrink-0" /> Open Google Authorization Page
                 </a>
-                <p className="text-amber-200/60 text-xs mt-2">Step 2: After authorizing, Google will show you a code. Copy it and paste below:</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Authorization Code</label>
-                <input
-                  type="text"
-                  value={authCode}
-                  onChange={e => setAuthCode(e.target.value)}
-                  placeholder="4/0Abc123..."
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 outline-none font-mono"
-                />
+                <p className="text-amber-200/80 text-xs">Step 2: Sign in with your Google account. The window will close automatically upon success.</p>
+                <p className="text-amber-200/80 text-xs mt-2">Step 3: Click the button below to verify authorization.</p>
               </div>
               {configError && <div className="text-red-400 text-xs p-2 bg-red-400/10 rounded border border-red-400/20">{configError}</div>}
               {configSuccess && <div className="text-emerald-400 text-xs p-2 bg-emerald-400/10 rounded border border-emerald-400/20">{configSuccess}</div>}
               <button
                 onClick={async () => {
-                  if (!authCode) { setConfigError('Paste the authorization code from Google'); return; }
                   setConfigError('');
                   setSavingConfig(true);
                   try {
-                    const res = await fetch('/api/backup/auth-callback', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ code: authCode })
-                    });
+                    const res = await fetch('/api/backup/config');
                     const data = await res.json();
-                    if (res.ok && !data.testError) {
-                      setConfigSuccess(data.message);
+                    if (data.configured && data.hasOAuth) {
+                      setConfigSuccess('Authorization verified successfully!');
                       setHasOAuth(true);
                       setIsConfigured(true);
                       setAuthStep('done');
                       setShowBrowser(true);
                       loadFolders();
                     } else {
-                      setConfigError(data.error || data.testError || 'Authorization failed');
+                      setConfigError('Authorization not yet completed. Did you finish the Google flow in the new tab?');
                     }
                   } catch(e: any) { setConfigError(e.message); } finally { setSavingConfig(false); }
                 }}
@@ -372,7 +362,7 @@ export default function BackupRestorePage() {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition flex items-center justify-center gap-2"
               >
                 {savingConfig ? <RefreshCw className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-                Complete Authorization
+                Verify Authorization
               </button>
             </div>
           )}

@@ -410,37 +410,38 @@ app.get('/api/backup/config', (req, res) => {
 
 // --- Google OAuth2 Flow (for personal Gmail accounts) ---
 app.post('/api/backup/auth-url', (req, res) => {
-  const { clientId, clientSecret } = req.body;
-  if (!clientId || !clientSecret) return res.status(400).json({ error: 'clientId and clientSecret required' });
+  const { clientId, clientSecret, redirectUri } = req.body;
+  if (!clientId || !clientSecret || !redirectUri) return res.status(400).json({ error: 'clientId, clientSecret, and redirectUri required' });
   // Save client credentials
   const config = readBackupConfig() || {};
   config.oauthClientId = clientId;
   config.oauthClientSecret = clientSecret;
+  config.oauthRedirectUri = redirectUri;
   writeBackupConfig(config);
   
-  const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
   const scope = 'https://www.googleapis.com/auth/drive';
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
   res.json({ authUrl });
 });
 
-app.post('/api/backup/auth-callback', async (req, res) => {
-  const { code } = req.body;
-  if (!code) return res.status(400).json({ error: 'Authorization code is required' });
+app.get('/api/backup/oauth-callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send('<h1>Authorization failed: No code provided</h1><p>Please try again.</p>');
+  
   const config = readBackupConfig();
-  if (!config || !config.oauthClientId || !config.oauthClientSecret) {
-    return res.status(400).json({ error: 'OAuth client credentials not configured' });
+  if (!config || !config.oauthClientId || !config.oauthClientSecret || !config.oauthRedirectUri) {
+    return res.status(400).send('<h1>Authorization failed: Configuration missing</h1>');
   }
   
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `code=${encodeURIComponent(code)}&client_id=${encodeURIComponent(config.oauthClientId)}&client_secret=${encodeURIComponent(config.oauthClientSecret)}&redirect_uri=${encodeURIComponent('urn:ietf:wg:oauth:2.0:oob')}&grant_type=authorization_code`
+      body: `code=${encodeURIComponent(code)}&client_id=${encodeURIComponent(config.oauthClientId)}&client_secret=${encodeURIComponent(config.oauthClientSecret)}&redirect_uri=${encodeURIComponent(config.oauthRedirectUri)}&grant_type=authorization_code`
     });
     const tokenData = await tokenRes.json();
     if (tokenData.error) {
-      return res.status(400).json({ error: `Token exchange failed: ${tokenData.error_description || tokenData.error}` });
+      return res.status(400).send(`<h1>Token exchange failed</h1><p>${tokenData.error_description || tokenData.error}</p>`);
     }
     
     // Store token in rclone format
@@ -456,12 +457,28 @@ app.post('/api/backup/auth-callback', async (req, res) => {
     // Test the connection
     try {
       await execPromise('rclone lsd gdrive: 2>&1');
-      res.json({ message: 'Google Drive authorized successfully! Ready to backup.' });
+      res.send(`
+        <html>
+          <body style="font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center;">
+            <h1 style="color: #34d399;">Google Drive Authorized Successfully!</h1>
+            <p style="color: #94a3b8;">You can now close this tab and return to the Admin Panel.</p>
+            <script>setTimeout(() => window.close(), 3000);</script>
+          </body>
+        </html>
+      `);
     } catch(err) {
-      res.json({ message: 'Token saved, but connection test failed.', testError: err.stderr || err.message });
+      res.send(`
+        <html>
+          <body style="font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center;">
+            <h1 style="color: #fbbf24;">Token Saved, but Connection Test Failed</h1>
+            <p style="color: #94a3b8;">Error: ${err.stderr || err.message}</p>
+            <p>Please check your credentials.</p>
+          </body>
+        </html>
+      `);
     }
   } catch(err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send(`<h1>Internal Server Error</h1><p>${err.message}</p>`);
   }
 });
 
