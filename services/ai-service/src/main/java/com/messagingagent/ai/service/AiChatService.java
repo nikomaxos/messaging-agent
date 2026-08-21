@@ -105,9 +105,10 @@ public class AiChatService {
     // ── Gemini ─────────────────────────────────────────────────────────────
 
     private String getRealModelName(String modelName) {
-        if (modelName.contains("gemini-3.")) return "gemini-1.5-pro";
-        if (modelName.contains("gemini-2.0")) return "gemini-1.5-pro";
-        if (modelName.contains("gemini-2.5")) return "gemini-1.5-pro";
+        if (modelName.contains("gemini-3.")) return "gemini-1.5-pro-latest";
+        if (modelName.contains("gemini-2.0")) return "gemini-1.5-pro-latest";
+        if (modelName.contains("gemini-2.5")) return "gemini-1.5-pro-latest";
+        if (modelName.contains("gemini-1.5-pro")) return "gemini-1.5-pro-latest";
         if (modelName.contains("claude-mythos")) return "claude-3-5-sonnet-20241022";
         if (modelName.contains("opus-4")) return "claude-3-opus-20240229";
         if (modelName.contains("mythos")) return "claude-3-5-sonnet-20241022";
