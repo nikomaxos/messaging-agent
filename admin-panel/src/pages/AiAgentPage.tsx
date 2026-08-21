@@ -4,9 +4,9 @@ import { getAiAgentConfig, updateAiAgentConfig, testAiAgent, chatWithAiAgent, ge
 import { Bot, Save, Zap, Key, Eye, EyeOff, Send, Settings, MessageSquare, Loader2, Trash2, AlertCircle, Database, X, Plus } from 'lucide-react'
 
 const PROVIDERS = [
-  { value: 'GEMINI', label: 'Google Gemini', models: ['gemini-2.0-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'] },
-  { value: 'CLAUDE', label: 'Anthropic Claude', models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022'] },
-  { value: 'OPENAI', label: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'] },
+  { value: 'GEMINI', label: 'Google Gemini', models: ['gemini-2.0-flash', 'gemini-3.7-flash', 'gemini-3.1-pro-high', 'gemini-2.5-pro', 'gemini-2.5-flash'] },
+  { value: 'CLAUDE', label: 'Anthropic Claude', models: ['claude-mythos-6', 'claude-opus-4.6-thinking', 'claude-3-opus-20240229', 'claude-3-5-sonnet-20241022', 'claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'mythos'] },
+  { value: 'OPENAI', label: 'OpenAI', models: ['gpt-4o', 'gpt-4.5-preview', 'o1-preview', 'o3-mini', 'gpt-4o-mini', 'chatgpt-4o-latest'] },
 ]
 
 interface ChatMessage {
