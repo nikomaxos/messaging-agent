@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Rocket, Server, RefreshCw, Terminal, Undo2, PlayCircle, Key, User, Network, CheckCircle2, Circle } from 'lucide-react'
+import { Rocket, Server, RefreshCw, Terminal, Undo2, PlayCircle, Key, User, Network, CheckCircle2, Circle, Copy } from 'lucide-react'
 import packageJson from '../../package.json'
 
 const DEPLOYMENT_STEPS = [
@@ -379,12 +379,24 @@ export default function DeployPage() {
               <Terminal size={16} className="text-slate-500" />
               deployment_console.log [ssh-agent]
             </div>
-            {isDeploying && (
-              <div className="flex items-center gap-2 text-xs font-medium text-brand-400 bg-brand-400/10 px-2 py-1 rounded animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-brand-400"></span>
-                RUNNING
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              {logs.length > 0 && (
+                <button
+                  onClick={() => navigator.clipboard.writeText(logs.join('\n'))}
+                  className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-xs font-medium"
+                  title="Copy logs to clipboard"
+                >
+                  <Copy size={14} />
+                  Copy Logs
+                </button>
+              )}
+              {isDeploying && (
+                <div className="flex items-center gap-2 text-xs font-medium text-brand-400 bg-brand-400/10 px-2 py-1 rounded animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-brand-400"></span>
+                  RUNNING
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="flex-1 p-4 overflow-y-auto font-mono text-sm leading-relaxed text-slate-300 space-y-1">
