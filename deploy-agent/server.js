@@ -22,7 +22,10 @@ const activeDeploy = {
   containerErrors: [],
   clients: [], // SSE connections
   code: null,
-  done: false
+  done: false,
+  totalSteps: 9,
+  steps: [],
+  sshClient: null
 };
 
 // Helper to broadcast to all clients
@@ -38,6 +41,21 @@ function appendLog(logStr, error = false) {
   const stepMatch = logStr.match(/--- Step (\d+):/);
   if (stepMatch) {
     activeDeploy.currentStep = parseInt(stepMatch[1], 10);
+  }
+  const totalMatch = logStr.match(/\[TOTAL_STEPS\] (\d+)/);
+  if (totalMatch) {
+    activeDeploy.totalSteps = parseInt(totalMatch[1], 10);
+    broadcast({ totalSteps: activeDeploy.totalSteps });
+  }
+  const defMatch = logStr.match(/\[STEP_DEF\] (\d+)\|(.*?)\|(.*)/);
+  if (defMatch) {
+    const newStep = {
+      step: parseInt(defMatch[1], 10),
+      title: defMatch[2].trim(),
+      desc: defMatch[3].trim()
+    };
+    activeDeploy.steps.push(newStep);
+    broadcast({ newStep });
   }
   const vmMatch = logStr.match(/\[VM_UPDATE_NEEDED\] (.*)/);
   if (vmMatch) {
@@ -103,6 +121,9 @@ app.post('/api/deploy/trigger', async (req, res) => {
   activeDeploy.targetIp = ip;
   activeDeploy.logs = [];
   activeDeploy.currentStep = 0;
+  activeDeploy.totalSteps = 9;
+  activeDeploy.steps = [];
+  activeDeploy.sshClient = null;
   activeDeploy.vmWarnings = [];
   activeDeploy.containerErrors = [];
   
@@ -114,6 +135,8 @@ app.post('/api/deploy/trigger', async (req, res) => {
       env: activeDeploy.env,
       targetIp: activeDeploy.targetIp,
       currentStep: activeDeploy.currentStep,
+      totalSteps: activeDeploy.totalSteps,
+      steps: activeDeploy.steps,
       vmWarnings: activeDeploy.vmWarnings,
       containerErrors: activeDeploy.containerErrors,
       done: activeDeploy.done,
@@ -167,6 +190,7 @@ app.post('/api/deploy/trigger', async (req, res) => {
   // 2. SSH into target
   appendLog(`Connecting to ${ip} via SSH...`);
   const ssh = new NodeSSH();
+  activeDeploy.sshClient = ssh;
   try {
     await ssh.connect({
       host: ip,
@@ -226,6 +250,8 @@ app.get('/api/deploy/stream', (req, res) => {
     env: activeDeploy.env,
     targetIp: activeDeploy.targetIp,
     currentStep: activeDeploy.currentStep,
+    totalSteps: activeDeploy.totalSteps,
+    steps: activeDeploy.steps,
     vmWarnings: activeDeploy.vmWarnings,
     containerErrors: activeDeploy.containerErrors,
     done: activeDeploy.done,
@@ -246,7 +272,46 @@ app.get('/api/deploy/stream', (req, res) => {
   });
 });
 
-// 3. Get Deploy Info
+// 3. Cancel Deployment Endpoint
+app.post('/api/deploy/cancel', async (req, res) => {
+  if (!activeDeploy.isRunning) {
+    return res.status(400).json({ error: 'No deployment is currently running.' });
+  }
+
+  appendLog('>>> CANCELLING DEPLOYMENT...', true);
+  if (activeDeploy.sshClient) {
+    activeDeploy.sshClient.dispose();
+    activeDeploy.sshClient = null;
+  }
+  
+  // Perform Native K3s Rollback immediately
+  appendLog('>>> TRIGGERING ROLLBACK...', true);
+  
+  const rollbackSsh = new NodeSSH();
+  try {
+    await rollbackSsh.connect({
+      host: activeDeploy.targetIp,
+      username: 'ubuntu',
+      privateKey: fs.readFileSync('/root/.ssh/id_rsa', 'utf8'),
+      tryKeyboard: true,
+      readyTimeout: 10000
+    });
+    
+    appendLog('Rolling back K3s deployments natively via kubectl...');
+    await runSshCommandBackground(rollbackSsh, 'kubectl rollout undo deployment --all', (code) => {
+      rollbackSsh.dispose();
+      finishDeploy(code);
+    });
+    
+    res.json({ message: 'Deployment cancelled and rollback started.' });
+  } catch (err) {
+    appendLog(`Rollback connection failed: ${err.message}`, true);
+    finishDeploy(1);
+    res.status(500).json({ error: 'Failed to start rollback.' });
+  }
+});
+
+// 4. Get Deploy Info
 app.post('/api/deploy/info', async (req, res) => {
   const { ip, username, password } = req.body;
   if (!ip || !username) {

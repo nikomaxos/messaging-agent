@@ -2,17 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { Rocket, Server, RefreshCw, Terminal, Undo2, PlayCircle, Key, User, Network, CheckCircle2, Circle, Copy } from 'lucide-react'
 import packageJson from '../../package.json'
 
-const DEPLOYMENT_STEPS = [
-  { step: 1, title: 'Fetch Latest Code', desc: 'Syncs the target node with the latest committed code branch from GitHub.' },
-  { step: 2, title: 'Build & Distribute Images', desc: 'Compiles all microservices into Docker containers and securely transfers them to the Kubernetes worker nodes.' },
-  { step: 3, title: 'Apply Kubernetes Configs', desc: 'Updates the cluster configurations to reflect the latest networking and deployment manifests.' },
-  { step: 4, title: 'Initialize Databases', desc: 'Ensures the stateful persistence layer (PostgreSQL, Matrix Synapse) is fully booted and ready.' },
-  { step: 5, title: 'Trigger Rolling Updates', desc: 'Instructs the cluster to gracefully cycle pods and transition traffic to the newly built images.' },
-  { step: 6, title: 'Verify Pod Health', desc: 'Monitors the deployment rollout status until all replacement pods pass their readiness probes.' },
-  { step: 7, title: 'Scan Host Systems', desc: 'Queries the underlying Ubuntu nodes for pending security patches or system package updates.' },
-  { step: 8, title: 'Analyze Cluster Stability', desc: 'Performs a deep diagnostic sweep across all namespaces to detect any crashing or evicting pods.' },
-  { step: 9, title: 'Prune Stale Resources', desc: 'Executes garbage collection to free disk space by deleting previous Docker layers and orphaned images.' }
-];
+interface DeployStep {
+  step: number;
+  title: string;
+  desc: string;
+}
 
 export default function DeployPage() {
   const [logs, setLogs] = useState<string[]>([])
@@ -20,7 +14,8 @@ export default function DeployPage() {
   const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | 'upgrade' | null>(null)
   
   const [currentStep, setCurrentStep] = useState(0)
-  const totalSteps = 9
+  const [totalSteps, setTotalSteps] = useState(9)
+  const [deploymentSteps, setDeploymentSteps] = useState<DeployStep[]>([])
   const [vmWarnings, setVmWarnings] = useState<string[]>([])
   const [containerErrors, setContainerErrors] = useState<string[]>([])
   
@@ -52,6 +47,8 @@ export default function DeployPage() {
           if (data.targetIp) setTargetIp(data.targetIp)
           setLogs(data.logs || [])
           setCurrentStep(data.currentStep || 0)
+          if (data.totalSteps) setTotalSteps(data.totalSteps)
+          if (data.steps) setDeploymentSteps(data.steps)
           setVmWarnings(data.vmWarnings || [])
           setContainerErrors(data.containerErrors || [])
           
@@ -78,6 +75,15 @@ export default function DeployPage() {
           if (containerMatch) {
             setContainerErrors(prev => [...prev, containerMatch[1]])
           }
+        }
+        else if (data.newStep) {
+          setDeploymentSteps(prev => {
+            if (prev.find(s => s.step === data.newStep.step)) return prev;
+            return [...prev, data.newStep];
+          })
+        }
+        else if (data.totalSteps) {
+          setTotalSteps(data.totalSteps)
         }
         else if (data.done) {
           setLogs(prev => [...prev, `>>> Process completed with code ${data.code}`])
@@ -177,6 +183,17 @@ export default function DeployPage() {
     }
   }
 
+  const cancelDeploy = async () => {
+    if (!confirm("Are you sure you want to cancel the deployment and rollback immediately?")) return;
+    try {
+      const res = await fetch('/api/deploy/cancel', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+    } catch (e: any) {
+      alert(`Error cancelling deploy: ${e.message}`);
+    }
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -266,10 +283,20 @@ export default function DeployPage() {
           {/* Progress Overview (Only show during or after deployment) */}
           {(currentStep > 0 || logs.length > 0) && (
             <div className="rounded-xl border border-white/[0.07] bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-                <RefreshCw size={18} className={isDeploying ? "animate-spin text-brand-400" : "text-emerald-400"} />
-                Deployment Progress
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <RefreshCw size={18} className={isDeploying ? "animate-spin text-brand-400" : "text-emerald-400"} />
+                  Deployment Progress
+                </h2>
+                {isDeploying && activeEnv === 'production' && (
+                  <button 
+                    onClick={cancelDeploy}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded text-xs transition font-medium"
+                  >
+                    <Undo2 size={14} /> Cancel & Rollback
+                  </button>
+                )}
+              </div>
               
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-slate-400 mb-1">
@@ -294,7 +321,7 @@ export default function DeployPage() {
                   className="flex flex-col gap-3 transition-transform duration-700 ease-in-out"
                   style={{ transform: `translateY(-${Math.max(0, currentStep - 1) * 84}px)` }}
                 >
-                  {DEPLOYMENT_STEPS.map((s) => {
+                  {deploymentSteps.map((s) => {
                     const isCompleted = currentStep > s.step || (!isDeploying && currentStep === totalSteps);
                     const isActive = currentStep === s.step && isDeploying;
                     

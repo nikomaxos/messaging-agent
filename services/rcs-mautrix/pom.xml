@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.messagingagent</groupId>
     <artifactId>rcs-mautrix</artifactId>
-    <version>2.4.35</version>
+    <version>2.4.36</version>
     <name>rcs-mautrix</name>
     <description>RCS Matrix Egress Worker (Mautrix Integration)</description>
 
