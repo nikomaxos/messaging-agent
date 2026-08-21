@@ -57,6 +57,9 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
 
 - A dedicated DevOps dashboard is built into the `admin-panel` (DeployPage.tsx and BackupRestorePage.tsx).
 - **Disaster Recovery (Google Drive Backup)**: The `deploy-agent` is equipped with `rclone`. It can SSH into production, execute a `pg_dump` on the `ma-postgres-0` database, and push the snapshot to a configured Google Drive folder. It also supports one-click streaming restores directly from the UI.
+  - **Auto-Backup Scheduler**: A daily auto-backup can be toggled on/off from the UI with a configurable hour (UTC). The backend checks every 60 seconds if the current UTC hour matches and triggers one backup per day. Auto-backup files are prefixed `messagingagent_autobackup_` and manual ones `messagingagent_backup_`.
+  - **Retention Policy**: After every successful backup (manual or auto), a smart cleanup runs: keep ALL backups from the last 7 days, keep 1 per week for days 8–30, keep 1 per month forever beyond 30 days. Old files are deleted from Google Drive via `rclone deletefile`.
+  - **Configuration Persistence**: The Service Account JSON, Google Drive folder path, auto-backup enabled flag, and scheduled hour are all persisted in `/app/backup-config.json` inside the deploy-agent container.
 - **Security Check:** The Deploy Page UI dynamically locks down functionality based on the environment. In Production, deployments are disabled, leaving only the "Rollback" functionality accessible.
 - **Microservice:** Deployments and Backups are triggered via the `deploy-agent` (a Node.js Docker container running on DevBox port 8082). Note: Caddy routes both `/api/deploy/*` and `/api/backup/*` to this service.
 - **Execution:** When triggered, the `deploy-agent` uses SSH to securely connect to Proxmox and the Production VM to execute commands.
