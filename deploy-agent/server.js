@@ -394,16 +394,28 @@ app.get('/api/backup/config', (req, res) => {
 
 app.post('/api/backup/config', async (req, res) => {
   const { gdrivePath, serviceAccountJson, driveFolderId } = req.body;
-  if (!serviceAccountJson) {
-    return res.status(400).json({ error: 'serviceAccountJson is required' });
-  }
-  try {
-    JSON.parse(serviceAccountJson);
-  } catch(e) {
-    return res.status(400).json({ error: 'serviceAccountJson must be a valid JSON string' });
-  }
   const existing = readBackupConfig() || {};
-  writeBackupConfig({ ...existing, gdrivePath: gdrivePath || '', serviceAccountJson, driveFolderId: driveFolderId || '' });
+  
+  // If SA JSON is provided, validate and update it. Otherwise keep existing.
+  let saJson = existing.serviceAccountJson || '';
+  if (serviceAccountJson) {
+    try {
+      JSON.parse(serviceAccountJson);
+      saJson = serviceAccountJson;
+    } catch(e) {
+      return res.status(400).json({ error: 'serviceAccountJson must be a valid JSON string' });
+    }
+  }
+  if (!saJson) {
+    return res.status(400).json({ error: 'serviceAccountJson is required for initial setup' });
+  }
+  
+  writeBackupConfig({ 
+    ...existing, 
+    gdrivePath: gdrivePath !== undefined ? gdrivePath : (existing.gdrivePath || ''), 
+    serviceAccountJson: saJson, 
+    driveFolderId: driveFolderId !== undefined ? driveFolderId : (existing.driveFolderId || '') 
+  });
   setupRclone();
 
   // Test the connection immediately
@@ -413,6 +425,19 @@ app.post('/api/backup/config', async (req, res) => {
   } catch(err) {
     res.json({ message: 'Configuration saved, but connection test failed. Check your Service Account and Folder ID.', testError: err.stderr || err.message });
   }
+});
+
+// Dedicated endpoint for folder selection (doesn't require re-sending SA JSON)
+app.post('/api/backup/select-folder', (req, res) => {
+  const { folderId, folderPath } = req.body;
+  if (!folderId) return res.status(400).json({ error: 'folderId is required' });
+  const config = readBackupConfig();
+  if (!config || !config.serviceAccountJson) return res.status(400).json({ error: 'Backup not configured yet' });
+  config.driveFolderId = folderId;
+  config.gdrivePath = folderPath || '';
+  writeBackupConfig(config);
+  setupRclone();
+  res.json({ message: `Folder selected: ${folderPath || folderId}` });
 });
 
 // --- Auto-Backup Schedule ---

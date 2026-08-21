@@ -151,17 +151,24 @@ export default function BackupRestorePage() {
     setSelectedFolder(folder);
     const fullPath = [...breadcrumbs.map(b => b.name), folder.name].join('/');
     setConfig(prev => ({ ...prev, driveFolderId: folder.id, gdrivePath: fullPath }));
-    // Auto-save the selection
     try {
-      await fetch('/api/backup/config', {
+      const res = await fetch('/api/backup/select-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...config, driveFolderId: folder.id, gdrivePath: fullPath })
+        body: JSON.stringify({ folderId: folder.id, folderPath: fullPath })
       });
-      setConfigSuccess(`Folder selected: ${fullPath}`);
-      setShowBrowser(false);
-      fetchBackups();
-    } catch(e) {}
+      const data = await res.json();
+      if (res.ok) {
+        setConfigSuccess(`Folder selected: ${fullPath}`);
+        setConfigError('');
+        setShowBrowser(false);
+        fetchBackups();
+      } else {
+        setConfigError(data.error || 'Failed to save folder selection');
+      }
+    } catch(e: any) {
+      setConfigError(e.message || 'Failed to save folder selection');
+    }
   };
 
   const handleTriggerBackup = async () => {
