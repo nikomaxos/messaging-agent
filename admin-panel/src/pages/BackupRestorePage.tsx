@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Database, Save, DownloadCloud, AlertTriangle, Play, RefreshCw, Key, FolderOpen, ShieldAlert, Clock, Timer } from 'lucide-react';
+import { Database, Save, DownloadCloud, AlertTriangle, Play, RefreshCw, Key, FolderOpen, ShieldAlert, Clock, Timer, Folder, ChevronRight, CheckCircle } from 'lucide-react';
 
 export default function BackupRestorePage() {
-  const [config, setConfig] = useState({ gdrivePath: '', serviceAccountJson: '' });
+  const [config, setConfig] = useState({ gdrivePath: '', serviceAccountJson: '', driveFolderId: '' });
   const [isConfigured, setIsConfigured] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [configError, setConfigError] = useState('');
+  const [configSuccess, setConfigSuccess] = useState('');
   
   const [backups, setBackups] = useState<any[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
@@ -18,6 +19,13 @@ export default function BackupRestorePage() {
   const [scheduleHour, setScheduleHour] = useState(3);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [scheduleMsg, setScheduleMsg] = useState('');
+
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [browseFolders, setBrowseFolders] = useState<{id: string, name: string}[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseError, setBrowseError] = useState('');
+  const [breadcrumbs, setBreadcrumbs] = useState<{id: string, name: string}[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<{id: string, name: string} | null>(null);
   
   const fetchConfig = async () => {
     try {
@@ -25,7 +33,7 @@ export default function BackupRestorePage() {
       const data = await res.json();
       if (data.configured) {
         setIsConfigured(true);
-        setConfig(prev => ({ ...prev, gdrivePath: data.gdrivePath }));
+        setConfig(prev => ({ ...prev, gdrivePath: data.gdrivePath, driveFolderId: data.driveFolderId || '' }));
         fetchBackups();
       }
     } catch (e) {
@@ -75,6 +83,7 @@ export default function BackupRestorePage() {
     e.preventDefault();
     setSavingConfig(true);
     setConfigError('');
+    setConfigSuccess('');
     try {
       const res = await fetch('/api/backup/config', {
         method: 'POST',
@@ -84,6 +93,13 @@ export default function BackupRestorePage() {
       const data = await res.json();
       if (res.ok) {
         setIsConfigured(true);
+        if (data.testError) {
+          setConfigError(`Saved, but connection test failed: ${data.testError}`);
+        } else {
+          setConfigSuccess(data.message || 'Configuration saved!');
+          setShowBrowser(true);
+          loadFolders();
+        }
         fetchBackups();
       } else {
         setConfigError(data.error || 'Failed to save configuration');
@@ -93,6 +109,59 @@ export default function BackupRestorePage() {
     } finally {
       setSavingConfig(false);
     }
+  };
+
+  const loadFolders = async (folderId?: string) => {
+    setBrowseLoading(true);
+    setBrowseError('');
+    try {
+      const url = folderId ? `/api/backup/browse?folderId=${folderId}` : '/api/backup/browse';
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error) {
+        setBrowseError(data.error);
+        setBrowseFolders([]);
+      } else {
+        setBrowseFolders(data.folders || []);
+      }
+    } catch (e: any) {
+      setBrowseError(e.message);
+    } finally {
+      setBrowseLoading(false);
+    }
+  };
+
+  const navigateInto = (folder: {id: string, name: string}) => {
+    setBreadcrumbs(prev => [...prev, folder]);
+    loadFolders(folder.id);
+  };
+
+  const navigateBreadcrumb = (index: number) => {
+    if (index < 0) {
+      setBreadcrumbs([]);
+      loadFolders();
+    } else {
+      const bc = breadcrumbs[index];
+      setBreadcrumbs(prev => prev.slice(0, index + 1));
+      loadFolders(bc.id);
+    }
+  };
+
+  const selectFolder = async (folder: {id: string, name: string}) => {
+    setSelectedFolder(folder);
+    const fullPath = [...breadcrumbs.map(b => b.name), folder.name].join('/');
+    setConfig(prev => ({ ...prev, driveFolderId: folder.id, gdrivePath: fullPath }));
+    // Auto-save the selection
+    try {
+      await fetch('/api/backup/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...config, driveFolderId: folder.id, gdrivePath: fullPath })
+      });
+      setConfigSuccess(`Folder selected: ${fullPath}`);
+      setShowBrowser(false);
+      fetchBackups();
+    } catch(e) {}
   };
 
   const handleTriggerBackup = async () => {
@@ -181,7 +250,7 @@ export default function BackupRestorePage() {
           <ol className="list-decimal list-inside text-sm text-blue-200/80 space-y-2 mb-6">
             <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 underline">Google Cloud Console</a>.</li>
             <li>Create a new Project (or select an existing one).</li>
-            <li>Enable the <strong>Google Drive API</strong> in "APIs & Services".</li>
+            <li>Enable the <strong>Google Drive API</strong> in "APIs & Services" → "Library".</li>
             <li>Go to "Credentials" &gt; "Create Credentials" &gt; "Service Account".</li>
             <li>Once created, click the Service Account, go to "Keys" &gt; "Add Key" &gt; "Create new key" (JSON format).</li>
             <li>Open the downloaded JSON file and paste its entire contents below.</li>
@@ -199,18 +268,6 @@ export default function BackupRestorePage() {
               <FolderOpen size={18} className="text-slate-400" /> Google Drive Configuration
             </h2>
             <form onSubmit={handleSaveConfig} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Target Folder Path (in Drive)</label>
-                <input
-                  type="text"
-                  value={config.gdrivePath}
-                  onChange={e => setConfig(prev => ({...prev, gdrivePath: e.target.value}))}
-                  placeholder="MessagingAgentBackups"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 outline-none"
-                  required
-                />
-              </div>
-              
               {!isConfigured && (
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Service Account JSON</label>
@@ -223,8 +280,30 @@ export default function BackupRestorePage() {
                   />
                 </div>
               )}
+
+              {config.driveFolderId && (
+                <div className="flex items-center gap-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  <CheckCircle size={16} className="text-emerald-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-emerald-400 font-medium truncate">{config.gdrivePath || 'Selected folder'}</p>
+                    <p className="text-[10px] text-slate-500 font-mono truncate">{config.driveFolderId}</p>
+                  </div>
+                  <button type="button" onClick={() => { setShowBrowser(true); loadFolders(); }} className="text-slate-400 hover:text-white text-xs ml-auto shrink-0">Change</button>
+                </div>
+              )}
+
+              {!config.driveFolderId && isConfigured && (
+                <button
+                  type="button"
+                  onClick={() => { setShowBrowser(true); loadFolders(); }}
+                  className="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/50 rounded-lg px-4 py-2.5 text-sm font-medium transition flex items-center justify-center gap-2"
+                >
+                  <FolderOpen size={16} /> Browse Google Drive Folders
+                </button>
+              )}
               
               {configError && <div className="text-red-400 text-xs p-2 bg-red-400/10 rounded border border-red-400/20">{configError}</div>}
+              {configSuccess && <div className="text-emerald-400 text-xs p-2 bg-emerald-400/10 rounded border border-emerald-400/20">{configSuccess}</div>}
               
               <button 
                 type="submit" 
@@ -299,6 +378,80 @@ export default function BackupRestorePage() {
 
         {/* Right Column: Status & Restore List */}
         <div className="lg:col-span-2 space-y-6">
+
+          {showBrowser && (
+            <div className="bg-slate-900 border border-blue-500/30 rounded-xl overflow-hidden shadow-xl">
+              <div className="bg-blue-500/10 px-4 py-3 border-b border-blue-500/20 flex items-center justify-between">
+                <span className="text-blue-400 font-medium text-sm flex items-center gap-2">
+                  <FolderOpen size={16} /> Select Backup Folder
+                </span>
+                <button onClick={() => setShowBrowser(false)} className="text-slate-400 hover:text-white text-xs">Close</button>
+              </div>
+              
+              {/* Breadcrumbs */}
+              <div className="px-4 py-2 bg-black/30 flex items-center gap-1 text-xs overflow-x-auto">
+                <button onClick={() => navigateBreadcrumb(-1)} className="text-blue-400 hover:text-white transition shrink-0">
+                  Shared with me
+                </button>
+                {breadcrumbs.map((bc, i) => (
+                  <span key={bc.id} className="flex items-center gap-1 shrink-0">
+                    <ChevronRight size={12} className="text-slate-600" />
+                    <button onClick={() => navigateBreadcrumb(i)} className="text-blue-400 hover:text-white transition">
+                      {bc.name}
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              {/* Folder list */}
+              <div className="max-h-64 overflow-y-auto">
+                {browseLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw size={20} className="animate-spin text-blue-400" />
+                  </div>
+                ) : browseError ? (
+                  <div className="p-4 text-red-400 text-sm">{browseError}</div>
+                ) : browseFolders.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 text-sm">
+                    {breadcrumbs.length === 0 
+                      ? 'No folders shared with the Service Account. Share a folder first.' 
+                      : 'This folder is empty. You can select it as your backup destination.'}
+                    {breadcrumbs.length > 0 && (
+                      <button
+                        onClick={() => selectFolder(breadcrumbs[breadcrumbs.length - 1])}
+                        className="mt-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition flex items-center justify-center gap-2 mx-auto"
+                      >
+                        <CheckCircle size={16} /> Use Current Folder
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {browseFolders.map(folder => (
+                      <div key={folder.id} className="flex items-center px-4 py-2.5 hover:bg-white/[0.03] transition group">
+                        <Folder size={18} className="text-amber-400/70 shrink-0 mr-3" />
+                        <span className="text-sm text-slate-200 flex-1 truncate">{folder.name}</span>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition shrink-0">
+                          <button
+                            onClick={() => navigateInto(folder)}
+                            className="text-xs text-blue-400 hover:text-white border border-blue-500/30 rounded px-2 py-1 transition"
+                          >
+                            Open
+                          </button>
+                          <button
+                            onClick={() => selectFolder(folder)}
+                            className="text-xs text-emerald-400 hover:text-white bg-emerald-600/20 border border-emerald-500/30 rounded px-2 py-1 transition"
+                          >
+                            Select
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           
           {isRunning && (
             <div className="bg-slate-900 border border-emerald-500/30 rounded-xl overflow-hidden shadow-xl">

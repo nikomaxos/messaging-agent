@@ -355,9 +355,12 @@ function setupRclone() {
       const config = JSON.parse(fs.readFileSync(BACKUP_CONFIG_PATH, 'utf8'));
       if (config.serviceAccountJson) {
         fs.mkdirSync(RCLONE_CONF_DIR, { recursive: true });
-        const saPath = '/app/gdrive-sa.json';
+        const saPath = '/app/backup-data/gdrive-sa.json';
         fs.writeFileSync(saPath, config.serviceAccountJson);
-        const rcloneConf = `[gdrive]\ntype = drive\nscope = drive\nservice_account_file = ${saPath}\n`;
+        let rcloneConf = `[gdrive]\ntype = drive\nscope = drive\nservice_account_file = ${saPath}\n`;
+        if (config.driveFolderId) {
+          rcloneConf += `root_folder_id = ${config.driveFolderId}\n`;
+        }
         fs.writeFileSync(RCLONE_CONF_PATH, rcloneConf);
         return config;
       }
@@ -383,16 +386,16 @@ function writeBackupConfig(config) {
 app.get('/api/backup/config', (req, res) => {
   const config = readBackupConfig();
   if (config && config.serviceAccountJson) {
-    res.json({ configured: true, gdrivePath: config.gdrivePath });
+    res.json({ configured: true, gdrivePath: config.gdrivePath || '', driveFolderId: config.driveFolderId || '' });
   } else {
     res.json({ configured: false });
   }
 });
 
-app.post('/api/backup/config', (req, res) => {
-  const { gdrivePath, serviceAccountJson } = req.body;
-  if (!gdrivePath || !serviceAccountJson) {
-    return res.status(400).json({ error: 'gdrivePath and serviceAccountJson are required' });
+app.post('/api/backup/config', async (req, res) => {
+  const { gdrivePath, serviceAccountJson, driveFolderId } = req.body;
+  if (!serviceAccountJson) {
+    return res.status(400).json({ error: 'serviceAccountJson is required' });
   }
   try {
     JSON.parse(serviceAccountJson);
@@ -400,9 +403,16 @@ app.post('/api/backup/config', (req, res) => {
     return res.status(400).json({ error: 'serviceAccountJson must be a valid JSON string' });
   }
   const existing = readBackupConfig() || {};
-  writeBackupConfig({ ...existing, gdrivePath, serviceAccountJson });
+  writeBackupConfig({ ...existing, gdrivePath: gdrivePath || '', serviceAccountJson, driveFolderId: driveFolderId || '' });
   setupRclone();
-  res.json({ message: 'Configuration saved successfully' });
+
+  // Test the connection immediately
+  try {
+    const { stdout, stderr } = await execPromise('rclone lsd gdrive: 2>&1');
+    res.json({ message: 'Configuration saved and connection verified!', testOutput: stdout });
+  } catch(err) {
+    res.json({ message: 'Configuration saved, but connection test failed. Check your Service Account and Folder ID.', testError: err.stderr || err.message });
+  }
 });
 
 // --- Auto-Backup Schedule ---
@@ -425,19 +435,73 @@ app.post('/api/backup/schedule', (req, res) => {
   res.json({ message: `Auto-backup ${enabled ? 'enabled' : 'disabled'} at ${String(hour).padStart(2, '0')}:00 daily` });
 });
 
+// --- Google Drive Folder Browser (uses Drive API directly via SA JWT) ---
+async function getDriveAccessToken(saJsonStr) {
+  const sa = JSON.parse(saJsonStr);
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/drive',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600
+  })).toString('base64url');
+  const sign = crypto.createSign('RSA-SHA256');
+  sign.update(`${header}.${payload}`);
+  const signature = sign.sign(sa.private_key, 'base64url');
+  const jwt = `${header}.${payload}.${signature}`;
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) throw new Error(tokenData.error_description || 'Failed to get access token');
+  return tokenData.access_token;
+}
+
+app.get('/api/backup/browse', async (req, res) => {
+  const config = readBackupConfig();
+  if (!config || !config.serviceAccountJson) return res.status(400).json({ error: 'Not configured' });
+
+  const folderId = req.query.folderId;
+  try {
+    const token = await getDriveAccessToken(config.serviceAccountJson);
+    let query = `mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    if (folderId) {
+      query += ` and '${folderId}' in parents`;
+    } else {
+      query += ` and sharedWithMe=true`;
+    }
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&orderBy=name&pageSize=100`;
+    const driveRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await driveRes.json();
+    if (data.error) return res.status(data.error.code || 500).json({ error: data.error.message });
+    res.json({ folders: data.files || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper: get rclone destination. When root_folder_id is set, gdrive: IS the target folder
+function rcloneTarget(config) {
+  if (config.driveFolderId) return 'gdrive:';
+  return `gdrive:"${config.gdrivePath}"`;
+}
+
 app.get('/api/backup/list', async (req, res) => {
   const config = setupRclone();
   if (!config) return res.status(400).json({ error: 'Backup not configured' });
   
   try {
-    // List files in gdrive using rclone
-    const { stdout } = await execPromise(`rclone lsjson gdrive:"${config.gdrivePath}" 2>/dev/null`);
+    const { stdout } = await execPromise(`rclone lsjson ${rcloneTarget(config)} 2>/dev/null`);
     const files = JSON.parse(stdout || '[]').filter(f => !f.IsDir && f.Name.endsWith('.dump'));
-    // Sort by modification time descending
     files.sort((a, b) => new Date(b.ModTime).getTime() - new Date(a.ModTime).getTime());
     res.json({ files });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to list backups from Google Drive. Verify Service Account and Path.' });
+    res.status(500).json({ error: 'Failed to list backups from Google Drive. Verify Service Account and Folder.' });
   }
 });
 
@@ -472,7 +536,7 @@ async function pruneOldBackups() {
   if (!config) return;
   
   try {
-    const { stdout } = await execPromise(`rclone lsjson gdrive:"${config.gdrivePath}" 2>/dev/null`);
+    const { stdout } = await execPromise(`rclone lsjson ${rcloneTarget(config)} 2>/dev/null`);
     const allFiles = JSON.parse(stdout || '[]').filter(f => !f.IsDir && f.Name.endsWith('.dump'));
     if (allFiles.length <= 1) return; // Nothing to prune
     
@@ -516,7 +580,7 @@ async function pruneOldBackups() {
       bLog(`[Retention] Pruning ${toDelete.length} old backup(s)...`);
       for (const file of toDelete) {
         bLog(`[Retention] Deleting ${file.Name}`);
-        await execPromise(`rclone deletefile gdrive:"${config.gdrivePath}/${file.Name}"`).catch(() => {});
+        await execPromise(`rclone deletefile ${rcloneTarget(config)}${file.Name}`).catch(() => {});
       }
       bLog(`[Retention] Cleanup complete. ${keepers.size} backup(s) retained.`);
     } else {
@@ -558,7 +622,7 @@ app.post('/api/backup/trigger', async (req, res) => {
     await execPromise(`scp -o StrictHostKeyChecking=no ubuntu@${ip}:/tmp/${filename} /tmp/${filename}`);
     
     bLog(`Uploading ${filename} to Google Drive...`);
-    await execPromise(`rclone copyto /tmp/${filename} gdrive:"${config.gdrivePath}/${filename}"`);
+    await execPromise(`rclone copyto /tmp/${filename} ${rcloneTarget(config)}${filename}`);
     
     bLog(`Cleaning up temporary files...`);
     await execPromise(`rm -f /tmp/${filename}`);
@@ -592,7 +656,7 @@ app.post('/api/backup/restore', async (req, res) => {
 
   try {
     bLog(`Downloading ${filename} from Google Drive...`);
-    await execPromise(`rclone copyto gdrive:"${config.gdrivePath}/${filename}" /tmp/${filename}`);
+    await execPromise(`rclone copyto ${rcloneTarget(config)}${filename} /tmp/${filename}`);
 
     bLog(`SCP pushing backup to production node (${ip})...`);
     await execPromise('mkdir -p /root/.ssh && cp -r /app/.ssh_host/* /root/.ssh/ && chown -R root:root /root/.ssh && chmod -R 600 /root/.ssh/*').catch(()=>{});
@@ -668,7 +732,7 @@ async function runAutoBackup() {
       await execPromise(`scp -o StrictHostKeyChecking=no ubuntu@${ip}:/tmp/${filename} /tmp/${filename}`);
       
       bLog(`[Auto-Backup] Uploading ${filename} to Google Drive...`);
-      await execPromise(`rclone copyto /tmp/${filename} gdrive:"${config.gdrivePath}/${filename}"`);
+      await execPromise(`rclone copyto /tmp/${filename} ${rcloneTarget(config)}${filename}`);
       
       bLog(`[Auto-Backup] Cleaning up temporary files...`);
       await execPromise(`rm -f /tmp/${filename}`);
