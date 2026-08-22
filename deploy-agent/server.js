@@ -643,6 +643,22 @@ app.get('/api/backup/list', async (req, res) => {
   }
 });
 
+app.delete('/api/backup/:filename', async (req, res) => {
+  const config = setupRclone();
+  if (!config) return res.status(400).json({ error: 'Backup not configured' });
+  const filename = req.params.filename;
+  if (!filename || filename.includes('/') || filename.includes('..')) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+  
+  try {
+    await execPromise(`rclone deletefile ${rcloneTarget(config)}${filename}`);
+    res.json({ message: 'Backup deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete backup from Google Drive' });
+  }
+});
+
 // We'll use a simple global state for backup streaming to avoid browser timeouts
 let activeBackup = {
   isRunning: false,

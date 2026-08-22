@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Save, DownloadCloud, AlertTriangle, Play, RefreshCw, Key, FolderOpen, ShieldAlert, Clock, Timer, Folder, ChevronRight, CheckCircle, ExternalLink, LogIn } from 'lucide-react';
+import { Database, Save, DownloadCloud, AlertTriangle, Play, RefreshCw, Key, FolderOpen, ShieldAlert, Clock, Timer, Folder, ChevronRight, CheckCircle, ExternalLink, LogIn, Trash2 } from 'lucide-react';
 
 export default function BackupRestorePage() {
   const [config, setConfig] = useState({ gdrivePath: '', serviceAccountJson: '', driveFolderId: '' });
@@ -226,10 +226,7 @@ export default function BackupRestorePage() {
   };
 
   const handleTriggerRestore = async (filename: string) => {
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const promptRes = prompt(`WARNING: This will instantly drop existing connections and overwrite the entire production database with the contents of ${filename}. All data since this backup will be permanently lost.\n\nType ${code} to confirm.`);
-    if (promptRes !== code) {
-      alert('Restore cancelled.');
+    if (!confirm(`Are you absolutely sure you want to RESTORE ${filename}?\nThis will OVERWRITE the current production database and the app will experience downtime.`)) {
       return;
     }
     try {
@@ -240,6 +237,25 @@ export default function BackupRestorePage() {
       });
     } catch(e) {
       console.error(e);
+    }
+  };
+
+  const handleDeleteBackup = async (filename: string) => {
+    if (!confirm(`Are you sure you want to permanently delete the backup file: ${filename}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/backup/${encodeURIComponent(filename)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        fetchBackups();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete backup');
+      }
+    } catch(e: any) {
+      alert(e.message || 'Failed to delete backup');
     }
   };
 
@@ -596,13 +612,23 @@ export default function BackupRestorePage() {
                         <td className="px-5 py-4 text-slate-400">{(file.Size / 1024 / 1024).toFixed(2)} MB</td>
                         <td className="px-5 py-4 text-slate-400">{new Date(file.ModTime).toLocaleString()}</td>
                         <td className="px-5 py-4 text-right">
-                          <button
-                            onClick={() => handleTriggerRestore(file.Name)}
-                            disabled={isRunning}
-                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded px-3 py-1.5 text-xs font-medium transition flex items-center gap-1.5 ml-auto disabled:opacity-50"
-                          >
-                            <ShieldAlert size={14} /> Restore Now
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleTriggerRestore(file.Name)}
+                              disabled={isRunning}
+                              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded px-3 py-1.5 text-xs font-medium transition flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              <ShieldAlert size={14} /> Restore Now
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBackup(file.Name)}
+                              disabled={isRunning}
+                              className="bg-slate-700/50 hover:bg-red-900/40 text-slate-400 hover:text-red-400 border border-slate-600 hover:border-red-500/30 rounded px-2.5 py-1.5 transition flex items-center justify-center disabled:opacity-50"
+                              title="Delete Backup"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
