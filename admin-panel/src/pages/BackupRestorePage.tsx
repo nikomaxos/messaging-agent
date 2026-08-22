@@ -14,6 +14,7 @@ export default function BackupRestorePage() {
   
   const [logs, setLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [processResult, setProcessResult] = useState<'success' | 'error' | null>(null);
   
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleHour, setScheduleHour] = useState(3);
@@ -75,12 +76,14 @@ export default function BackupRestorePage() {
       if (payload.sync) {
         setIsRunning(payload.isRunning);
         setLogs(payload.logs || []);
+        if (payload.isRunning) setProcessResult(null);
       }
       if (payload.log) {
         setLogs(prev => [...prev, payload.log]);
       }
-      if (payload.done) {
+      if (payload.done !== undefined) {
         setIsRunning(false);
+        setProcessResult(payload.success ? 'success' : 'error');
         fetchBackups(); // Refresh list after backup/restore
       }
     };
@@ -563,16 +566,36 @@ export default function BackupRestorePage() {
             </div>
           )}
           
-          {isRunning && (
-            <div className="bg-slate-900 border border-emerald-500/30 rounded-xl overflow-hidden shadow-xl">
-              <div className="bg-emerald-500/10 px-4 py-3 border-b border-emerald-500/20 flex items-center justify-between">
-                <span className="text-emerald-400 font-medium text-sm flex items-center gap-2">
-                  <RefreshCw size={16} className="animate-spin" /> Process Running...
+          {(isRunning || logs.length > 0) && (
+            <div className={`bg-slate-900 border rounded-xl overflow-hidden shadow-xl ${
+              isRunning ? 'border-blue-500/30' : 
+              processResult === 'success' ? 'border-emerald-500/30' : 
+              'border-red-500/30'
+            }`}>
+              <div className={`px-4 py-3 border-b flex items-center justify-between ${
+                isRunning ? 'bg-blue-500/10 border-blue-500/20' : 
+                processResult === 'success' ? 'bg-emerald-500/10 border-emerald-500/20' : 
+                'bg-red-500/10 border-red-500/20'
+              }`}>
+                <span className={`font-medium text-sm flex items-center gap-2 ${
+                  isRunning ? 'text-blue-400' : 
+                  processResult === 'success' ? 'text-emerald-400' : 
+                  'text-red-400'
+                }`}>
+                  {isRunning ? <RefreshCw size={16} className="animate-spin" /> : 
+                   processResult === 'success' ? <CheckCircle size={16} /> : 
+                   <AlertTriangle size={16} />} 
+                  {isRunning ? 'Process Running...' : 
+                   processResult === 'success' ? 'Process Completed Successfully' : 
+                   'Process Failed'}
                 </span>
+                {!isRunning && (
+                  <button onClick={() => { setLogs([]); setProcessResult(null); }} className="text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-1.5 transition">Dismiss</button>
+                )}
               </div>
               <div className="p-4 h-64 overflow-y-auto font-mono text-xs text-slate-300 space-y-1 bg-black/50">
                 {logs.map((log, i) => (
-                  <div key={i} className={log.includes('failed') || log.includes('Error') ? 'text-red-400' : ''}>
+                  <div key={i} className={log.toLowerCase().includes('fail') || log.toLowerCase().includes('error') ? 'text-red-400' : ''}>
                     {log}
                   </div>
                 ))}
