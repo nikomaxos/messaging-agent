@@ -8,10 +8,12 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 
 - **Core Service (`ma-core-service`)**:
   - A Java Spring Boot application (Port 18080).
-  - Handles UI CRUD operations, Admin APIs (including Traffic Analytics, DLQ, Throughput, Reports, System Logs, and Audit Logs ported from the old monolith), and pushes active configuration/metadata to Redis.
+  - Handles UI CRUD operations, Admin APIs (including Traffic Analytics, DLQ, Throughput, Reports, System Logs, Audit Logs, and **Billing Tariffs**), and pushes active configuration/metadata to Redis.
+  - Manages the single source of truth for `client_billing` and `tariff_plan` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds to prevent data loss.
 - **Routing Engine (`ma-routing-engine`)**:
   - A Java Spring Boot application (Port 18081).
   - 100% Event-Driven. Consumes inbound SMS from Kafka, performs O(1) Redis lookups for rate limiting and routing, and dispatches to outbound queues.
+  - Features a **Real-Time Rating Engine** (`RatingEngine.java`) that executes atomic Lua scripts (`EVAL`) directly in Redis to deduct `PREPAID` balances (`balance:{systemId}`) before messages are queued, dropping messages instantly on insufficient funds.
 - **SMPP Edge Node (`ma-smpp-edge`)**:
   - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.

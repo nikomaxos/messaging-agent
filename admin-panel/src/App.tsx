@@ -27,6 +27,7 @@ import TrafficAnalyticsPage from './pages/TrafficAnalyticsPage'
 import DeployPage from './pages/DeployPage'
 import TestingPage from './pages/TestingPage'
 import BackupRestorePage from './pages/BackupRestorePage'
+import BillingPage from './pages/BillingPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="deploy" element={<DeployPage />} />
             <Route path="testing" element={<TestingPage />} />
             <Route path="backup-restore" element={<BackupRestorePage />} />
+            <Route path="billing" element={<BillingPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

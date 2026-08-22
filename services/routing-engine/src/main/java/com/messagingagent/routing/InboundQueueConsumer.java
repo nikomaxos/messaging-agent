@@ -19,6 +19,7 @@ public class InboundQueueConsumer {
     private final RedisTemplate<String, String> redis;
     
     private final ObjectMapper objectMapper;
+    private final RatingEngine ratingEngine;
 
     /**
      * Consumes raw inbound SMS as fast as possible from Kafka.
@@ -35,6 +36,14 @@ public class InboundQueueConsumer {
             String network = "ALL";
             String supplierId = "ALL"; // Will be determined dynamically via HLR/Routing table
             String systemId = event.getSystemId() != null ? event.getSystemId() : "UNKNOWN";
+            
+            // Check Billing Rating
+            String destination = event.getDestinationAddress() != null ? event.getDestinationAddress() : "";
+            if (!ratingEngine.evaluateAndDeduct(systemId, destination)) {
+                log.warn("Message {} rejected for client {} due to insufficient funds", event.getCorrelationId(), systemId);
+                // Here we would ideally emit an async DLR failure back to SMPP edge
+                return;
+            }
 
             String queueKey = "queue:" + systemId + ":" + country + ":" + network + ":" + supplierId;
             
