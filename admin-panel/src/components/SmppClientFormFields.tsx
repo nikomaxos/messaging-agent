@@ -27,7 +27,7 @@ export function SmppClientFormFields({
 
     const inputClass = layout === 'horizontal-td' 
         ? "w-full bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm" 
-        : "w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm";
+        : "w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm";
     
     const wrapperClass = layout === 'horizontal-td' ? "" : "flex flex-col gap-1";
     const labelClass = "block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1";

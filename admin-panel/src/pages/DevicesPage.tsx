@@ -487,7 +487,7 @@ export default function DevicesPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-white/10 -mb-3">
+      <div className="flex items-center gap-1 border-b border-slate-300 dark:border-white/10 -mb-3">
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -529,7 +529,7 @@ export default function DevicesPage() {
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
           <select
-            className="bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5 min-w-[140px]"
+            className="bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5 min-w-[140px]"
             value={filterGroup}
             onChange={e => setFilterGroup(e.target.value)}
           >
@@ -540,7 +540,7 @@ export default function DevicesPage() {
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
           <select
-            className="bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5 min-w-[120px]"
+            className="bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5 min-w-[120px]"
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
           >

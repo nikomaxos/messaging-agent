@@ -77,7 +77,7 @@ export default function SmppServerPage() {
       ) : (
         <div className="space-y-8">
           {/* Metrics Dashboard */}
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
@@ -162,7 +162,7 @@ export default function SmppServerPage() {
 
           {/* Settings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-brand-500/10 text-brand-400 rounded-lg">
                 <Server size={20} />
@@ -176,7 +176,7 @@ export default function SmppServerPage() {
                   type="text" 
                   value={formData.host} 
                   onChange={(e: any) => setFormData({ ...formData, host: e.target.value })}
-                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
               </div>
               <div>
@@ -185,10 +185,10 @@ export default function SmppServerPage() {
                   type="number" 
                   value={formData.port} 
                   onChange={(e: any) => setFormData({ ...formData, port: parseInt(e.target.value) || 2775 })}
-                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
               </div>
-              <div className="pt-4 border-t border-slate-200 dark:border-white/5">
+              <div className="pt-4 border-t border-slate-300 dark:border-white/5">
                 <dt className="text-sm font-medium text-slate-600 dark:text-slate-400">Operating Status</dt>
                 <dd className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -205,7 +205,7 @@ export default function SmppServerPage() {
             </dl>
           </div>
 
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg">
                 <Activity size={20} />
@@ -221,7 +221,7 @@ export default function SmppServerPage() {
                   type="number" 
                   value={formData.maxConnections} 
                   onChange={(e: any) => setFormData({ ...formData, maxConnections: parseInt(e.target.value) || 50 })}
-                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
                 <p className="text-xs text-slate-500 mt-1">Maximum allowed active SMPP binds across all users.</p>
               </div>
@@ -234,12 +234,12 @@ export default function SmppServerPage() {
                   step="1000"
                   value={formData.enquireLinkTimeout} 
                   onChange={(e: any) => setFormData({ ...formData, enquireLinkTimeout: parseInt(e.target.value) || 30000 })}
-                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
                 <p className="text-xs text-slate-500 mt-1">Maximum wait time for an enquire_link_resp before dropping.</p>
               </div>
             </dl>
-            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5 flex justify-end">
+            <div className="mt-8 pt-6 border-t border-slate-300 dark:border-white/5 flex justify-end">
               <button
                 onClick={handleSave}
                 disabled={updateMut.isPending}

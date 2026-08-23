@@ -105,7 +105,7 @@ export default function RoutingRateLimitsPage() {
         </button>
       </div>
 
-      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
         <table className="w-full text-left text-sm text-slate-300">
           <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-white/[0.05]">
             <tr>
@@ -121,14 +121,14 @@ export default function RoutingRateLimitsPage() {
             {isCreating && (
               <tr className="bg-brand-900/10">
                 <td className="px-5 py-3">
-                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.customerProfileId} onChange={e => setFormData({ ...formData, customerProfileId: e.target.value })}>
                     <option value="ALL">ALL (Default)</option>
                     {clients.map((c: SmppClient) => <option key={c.systemId} value={c.systemId}>{c.systemId}</option>)}
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.countryCode} onChange={e => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
                     <option value="ALL">ALL Countries</option>
                     {uniqueCountries.map((cName: any) => {
@@ -138,14 +138,14 @@ export default function RoutingRateLimitsPage() {
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.networkId} onChange={e => setFormData({ ...formData, networkId: e.target.value })}>
                     <option value="ALL">ALL Networks</option>
                     {networksForCountry.map((net: any) => <option key={net} value={net}>{net}</option>)}
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.supplierId} onChange={e => setFormData({ ...formData, supplierId: e.target.value })}>
                     <option value="ALL">ALL</option>
                     <option value="WEBSOCKET">WEBSOCKET (Devices)</option>
@@ -153,7 +153,7 @@ export default function RoutingRateLimitsPage() {
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <input type="number" step="0.1" min="0.1" className="w-24 bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
+                  <input type="number" step="0.1" min="0.1" className="w-24 bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.speedTps} onChange={e => setFormData({ ...formData, speedTps: parseFloat(e.target.value) })} />
                 </td>
                 <td className="px-5 py-3 flex items-center justify-end gap-2">

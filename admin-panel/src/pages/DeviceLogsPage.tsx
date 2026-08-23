@@ -64,7 +64,7 @@ export default function DeviceLogsPage() {
       <div className="glass p-4 flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-[200px]">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device</label>
-          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.deviceId} onChange={e => setFilters({ ...filters, deviceId: e.target.value })}>
             <option value="">All Devices</option>
             {devices.map((d: Device) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -72,7 +72,7 @@ export default function DeviceLogsPage() {
         </div>
         <div className="flex-1 min-w-[150px]">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Log Level</label>
-          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.level} onChange={e => setFilters({ ...filters, level: e.target.value })}>
             <option value="">All Levels</option>
             <option value="INFO">INFO</option>

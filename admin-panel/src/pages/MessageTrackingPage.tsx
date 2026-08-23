@@ -186,7 +186,7 @@ export default function MessageTrackingPage() {
             max={999}
             value={intervalSec}
             onChange={e => setIntervalSec(Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-14 bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-center"
+            className="w-14 bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-2 py-1 text-center"
             title="Refresh interval (seconds)"
           />
           <span className="text-xs text-slate-500">s</span>
@@ -253,7 +253,7 @@ export default function MessageTrackingPage() {
           <input 
             type="text" 
             list="customers-list"
-            className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+            className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
             placeholder="Search System ID or Name..."
             value={customerSearch}
             onChange={e => {
@@ -271,7 +271,7 @@ export default function MessageTrackingPage() {
         </div>
         <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
-          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
             <option value="">All</option>
             <option value="RECEIVED">RECEIVED</option>
@@ -285,29 +285,29 @@ export default function MessageTrackingPage() {
         </div>
         <div className="min-w-[210px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From Time</label>
-          <input type="datetime-local" className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <input type="datetime-local" className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                  style={{ colorScheme: 'dark' }}
                  value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
         </div>
         <div className="min-w-[210px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">To Time</label>
-          <input type="datetime-local" className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <input type="datetime-local" className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                  style={{ colorScheme: 'dark' }}
                  value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
         </div>
         <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">From (Sender)</label>
-          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                  placeholder="e.g. Info" value={filters.senderId} onChange={e => setFilters({ ...filters, senderId: e.target.value })} />
         </div>
         <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Destination</label>
-          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                  placeholder="e.g. +3069..." value={filters.destinationNumber} onChange={e => setFilters({ ...filters, destinationNumber: e.target.value })} />
         </div>
         <div className="min-w-[140px] flex-1">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
-          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.deviceGroupId} onChange={e => setFilters({ ...filters, deviceGroupId: e.target.value })}>
             <option value="">All Groups</option>
             {groups.map((g: DeviceGroup) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -315,7 +315,7 @@ export default function MessageTrackingPage() {
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device</label>
-          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.deviceId} onChange={e => setFilters({ ...filters, deviceId: e.target.value })}>
             <option value="">All Devices</option>
             {devices.map((d: Device) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -323,12 +323,12 @@ export default function MessageTrackingPage() {
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Client Msg ID</label>
-          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                  placeholder="Correlation ID" value={filters.clientMessageId} onChange={e => setFilters({ ...filters, clientMessageId: e.target.value })} />
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Supplier Msg ID</label>
-          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
+          <input className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                  placeholder="Provider ID" value={filters.supplierMessageId} onChange={e => setFilters({ ...filters, supplierMessageId: e.target.value })} />
         </div>
         <div className="flex gap-2 min-w-[240px]">
@@ -352,7 +352,7 @@ export default function MessageTrackingPage() {
             <button className="text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>→</button>
             <button className="text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-800/60 hover:bg-slate-700 rounded px-2 py-0.5 transition disabled:opacity-30" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
             <span className="text-[10px] text-slate-600 ml-1">({totalElements.toLocaleString()})</span>
-            <select className="text-[10px] bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/5 rounded px-1 py-0.5 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+            <select className="text-[10px] bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-white/5 rounded px-1 py-0.5 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
               <option value={10}>10/pg</option>
               <option value={50}>50/pg</option>
               <option value={100}>100/pg</option>
@@ -362,7 +362,7 @@ export default function MessageTrackingPage() {
         ) : totalElements > 0 && (
           <div className="flex items-center justify-end gap-1.5 px-4 pt-3 pb-1">
             <span className="text-[10px] text-slate-600">({totalElements.toLocaleString()} results)</span>
-            <select className="text-[10px] bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/5 rounded px-1 py-0.5 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+            <select className="text-[10px] bg-slate-800/60 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-white/5 rounded px-1 py-0.5 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
               <option value={10}>10/pg</option>
               <option value={50}>50/pg</option>
               <option value={100}>100/pg</option>
@@ -505,7 +505,7 @@ export default function MessageTrackingPage() {
           <button className="btn-secondary !px-3" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
           <button className="btn-secondary !px-3" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
           <span className="text-slate-500 text-xs ml-2">({totalElements.toLocaleString()} results)</span>
-          <select className="text-xs bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 rounded px-2 py-1 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+          <select className="text-xs bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-white/10 rounded px-2 py-1 cursor-pointer ml-1" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
             <option value={10}>10 / page</option>
             <option value={50}>50 / page</option>
             <option value={100}>100 / page</option>
@@ -515,7 +515,7 @@ export default function MessageTrackingPage() {
       ) : totalElements > 0 && (
         <div className="flex items-center justify-center gap-2">
           <span className="text-slate-500 text-xs">({totalElements.toLocaleString()} results)</span>
-          <select className="text-xs bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 rounded px-2 py-1 cursor-pointer" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
+          <select className="text-xs bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-white/10 rounded px-2 py-1 cursor-pointer" value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(0) }}>
             <option value={10}>10 / page</option>
             <option value={50}>50 / page</option>
             <option value={100}>100 / page</option>
@@ -527,10 +527,10 @@ export default function MessageTrackingPage() {
       {/* Modal View for Detailed Message */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedLog(null)}>
-          <div className="bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl max-w-4xl w-full flex flex-col overflow-hidden h-[80vh]" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between bg-slate-900/50">
+          <div className="bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded-xl shadow-2xl max-w-4xl w-full flex flex-col overflow-hidden h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 flex items-center justify-between bg-slate-900/50">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><Info size={18} className="text-brand-400" /> Message Details</h2>
-              <div className="flex bg-slate-50 dark:bg-[#1a1a2e] p-1 rounded-lg border border-slate-200 dark:border-white/5 mx-auto">
+              <div className="flex bg-slate-100 dark:bg-[#1a1a2e] p-1 rounded-lg border border-slate-300 dark:border-white/5 mx-auto">
                 <button 
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${modalTab === 'DETAILS' ? 'bg-brand-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'}`}
                   onClick={() => setModalTab('DETAILS')}
@@ -571,7 +571,7 @@ export default function MessageTrackingPage() {
 
               <div className="space-y-1">
                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Message Content</div>
-                 <div className="text-sm text-slate-300 bg-slate-200/50 dark:bg-white/5 p-3 rounded border border-slate-200 dark:border-white/5 whitespace-pre-wrap">{selectedLog.messageText}</div>
+                 <div className="text-sm text-slate-300 bg-slate-200/50 dark:bg-white/5 p-3 rounded border border-slate-300 dark:border-white/5 whitespace-pre-wrap">{selectedLog.messageText}</div>
               </div>
 
               <div className={`grid grid-cols-1 md:grid-cols-${selectedLog.fallbackMessageId ? '3' : '2'} gap-4`}>
@@ -580,7 +580,7 @@ export default function MessageTrackingPage() {
                   <div className="text-xs font-mono text-brand-300 break-all">{selectedLog.customerMessageId || selectedLog.smppMessageId || 'N/A'}</div>
                 </div>
                 <div className="space-y-1 bg-teal-900/10 p-3 rounded border border-teal-500/10">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-white/5 mb-1.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-300 dark:border-white/5 mb-1.5">
                     <div className="text-[10px] font-bold text-teal-500 uppercase tracking-wider">Supplier Message ID</div>
                     <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400">External Provider ID</div>
                   </div>
@@ -588,7 +588,7 @@ export default function MessageTrackingPage() {
                 </div>
                 {selectedLog.fallbackMessageId && (
                   <div className="space-y-1 bg-amber-900/10 p-3 rounded border border-amber-500/10">
-                    <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-white/5 mb-1.5">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-300 dark:border-white/5 mb-1.5">
                       <div className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Fallback SMSC Msg ID</div>
                       <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{selectedLog.fallbackSmsc?.name || 'Unknown Provider'}</div>
                     </div>
@@ -600,7 +600,7 @@ export default function MessageTrackingPage() {
               {/* Timestamps Section */}
               <div className="space-y-2">
                 <div className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Event Timeline</div>
-                <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/5 rounded overflow-hidden">
+                <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/5 rounded overflow-hidden">
                    <div className="grid grid-cols-2 text-xs divide-x divide-y divide-white/5">
                       <div className="p-2 text-slate-600 dark:text-slate-400">1. Received by Platform</div>
                       <div className="p-2 font-mono text-slate-300">{selectedLog.createdAt ? format(new Date(selectedLog.createdAt), 'MMM d, yyyy HH:mm:ss') : '—'}</div>
@@ -624,7 +624,7 @@ export default function MessageTrackingPage() {
               </div>
 
               {(selectedLog.errorDetail || selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED') && (
-                <div className={`space-y-1 p-3 rounded border ${selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED' ? 'bg-red-900/10 border-red-500/10' : selectedLog.errorDetail === 'SEEN/READ' ? 'bg-emerald-900/10 border-emerald-500/10' : 'bg-slate-900/30 border-slate-200 dark:border-white/5'}`}>
+                <div className={`space-y-1 p-3 rounded border ${selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED' ? 'bg-red-900/10 border-red-500/10' : selectedLog.errorDetail === 'SEEN/READ' ? 'bg-emerald-900/10 border-emerald-500/10' : 'bg-slate-900/30 border-slate-300 dark:border-white/5'}`}>
                   <div className={`text-[10px] font-bold uppercase tracking-wider ${selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED' ? 'text-red-500' : selectedLog.errorDetail === 'SEEN/READ' ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-400'}`}>Status Details</div>
                   <div className={`text-sm font-mono whitespace-pre-wrap leading-relaxed ${selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED' ? 'text-red-300' : selectedLog.errorDetail === 'SEEN/READ' ? 'text-emerald-300' : 'text-slate-300'}`}>{selectedLog.errorDetail || 'Silent failure (No error details captured)'}</div>
                 </div>
@@ -636,7 +636,7 @@ export default function MessageTrackingPage() {
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-end">
+            <div className="px-6 py-4 border-t border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-end">
               <button onClick={() => setSelectedLog(null)} className="btn-secondary">Close</button>
             </div>
           </div>
@@ -646,8 +646,8 @@ export default function MessageTrackingPage() {
       {/* Resubmit Modal */}
       {showResubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowResubmitModal(false)}>
-          <div className="bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+          <div className="bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded-xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><Send size={18} className="text-amber-400" /> Resubmit Messages</h2>
               <button onClick={() => setShowResubmitModal(false)} className="text-slate-500 hover:text-slate-900 dark:text-white transition"><X size={20} /></button>
             </div>
@@ -662,7 +662,7 @@ export default function MessageTrackingPage() {
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Channel</label>
                       <select
-                        className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
+                        className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2"
                         value={resubmitChannel}
                         onChange={e => {
                           setResubmitChannel(e.target.value);
@@ -684,7 +684,7 @@ export default function MessageTrackingPage() {
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Fallback SMSC Supplier</label>
                         <select
-                          className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
+                          className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2"
                           value={resubmitSmscId ?? ''}
                           onChange={e => setResubmitSmscId(Number(e.target.value))}
                         >
@@ -701,7 +701,7 @@ export default function MessageTrackingPage() {
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Target Device Group</label>
                         <select
-                          className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
+                          className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2"
                           value={resubmitDeviceGroupId ?? ''}
                           onChange={e => setResubmitDeviceGroupId(Number(e.target.value))}
                         >

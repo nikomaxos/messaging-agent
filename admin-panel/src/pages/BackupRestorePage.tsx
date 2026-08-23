@@ -300,7 +300,7 @@ export default function BackupRestorePage() {
                   value={oauthClientId}
                   onChange={e => setOauthClientId(e.target.value)}
                   placeholder="123456789-abc.apps.googleusercontent.com"
-                  className="w-full bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 outline-none font-mono"
+                  className="w-full bg-slate-900/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 outline-none font-mono"
                 />
               </div>
               <div>
@@ -310,7 +310,7 @@ export default function BackupRestorePage() {
                   value={oauthClientSecret}
                   onChange={e => setOauthClientSecret(e.target.value)}
                   placeholder="GOCSPX-..."
-                  className="w-full bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 outline-none font-mono"
+                  className="w-full bg-slate-900/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 outline-none font-mono"
                 />
               </div>
               {configError && <div className="text-red-400 text-xs p-2 bg-red-400/10 rounded border border-red-400/20">{configError}</div>}
@@ -392,7 +392,7 @@ export default function BackupRestorePage() {
         
         {/* Left Column: Config & Manual Trigger */}
         <div className="space-y-6 lg:col-span-1">
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl p-6">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-300 dark:border-white/10 rounded-xl p-6">
             <h2 className="text-slate-900 dark:text-white font-medium mb-4 flex items-center gap-2">
               <FolderOpen size={18} className="text-slate-600 dark:text-slate-400" /> Google Drive Configuration
             </h2>
@@ -429,7 +429,7 @@ export default function BackupRestorePage() {
             </form>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl p-6">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-300 dark:border-white/10 rounded-xl p-6">
             <h2 className="text-slate-900 dark:text-white font-medium mb-4 flex items-center gap-2">
               <Timer size={18} className="text-amber-400" /> Daily Auto-Backup
             </h2>
@@ -454,7 +454,7 @@ export default function BackupRestorePage() {
                   value={scheduleHour}
                   onChange={e => setScheduleHour(parseInt(e.target.value))}
                   disabled={!isConfigured}
-                  className="w-full bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 outline-none disabled:opacity-40"
+                  className="w-full bg-slate-900/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-brand-500 outline-none disabled:opacity-40"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
                     <option key={i} value={i}>{String(i).padStart(2, '0')}:00 UTC</option>
@@ -474,7 +474,7 @@ export default function BackupRestorePage() {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl p-6">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-300 dark:border-white/10 rounded-xl p-6">
              <h2 className="text-slate-900 dark:text-white font-medium mb-4 flex items-center gap-2">
               <Play size={18} className="text-emerald-400" /> Manual Actions
             </h2>
@@ -603,8 +603,8 @@ export default function BackupRestorePage() {
             </div>
           )}
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-white/[0.02]">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-300 dark:border-white/10 rounded-xl overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-300 dark:border-white/10 flex items-center justify-between bg-white/[0.02]">
               <h3 className="text-slate-900 dark:text-white font-medium flex items-center gap-2">
                 <Database size={18} className="text-slate-600 dark:text-slate-400" /> Available Restores
               </h3>
@@ -616,7 +616,7 @@ export default function BackupRestorePage() {
             <div className="overflow-x-auto min-h-[300px]">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-black/20 text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  <tr className="border-b border-slate-300 dark:border-white/10 bg-black/20 text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                     <th className="px-5 py-4">Filename</th>
                     <th className="px-5 py-4">Size</th>
                     <th className="px-5 py-4">Date</th>

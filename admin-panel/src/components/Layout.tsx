@@ -117,7 +117,7 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
       </button>
 
       {!collapsed && expanded && (
-        <div className="mt-1 ml-4 pl-3 border-l border-slate-200 dark:border-white/10 space-y-0.5">
+        <div className="mt-1 ml-4 pl-3 border-l border-slate-300 dark:border-white/10 space-y-0.5">
           {item.children.map((child: any) => (
             <NavLink
               key={child.to}
@@ -269,7 +269,7 @@ export default function Layout() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0f0f1a]">
+      <main className="flex-1 overflow-y-auto bg-slate-100 dark:bg-[#0f0f1a]">
         <Outlet />
       </main>
 

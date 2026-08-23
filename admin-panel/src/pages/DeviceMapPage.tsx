@@ -186,7 +186,7 @@ export default function DeviceMapPage() {
       </div>
 
       {/* Map */}
-      <div className="flex-1 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 min-h-[400px]" ref={mapRef}>
+      <div className="flex-1 rounded-lg overflow-hidden border border-slate-300 dark:border-white/10 min-h-[400px]" ref={mapRef}>
         {devicesWithCoords.length === 0 && (
           <div className="flex items-center justify-center h-full bg-slate-900/50">
             <div className="text-center">

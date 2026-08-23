@@ -217,7 +217,7 @@ export default function DeployPage() {
         <div className="space-y-6 lg:col-span-1">
           
           {/* Target Configuration */}
-          <div className="rounded-xl border border-white/[0.07] bg-slate-50 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
+          <div className="rounded-xl border border-white/[0.07] bg-slate-100 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
               <Server size={18} className="text-emerald-400" />
               Target Configuration
@@ -231,14 +231,14 @@ export default function DeployPage() {
                   value={targetIp} 
                   onChange={e => setTargetIp(e.target.value)}
                   disabled={isDeploying}
-                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50"
                 />
               </div>
               
               <button
                 onClick={fetchDeployInfo}
                 disabled={isFetchingInfo || isDeploying}
-                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg text-sm transition disabled:opacity-50"
+                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded-lg text-sm transition disabled:opacity-50"
               >
                 {isFetchingInfo ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                 Fetch Target Info
@@ -247,7 +247,7 @@ export default function DeployPage() {
           </div>
 
           {/* Deployment Actions */}
-          <div className="rounded-xl border border-white/[0.07] bg-slate-50 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden group hover:border-brand-500/50 transition-colors">
+          <div className="rounded-xl border border-white/[0.07] bg-slate-100 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden group hover:border-brand-500/50 transition-colors">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
               <Rocket size={20} className="text-brand-400" />
               Production
@@ -282,7 +282,7 @@ export default function DeployPage() {
           
           {/* Progress Overview (Only show during or after deployment) */}
           {(currentStep > 0 || logs.length > 0) && (
-            <div className="rounded-xl border border-white/[0.07] bg-slate-50 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
+            <div className="rounded-xl border border-white/[0.07] bg-slate-100 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                   <RefreshCw size={18} className={isDeploying ? "animate-spin text-brand-400" : "text-emerald-400"} />
@@ -303,7 +303,7 @@ export default function DeployPage() {
                   <span>Step {Math.min(currentStep, totalSteps)} of {totalSteps}</span>
                   <span>{Math.round((Math.min(currentStep, totalSteps) / totalSteps) * 100)}%</span>
                 </div>
-                <div className="w-full bg-white dark:bg-[#12121f] rounded-full h-2.5 border border-slate-200 dark:border-white/5 overflow-hidden">
+                <div className="w-full bg-white dark:bg-[#12121f] rounded-full h-2.5 border border-slate-300 dark:border-white/5 overflow-hidden">
                   <div 
                     className={`h-2.5 rounded-full transition-all duration-500 ease-out ${isDeploying ? 'bg-brand-500' : 'bg-emerald-500'}`}
                     style={{ width: `${(Math.min(currentStep, totalSteps) / totalSteps) * 100}%` }}

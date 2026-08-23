@@ -164,7 +164,7 @@ export default function SmppClientsPage() {
         </div>
       </div>
 
-      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
         <table className="w-full text-left text-sm text-slate-300">
           <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-white/[0.05]">
             <tr>

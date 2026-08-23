@@ -248,14 +248,14 @@ export default function AccountsPage() {
 
       <div className="flex gap-6 flex-1 min-h-0">
         {/* Left Sidebar (Master) */}
-        <div className="w-1/3 max-w-sm bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col overflow-hidden shadow-sm">
+        <div className="w-1/3 max-w-sm bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col overflow-hidden shadow-sm">
           <div className="p-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f]">
              <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input 
                    type="text" 
                    placeholder="Search accounts..." 
-                   className="w-full bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 transition"
+                   className="w-full bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 transition"
                    value={searchQuery}
                    onChange={e => setSearchQuery(e.target.value)}
                 />
@@ -298,7 +298,7 @@ export default function AccountsPage() {
            {selectedAccount ? (
               <>
                  {/* Top Frame: Account Details */}
-                 <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col shrink-0 shadow-sm overflow-hidden">
+                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col shrink-0 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center">
                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                           <Building2 size={18} className="text-brand-400" />
@@ -338,7 +338,7 @@ export default function AccountsPage() {
                  </div>
 
                  {/* Bottom Frame: Usernames */}
-                 <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
+                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                           <UserCircle size={18} className="text-brand-400" />
@@ -396,7 +396,7 @@ export default function AccountsPage() {
 
                  {/* Third Frame: SMSC Suppliers (Only for SUPPLIER or BILATERAL) */}
                  {(selectedAccount.type === 'SUPPLIER' || selectedAccount.type === 'BILATERAL') && (
-                 <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
+                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                           <Server size={18} className="text-blue-400" />
@@ -455,7 +455,7 @@ export default function AccountsPage() {
                  )}
               </>
            ) : (
-              <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl">
+              <div className="flex-1 flex items-center justify-center bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl">
                  <div className="text-center text-slate-500 flex flex-col items-center gap-3">
                     <Building2 size={48} className="opacity-20" />
                     <p>Select an account from the sidebar<br/>to view details and routing configuration.</p>
@@ -468,8 +468,8 @@ export default function AccountsPage() {
       {/* Account Basic Info Modal */}
       {showAccountModal && editingAccountParams && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f]">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f]">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {editingAccountParams.id ? 'Edit Account' : 'New Account'}
               </h3>
@@ -479,11 +479,11 @@ export default function AccountsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Account Name *</label>
-                    <input type="text" name="name" defaultValue={editingAccountParams.name} required className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
+                    <input type="text" name="name" defaultValue={editingAccountParams.name} required className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Type *</label>
-                    <select name="type" defaultValue={editingAccountParams.type || 'CUSTOMER'} required className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm">
+                    <select name="type" defaultValue={editingAccountParams.type || 'CUSTOMER'} required className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm">
                       <option value="CUSTOMER">Customer (Tx Traffic)</option>
                       <option value="SUPPLIER">Supplier (Rx Traffic)</option>
                       <option value="BILATERAL">Bilateral (Both)</option>
@@ -493,27 +493,27 @@ export default function AccountsPage() {
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Company Name</label>
-                    <input type="text" name="companyName" defaultValue={editingAccountParams.companyName} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
+                    <input type="text" name="companyName" defaultValue={editingAccountParams.companyName} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">VAT Number</label>
-                    <input type="text" name="vatNumber" defaultValue={editingAccountParams.vatNumber} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
+                    <input type="text" name="vatNumber" defaultValue={editingAccountParams.vatNumber} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Address</label>
-                    <input type="text" name="address" defaultValue={editingAccountParams.address} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
+                    <input type="text" name="address" defaultValue={editingAccountParams.address} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Email (Billing)</label>
-                    <input type="email" name="email" defaultValue={editingAccountParams.email} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
+                    <input type="email" name="email" defaultValue={editingAccountParams.email} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Contact Person</label>
-                    <input type="text" name="contactPerson" defaultValue={editingAccountParams.contactPerson} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
+                    <input type="text" name="contactPerson" defaultValue={editingAccountParams.contactPerson} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm" />
                   </div>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-end gap-3 shrink-0">
+              <div className="px-6 py-4 border-t border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-end gap-3 shrink-0">
                 <button type="button" onClick={() => setShowAccountModal(false)} className="px-4 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white transition">Cancel</button>
                 <button type="submit" disabled={isSaving} className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-6 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50">Save</button>
               </div>
@@ -525,8 +525,8 @@ export default function AccountsPage() {
       {/* Username Modal */}
       {showUsernameModal && editingUsername && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f]">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f]">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {editingUsernameIndex !== null ? 'Edit Username' : 'New Username'}
               </h3>
@@ -535,16 +535,16 @@ export default function AccountsPage() {
               <div className="p-6 space-y-5">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Username *</label>
-                  <input type="text" value={editingUsername.username || ''} onChange={e => setEditingUsername({...editingUsername, username: e.target.value})} disabled={editingUsernameIndex !== null} required className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed" />
+                  <input type="text" value={editingUsername.username || ''} onChange={e => setEditingUsername({...editingUsername, username: e.target.value})} disabled={editingUsernameIndex !== null} required className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Whitelisted IPs (Comma separated)</label>
-                  <input type="text" value={editingUsername.whitelistedIps || ''} onChange={e => setEditingUsername({...editingUsername, whitelistedIps: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" />
+                  <input type="text" value={editingUsername.whitelistedIps || ''} onChange={e => setEditingUsername({...editingUsername, whitelistedIps: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" />
                 </div>
-                <div className="pt-2 border-t border-slate-200 dark:border-white/5">
+                <div className="pt-2 border-t border-slate-300 dark:border-white/5">
                    <h4 className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-3">Capabilities</h4>
                    <div className="grid grid-cols-2 gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-200 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-300 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
                         <input type="checkbox" checked={editingUsername.enforceIpWhitelist || false} onChange={e => setEditingUsername({...editingUsername, enforceIpWhitelist: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
                         <span className="text-sm text-slate-300">Enforce IP Whitelist</span>
                       </label>
@@ -552,11 +552,11 @@ export default function AccountsPage() {
                         <input type="checkbox" checked={editingUsername.smppEnabled || false} onChange={e => setEditingUsername({...editingUsername, smppEnabled: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
                         <span className="text-sm text-brand-100 font-medium">SMPP Access</span>
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-200 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-300 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
                         <input type="checkbox" checked={editingUsername.apiEnabled || false} onChange={e => setEditingUsername({...editingUsername, apiEnabled: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
                         <span className="text-sm text-slate-300">HTTP API Access</span>
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-200 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-300 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
                         <input type="checkbox" checked={editingUsername.webEnabled || false} onChange={e => setEditingUsername({...editingUsername, webEnabled: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
                         <span className="text-sm text-slate-300">Web Portal Access</span>
                       </label>
@@ -567,7 +567,7 @@ export default function AccountsPage() {
                    </div>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
+              <div className="px-6 py-4 border-t border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
                 <div>
                   {editingUsernameIndex !== null && editingUsername.smppEnabled && smppClients.find(c => c.usernameId === editingUsername.id) && (
                     <button 
@@ -603,8 +603,8 @@ export default function AccountsPage() {
       {/* SMPP Configuration Modal (Dynamic flow for usernames) */}
       {showSmppModal && pendingSmppConfigs.length > 0 && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-brand-500/30 rounded-xl w-full max-w-md shadow-[0_0_50px_rgba(var(--brand-500),0.1)] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f]">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-brand-500/30 rounded-xl w-full max-w-md shadow-[0_0_50px_rgba(var(--brand-500),0.1)] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f]">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 SMPP Credentials
               </h3>
@@ -626,7 +626,7 @@ export default function AccountsPage() {
                />
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-end gap-3 shrink-0">
+            <div className="px-6 py-4 border-t border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f] flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => {

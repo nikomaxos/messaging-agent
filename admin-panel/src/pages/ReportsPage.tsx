@@ -72,33 +72,33 @@ export default function ReportsPage() {
                   {selectedReport.period} Report — {new Date(selectedReport.generatedAt).toLocaleDateString()}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase">Total Messages</div>
                     <div className="text-xl font-bold text-slate-900 dark:text-white">{d.totalMessages?.toLocaleString() ?? '—'}</div>
                   </div>
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1"><TrendingUp size={10} /> Delivery Rate</div>
                     <div className={`text-xl font-bold ${(d.deliveryRate ?? 0) > 90 ? 'text-emerald-400' : (d.deliveryRate ?? 0) > 70 ? 'text-amber-400' : 'text-red-400'}`}>
                       {d.deliveryRate ?? '—'}%
                     </div>
                   </div>
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase">Delivered</div>
                     <div className="text-xl font-bold text-emerald-400">{d.delivered?.toLocaleString() ?? '—'}</div>
                   </div>
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1"><AlertTriangle size={10} /> Failed</div>
                     <div className="text-xl font-bold text-red-400">{d.failed?.toLocaleString() ?? '—'}</div>
                   </div>
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase">Queued</div>
                     <div className="text-xl font-bold text-amber-400">{d.queued?.toLocaleString() ?? '—'}</div>
                   </div>
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1"><Users size={10} /> Devices Online</div>
                     <div className="text-xl font-bold text-slate-900 dark:text-white">{d.onlineDevices ?? '—'} / {d.totalDevices ?? '—'}</div>
                   </div>
-                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-200 dark:border-white/5">
+                  <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
                     <div className="text-[10px] text-slate-500 uppercase">Devices Offline</div>
                     <div className="text-xl font-bold text-red-400">{d.offlineDevices ?? '—'}</div>
                   </div>

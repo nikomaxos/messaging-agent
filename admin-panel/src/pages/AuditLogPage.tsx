@@ -34,13 +34,13 @@ export default function AuditLogPage() {
       <div className="flex gap-2 items-center">
         <Filter size={14} className="text-slate-500" />
         <input
-          className="bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white w-40 placeholder:text-slate-600"
+          className="bg-white/[0.04] border border-slate-300 dark:border-white/10 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white w-40 placeholder:text-slate-600"
           placeholder="Filter by username…"
           value={userFilter}
           onChange={e => { setUserFilter(e.target.value); setPage(0) }}
         />
         <select
-          className="bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white"
+          className="bg-white/[0.04] border border-slate-300 dark:border-white/10 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white"
           value={actionFilter}
           onChange={e => { setActionFilter(e.target.value); setPage(0) }}>
           <option value="">All actions</option>
@@ -56,7 +56,7 @@ export default function AuditLogPage() {
         <div className="glass overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
+              <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
                 <th className="px-4 py-2 text-left">Time</th>
                 <th className="px-4 py-2 text-left">User</th>
                 <th className="px-4 py-2 text-left">Action</th>

@@ -51,7 +51,7 @@ export function ClientSelect({ clients, value, onChange, placeholder = "Search b
       <div className="relative">
         <input
           type="text"
-          className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 pl-9 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500/50"
+          className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 pl-9 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500/50"
           placeholder={placeholder}
           value={query}
           onChange={e => {
@@ -67,7 +67,7 @@ export function ClientSelect({ clients, value, onChange, placeholder = "Search b
       </div>
       
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+        <div className="absolute z-10 w-full mt-1 bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto">
           {filtered.length === 0 ? (
             <div className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">No clients found.</div>
           ) : (

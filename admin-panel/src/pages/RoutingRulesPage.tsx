@@ -255,7 +255,7 @@ export default function RoutingRulesPage() {
           </div>
         ))}
         {rules.length === 0 && (
-          <div className="text-center py-12 text-slate-500 bg-slate-50 dark:bg-[#1a1a2e]/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
+          <div className="text-center py-12 text-slate-500 bg-slate-100 dark:bg-[#1a1a2e]/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
             No routing rules defined. Create one to get started.
           </div>
         )}

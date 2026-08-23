@@ -42,7 +42,7 @@ export default function TestingPage() {
         </div>
       </div>
 
-      <div className="flex gap-4 border-b border-slate-200 dark:border-white/10 mb-6 pb-2">
+      <div className="flex gap-4 border-b border-slate-300 dark:border-white/10 mb-6 pb-2">
         <button onClick={() => setActiveTab('send')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'send' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'}`}>
           <Send size={16} /> Send Message
         </button>
@@ -55,13 +55,13 @@ export default function TestingPage() {
       </div>
 
       {activeTab === 'send' && (
-        <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl p-6 max-w-2xl">
+        <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl p-6 max-w-2xl">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Manual Single Message Test</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Protocol</label>
-                <select value={sendForm.protocol} onChange={e => setSendForm({...sendForm, protocol: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                <select value={sendForm.protocol} onChange={e => setSendForm({...sendForm, protocol: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                   <option value="SMS">Standard SMS</option>
                   <option value="RCS">RCS (via Mautrix)</option>
                   <option value="WHATSAPP">WhatsApp (via Mautrix)</option>
@@ -70,13 +70,13 @@ export default function TestingPage() {
               </div>
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Sender ID</label>
-                <input type="text" value={sendForm.senderId} onChange={e => setSendForm({...sendForm, senderId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
+                <input type="text" value={sendForm.senderId} onChange={e => setSendForm({...sendForm, senderId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Data Coding</label>
-                <select value={sendForm.dataCoding} onChange={e => setSendForm({...sendForm, dataCoding: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                <select value={sendForm.dataCoding} onChange={e => setSendForm({...sendForm, dataCoding: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                   <option value="0">0 - Default (7-bit)</option>
                   <option value="3">3 - Latin-1 (8-bit)</option>
                   <option value="4">4 - Binary (8-bit)</option>
@@ -85,25 +85,25 @@ export default function TestingPage() {
               </div>
               <div className="flex items-end pb-2">
                 <label className="flex items-center gap-2 cursor-pointer text-slate-300 text-sm">
-                  <input type="checkbox" checked={sendForm.isFlash} onChange={e => setSendForm({...sendForm, isFlash: e.target.checked})} className="rounded bg-white dark:bg-[#12121f] border-slate-200 dark:border-white/10 text-brand-500 focus:ring-brand-500/50 w-4 h-4" />
+                  <input type="checkbox" checked={sendForm.isFlash} onChange={e => setSendForm({...sendForm, isFlash: e.target.checked})} className="rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/10 text-brand-500 focus:ring-brand-500/50 w-4 h-4" />
                   Flash SMS
                 </label>
               </div>
             </div>
             <div>
               <label className="block text-sm text-slate-300 mb-1">Destination Number</label>
-              <input type="text" value={sendForm.destination} onChange={e => setSendForm({...sendForm, destination: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
+              <input type="text" value={sendForm.destination} onChange={e => setSendForm({...sendForm, destination: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
             </div>
             <div>
               <label className="block text-sm text-slate-300 mb-1">Force Supplier Connection (Optional)</label>
-              <select value={sendForm.supplierId} onChange={e => setSendForm({...sendForm, supplierId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+              <select value={sendForm.supplierId} onChange={e => setSendForm({...sendForm, supplierId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                 <option value="">-- Let Routing Engine Decide --</option>
                 {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm text-slate-300 mb-1">Message Body</label>
-              <textarea rows={4} value={sendForm.message} onChange={e => setSendForm({...sendForm, message: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
+              <textarea rows={4} value={sendForm.message} onChange={e => setSendForm({...sendForm, message: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
               <div className="text-xs text-slate-500 mt-1 flex justify-end">
                 {getCharStats(sendForm.message, sendForm.dataCoding, sendForm.protocol).chars} chars 
                 {sendForm.protocol === 'SMS' && ` (${getCharStats(sendForm.message, sendForm.dataCoding, sendForm.protocol).parts} part${getCharStats(sendForm.message, sendForm.dataCoding, sendForm.protocol).parts > 1 ? 's' : ''})`}
@@ -118,7 +118,7 @@ export default function TestingPage() {
 
       {activeTab === 'emulator' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[700px]">
-          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl p-6 overflow-y-auto">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl p-6 overflow-y-auto">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Input Data</h2>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -128,7 +128,7 @@ export default function TestingPage() {
                 </div>
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Protocol</label>
-                  <select value={emuForm.protocol} onChange={e => setEmuForm({...emuForm, protocol: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                  <select value={emuForm.protocol} onChange={e => setEmuForm({...emuForm, protocol: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                     <option value="SMS">Standard SMS</option>
                     <option value="RCS">RCS (via Mautrix)</option>
                     <option value="WHATSAPP">WhatsApp (via Mautrix)</option>
@@ -139,16 +139,16 @@ export default function TestingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Sender ID</label>
-                  <input type="text" value={emuForm.senderId} onChange={e => setEmuForm({...emuForm, senderId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
+                  <input type="text" value={emuForm.senderId} onChange={e => setEmuForm({...emuForm, senderId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Destination Number</label>
-                  <input type="text" value={emuForm.destination} onChange={e => setEmuForm({...emuForm, destination: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
+                  <input type="text" value={emuForm.destination} onChange={e => setEmuForm({...emuForm, destination: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Data Coding</label>
-                <select value={emuForm.dataCoding} onChange={e => setEmuForm({...emuForm, dataCoding: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                <select value={emuForm.dataCoding} onChange={e => setEmuForm({...emuForm, dataCoding: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                   <option value="0">0 - Default (7-bit)</option>
                   <option value="3">3 - Latin-1 (8-bit)</option>
                   <option value="4">4 - Binary (8-bit)</option>
@@ -157,14 +157,14 @@ export default function TestingPage() {
               </div>
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Supplier Connection (Optional)</label>
-                <select value={emuForm.supplierId} onChange={e => setEmuForm({...emuForm, supplierId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                <select value={emuForm.supplierId} onChange={e => setEmuForm({...emuForm, supplierId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                   <option value="">-- Let Routing Engine Decide --</option>
                   {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Message Body</label>
-                <textarea rows={4} value={emuForm.message} onChange={e => setEmuForm({...emuForm, message: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
+                <textarea rows={4} value={emuForm.message} onChange={e => setEmuForm({...emuForm, message: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
                 <div className="text-xs text-slate-500 mt-1 flex justify-end">
                   {getCharStats(emuForm.message, emuForm.dataCoding, emuForm.protocol).chars} chars 
                   {emuForm.protocol === 'SMS' && ` (${getCharStats(emuForm.message, emuForm.dataCoding, emuForm.protocol).parts} part${getCharStats(emuForm.message, emuForm.dataCoding, emuForm.protocol).parts > 1 ? 's' : ''})`}
@@ -176,7 +176,7 @@ export default function TestingPage() {
             </div>
           </div>
           
-          <div className="bg-[#0a0a0f] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden flex flex-col shadow-2xl">
+          <div className="bg-[#0a0a0f] border border-slate-300 dark:border-white/10 rounded-xl overflow-hidden flex flex-col shadow-2xl">
             <div className="p-3 bg-white/[0.02] border-b border-white/[0.05] flex items-center gap-2">
               <Activity size={16} className="text-slate-500" />
               <span className="text-sm font-mono text-slate-300">routing_trace.out</span>
@@ -192,9 +192,9 @@ export default function TestingPage() {
                       {line}
                     </div>
                   ))}
-                  <div className="mt-6 border-t border-slate-200 dark:border-white/10 pt-4">
+                  <div className="mt-6 border-t border-slate-300 dark:border-white/10 pt-4">
                     <div className="text-emerald-400 font-bold mb-2">Final Message State before Gateway:</div>
-                    <pre className="text-xs bg-black/40 p-3 rounded overflow-x-auto text-slate-300 border border-slate-200 dark:border-white/5">
+                    <pre className="text-xs bg-black/40 p-3 rounded overflow-x-auto text-slate-300 border border-slate-300 dark:border-white/5">
                       {JSON.stringify({
                         finalSenderId: emuResult.finalSenderId,
                         finalDestination: emuResult.finalDestination,
@@ -211,7 +211,7 @@ export default function TestingPage() {
       )}
 
       {activeTab === 'stress' && (
-        <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl p-6 max-w-2xl">
+        <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl p-6 max-w-2xl">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Volume Stress Test</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -221,7 +221,7 @@ export default function TestingPage() {
               </div>
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Protocol</label>
-                <select value={stressForm.protocol} onChange={e => setStressForm({...stressForm, protocol: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                <select value={stressForm.protocol} onChange={e => setStressForm({...stressForm, protocol: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                   <option value="SMS">Standard SMS</option>
                   <option value="RCS">RCS (via Mautrix)</option>
                   <option value="WHATSAPP">WhatsApp (via Mautrix)</option>
@@ -232,13 +232,13 @@ export default function TestingPage() {
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Sender ID</label>
-                <input type="text" value={stressForm.senderId} onChange={e => setStressForm({...stressForm, senderId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
+                <input type="text" value={stressForm.senderId} onChange={e => setStressForm({...stressForm, senderId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
               </div>
             </div>
             
             <div>
               <label className="block text-sm text-slate-300 mb-1">Data Coding</label>
-              <select value={stressForm.dataCoding} onChange={e => setStressForm({...stressForm, dataCoding: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+              <select value={stressForm.dataCoding} onChange={e => setStressForm({...stressForm, dataCoding: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                 <option value="0">0 - Default (7-bit)</option>
                 <option value="3">3 - Latin-1 (8-bit)</option>
                 <option value="4">4 - Binary (8-bit)</option>
@@ -248,7 +248,7 @@ export default function TestingPage() {
             
             <div>
               <label className="block text-sm text-slate-300 mb-1">Message Body</label>
-              <textarea rows={2} value={stressForm.message} onChange={e => setStressForm({...stressForm, message: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
+              <textarea rows={2} value={stressForm.message} onChange={e => setStressForm({...stressForm, message: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
               <div className="text-xs text-slate-500 mt-1 flex justify-end">
                 {getCharStats(stressForm.message, stressForm.dataCoding, stressForm.protocol).chars} chars 
                 {stressForm.protocol === 'SMS' && ` (${getCharStats(stressForm.message, stressForm.dataCoding, stressForm.protocol).parts} part${getCharStats(stressForm.message, stressForm.dataCoding, stressForm.protocol).parts > 1 ? 's' : ''})`}
@@ -257,7 +257,7 @@ export default function TestingPage() {
 
             <div>
               <label className="block text-sm text-slate-300 mb-1">Send Towards</label>
-              <select value={stressForm.sendTowards} onChange={e => setStressForm({...stressForm, sendTowards: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+              <select value={stressForm.sendTowards} onChange={e => setStressForm({...stressForm, sendTowards: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                 <option value="RANDOM">Randomly emulated</option>
                 <option value="SPECIFIC">Specific numbers</option>
               </select>
@@ -266,17 +266,17 @@ export default function TestingPage() {
             {stressForm.sendTowards === 'SPECIFIC' && (
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Specific Numbers (comma separated, international format)</label>
-                <textarea rows={2} value={stressForm.specificNumbers} onChange={e => setStressForm({...stressForm, specificNumbers: e.target.value})} placeholder="e.g. 306981860567, 306981860568" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
+                <textarea rows={2} value={stressForm.specificNumbers} onChange={e => setStressForm({...stressForm, specificNumbers: e.target.value})} placeholder="e.g. 306981860567, 306981860568" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"></textarea>
               </div>
             )}
 
             {stressForm.sendTowards === 'RANDOM' && (
-              <div className="bg-black/20 p-4 border border-slate-200 dark:border-white/5 rounded-lg space-y-4">
-                <h3 className="text-sm font-semibold text-slate-300 mb-2 border-b border-slate-200 dark:border-white/5 pb-2">Generate Test Numbers</h3>
+              <div className="bg-black/20 p-4 border border-slate-300 dark:border-white/5 rounded-lg space-y-4">
+                <h3 className="text-sm font-semibold text-slate-300 mb-2 border-b border-slate-300 dark:border-white/5 pb-2">Generate Test Numbers</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Globe size={14}/> Destination Country</label>
-                    <select value={stressForm.countryName} onChange={e => setStressForm({...stressForm, countryName: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                    <select value={stressForm.countryName} onChange={e => setStressForm({...stressForm, countryName: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                       <option value="">-- Select Country --</option>
                       {uniqueCountries.map((c: any) => (
                         <option key={c} value={c}>{c}</option>
@@ -285,24 +285,24 @@ export default function TestingPage() {
                   </div>
                   <div>
                     <label className="block text-sm text-slate-300 mb-1">Test Volume</label>
-                    <input type="number" min="1" value={stressForm.amount} onChange={e => setStressForm({...stressForm, amount: parseInt(e.target.value) || 1})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
+                    <input type="number" min="1" value={stressForm.amount} onChange={e => setStressForm({...stressForm, amount: parseInt(e.target.value) || 1})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" />
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="bg-black/20 p-4 border border-slate-200 dark:border-white/5 rounded-lg space-y-4">
+            <div className="bg-black/20 p-4 border border-slate-300 dark:border-white/5 rounded-lg space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm text-slate-300 mb-1 flex items-center gap-1"><Server size={14}/> Supplier Connection</label>
-                  <select value={stressForm.supplierId} onChange={e => setStressForm({...stressForm, supplierId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                  <select value={stressForm.supplierId} onChange={e => setStressForm({...stressForm, supplierId: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                     <option value="">-- Let Routing Engine Decide --</option>
                     {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-white/5">
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-300 dark:border-white/5">
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Simulation Mode</label>
                   <select value={stressForm.simulationMode} onChange={e => setStressForm({...stressForm, simulationMode: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-brand-500/30 rounded px-3 py-2 text-slate-900 dark:text-white font-medium">
@@ -313,7 +313,7 @@ export default function TestingPage() {
                 {stressForm.simulationMode === 'SIMULATE_DELIVERY' && (
                   <div>
                     <label className="block text-sm text-slate-300 mb-1">Simulated Final Status</label>
-                    <select value={stressForm.forcedErrorCode} onChange={e => setStressForm({...stressForm, forcedErrorCode: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
+                    <select value={stressForm.forcedErrorCode} onChange={e => setStressForm({...stressForm, forcedErrorCode: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white">
                       <option value="DELIVRD">DELIVRD (Success)</option>
                       <option value="UNDELIV">UNDELIV (Undelivered)</option>
                       <option value="REJECTD">REJECTD (Rejected)</option>

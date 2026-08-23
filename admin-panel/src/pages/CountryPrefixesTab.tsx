@@ -41,14 +41,14 @@ function PrefixModal({ isOpen, onClose, prefix, isEditing }: any) {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center">
-      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl w-[500px] shadow-2xl p-6">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl w-[500px] shadow-2xl p-6">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{isEditing ? 'Edit Prefix' : 'Add Prefix'}</h2>
         
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-slate-300 mb-1">Country Name</label>
             <select 
-              className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"
               value={formData.countryName}
               onChange={e => setFormData({...formData, countryName: e.target.value, mcc: '', mnc: '', iso: '', networkName: ''})}
             >
@@ -60,13 +60,13 @@ function PrefixModal({ isOpen, onClose, prefix, isEditing }: any) {
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Prefix (e.g., 3069)</label>
-            <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" 
+            <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" 
                    value={formData.prefix} onChange={e => setFormData({...formData, prefix: e.target.value})} />
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Network (MCC / MNC)</label>
             <select 
-              className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"
               value={`${formData.mcc}-${formData.mnc}`}
               onChange={e => {
                 const rec = selectedCountryRecords.find(r => `${r.mcc}-${r.mnc}` === e.target.value)
@@ -87,12 +87,12 @@ function PrefixModal({ isOpen, onClose, prefix, isEditing }: any) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-slate-300 mb-1">Network Name</label>
-              <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" 
+              <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" 
                      value={formData.networkName} onChange={e => setFormData({...formData, networkName: e.target.value})} />
             </div>
             <div>
               <label className="block text-sm text-slate-300 mb-1">ISO Code</label>
-              <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white uppercase" 
+              <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white uppercase" 
                      value={formData.iso || ''} onChange={e => setFormData({...formData, iso: e.target.value.toUpperCase()})} />
             </div>
           </div>
@@ -150,7 +150,7 @@ export default function CountryPrefixesTab() {
                 qc.invalidateQueries({ queryKey: ['countryPrefixes'] });
               }).catch(err => alert("Error syncing prefixes: " + err.message));
             }
-          }} className="bg-slate-800 hover:bg-slate-700 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
+          }} className="bg-slate-800 hover:bg-slate-700 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
             <Database size={16} /> Sync Carrier Data
           </button>
           <button onClick={() => { setEditingPrefix(null); setModalOpen(true) }} className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
@@ -159,9 +159,9 @@ export default function CountryPrefixesTab() {
         </div>
       </div>
 
-      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden">
         <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-black/20 border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">
+          <thead className="bg-black/20 border-b border-slate-300 dark:border-white/5 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">
             <tr>
               <th className="px-6 py-4 font-medium">Country (ISO)</th>
               <th className="px-6 py-4 font-medium">Network Name</th>

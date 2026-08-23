@@ -201,7 +201,7 @@ export default function AiAgentPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-48px)]">
       {/* Header */}
-      <div className="shrink-0 px-6 py-4 border-b border-slate-200 dark:border-white/5">
+      <div className="shrink-0 px-6 py-4 border-b border-slate-300 dark:border-white/5">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -253,7 +253,7 @@ export default function AiAgentPage() {
         <div className="flex-1 flex min-h-0">
           
           {/* Chat Sidebar */}
-          <div className="w-56 shrink-0 bg-black/20 border-r border-slate-200 dark:border-white/5 flex flex-col p-3 overflow-y-auto hidden md:flex">
+          <div className="w-56 shrink-0 bg-black/20 border-r border-slate-300 dark:border-white/5 flex flex-col p-3 overflow-y-auto hidden md:flex">
              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-1 mt-1">Previous Chats</div>
              <div className="flex-1 space-y-1">
                {sessions.map(s => (
@@ -296,7 +296,7 @@ export default function AiAgentPage() {
                       'How many messages are queued?',
                     ].map(q => (
                       <button key={q}
-                        className="px-3 py-2 rounded-lg text-xs text-left text-slate-600 dark:text-slate-400 bg-white/[0.03] border border-slate-200 dark:border-white/5 hover:border-brand-500/30 hover:text-brand-400 transition"
+                        className="px-3 py-2 rounded-lg text-xs text-left text-slate-600 dark:text-slate-400 bg-white/[0.03] border border-slate-300 dark:border-white/5 hover:border-brand-500/30 hover:text-brand-400 transition"
                         onClick={() => { setInput(q); inputRef.current?.focus() }}>
                         {q}
                       </button>
@@ -322,7 +322,7 @@ export default function AiAgentPage() {
                 <div className={`max-w-[85%] sm:max-w-[75%] ${
                   msg.role === 'user'
                     ? 'bg-brand-600/20 border border-brand-500/20 rounded-2xl rounded-tr-sm px-4 py-2.5'
-                    : 'bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-2xl rounded-tl-sm px-4 py-2.5'
+                    : 'bg-white/[0.03] border border-slate-300 dark:border-white/5 rounded-2xl rounded-tl-sm px-4 py-2.5'
                 }`}>
                   {msg.role === 'user' ? (
                     <div className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap">{msg.content}</div>
@@ -343,7 +343,7 @@ export default function AiAgentPage() {
                 <div className="shrink-0 w-7 h-7 rounded-lg bg-brand-600/15 border border-brand-500/20 flex items-center justify-center mt-1">
                   <Bot size={14} className="text-brand-400" />
                 </div>
-                <div className="bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-2xl rounded-tl-sm px-4 py-3">
+                <div className="bg-white/[0.03] border border-slate-300 dark:border-white/5 rounded-2xl rounded-tl-sm px-4 py-3">
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Loader2 size={14} className="animate-spin text-brand-400" />
                     Analyzing system metrics…
@@ -356,12 +356,12 @@ export default function AiAgentPage() {
           </div>
 
           {/* Input area */}
-          <div className="shrink-0 px-6 pb-4 pt-2 border-t border-slate-200 dark:border-white/5">
+          <div className="shrink-0 px-6 pb-4 pt-2 border-t border-slate-300 dark:border-white/5">
             <div className="flex gap-2 items-end">
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
-                  className="w-full bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white resize-none focus:outline-none focus:border-brand-500/40 placeholder:text-slate-600 transition"
+                  className="w-full bg-white/[0.04] border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white resize-none focus:outline-none focus:border-brand-500/40 placeholder:text-slate-600 transition"
                   style={{ height: '44px', maxHeight: '120px' }}
                   placeholder={isConfigured ? 'Ask about system health, devices, delivery rates…' : 'Configure AI provider in Settings first…'}
                   value={input}
@@ -396,7 +396,7 @@ export default function AiAgentPage() {
 
             <div className="glass p-6 space-y-5">
               {/* Enable Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-slate-200 dark:border-white/5">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-slate-300 dark:border-white/5">
                 <div>
                   <div className="text-sm font-medium text-slate-900 dark:text-white">AI Agent</div>
                   <div className="text-[10px] text-slate-500">Enable AI-powered system analysis and recommendations</div>
@@ -414,7 +414,7 @@ export default function AiAgentPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {PROVIDERS.map(p => (
                     <button key={p.value}
-                      className={`p-3 rounded-lg border text-sm font-medium text-center transition ${form.provider === p.value ? 'bg-brand-600/20 border-brand-500/40 text-brand-400' : 'bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:border-slate-200 dark:border-white/10 hover:text-slate-900 dark:text-white'}`}
+                      className={`p-3 rounded-lg border text-sm font-medium text-center transition ${form.provider === p.value ? 'bg-brand-600/20 border-brand-500/40 text-brand-400' : 'bg-white/[0.02] border-slate-300 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:border-white/10 hover:text-slate-900 dark:text-white'}`}
                       onClick={() => setForm({ ...form, provider: p.value, modelName: p.models[0] })}>
                       {p.label}
                     </button>
@@ -425,7 +425,7 @@ export default function AiAgentPage() {
               {/* Model */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Model</label>
-                <select className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
+                <select className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2"
                   value={form.modelName} onChange={e => setForm({ ...form, modelName: e.target.value })}>
                   {(PROVIDERS.find(p => p.value === form.provider) ?? PROVIDERS[0]).models.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
@@ -438,7 +438,7 @@ export default function AiAgentPage() {
                   <div className="relative flex-1">
                     <input
                       type={showKey ? 'text' : 'password'}
-                      className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2 pr-10 font-mono"
+                      className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2 pr-10 font-mono"
                       placeholder={config?.apiKey ? '••••••••••••••• (key is set)' : 'Enter API key…'}
                       value={form.apiKey}
                       onChange={e => setForm({ ...form, apiKey: e.target.value })}
@@ -479,7 +479,7 @@ export default function AiAgentPage() {
 
               {/* Status indicator */}
               {config && (
-                <div className="text-[10px] text-slate-600 border-t border-slate-200 dark:border-white/5 pt-3 mt-2">
+                <div className="text-[10px] text-slate-600 border-t border-slate-300 dark:border-white/5 pt-3 mt-2">
                   Current: <span className="text-slate-600 dark:text-slate-400">{config.provider}</span> / <span className="text-slate-600 dark:text-slate-400">{config.modelName}</span>
                   {config.apiKey && <span className="text-emerald-500 ml-2">✓ Key configured</span>}
                   {!config.apiKey && <span className="text-red-500 ml-2">✗ No key</span>}
@@ -531,7 +531,7 @@ export default function AiAgentPage() {
             </div>
 
             {memories.length === 0 ? (
-              <div className="text-center py-20 text-slate-500 border border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+              <div className="text-center py-20 text-slate-500 border border-dashed border-slate-300 dark:border-white/10 rounded-xl">
                 <Database size={32} className="mx-auto mb-3 opacity-20" />
                 <p>No memories yet. Have a meaningful conversation with the AI to extract insights!</p>
               </div>

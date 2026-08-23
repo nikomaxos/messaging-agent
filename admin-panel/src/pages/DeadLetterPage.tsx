@@ -50,7 +50,7 @@ export default function DeadLetterPage() {
           <div className="glass overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">ID</th>
                   <th className="px-4 py-2 text-left">From → To</th>
                   <th className="px-4 py-2 text-left">Message</th>

@@ -109,7 +109,7 @@ export default function TrafficAnalyticsPage() {
           senderLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Total</th>
                   <th className="px-4 py-2 text-right">Delivered</th>
@@ -145,7 +145,7 @@ export default function TrafficAnalyticsPage() {
           contentLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Message Content</th>
                   <th className="px-4 py-2 text-right">Count</th>
                   <th className="px-4 py-2 text-right">Unique Dests</th>
@@ -177,7 +177,7 @@ export default function TrafficAnalyticsPage() {
           spamLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Score</th>
                   <th className="px-4 py-2 text-left">Reasons</th>
@@ -217,7 +217,7 @@ export default function TrafficAnalyticsPage() {
           aitLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Score</th>
                   <th className="px-4 py-2 text-left">Reasons</th>
