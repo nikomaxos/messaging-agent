@@ -538,7 +538,7 @@ export default function SmppRoutingPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {routes.length === 0 && !isLoading && (
-              <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-12 text-center">
+              <div className="bg-white dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl p-12 text-center shadow-sm">
                 <Route className="mx-auto text-slate-600 mb-3" size={32} />
                 <div className="text-slate-600 dark:text-slate-400">No active routes defined.</div>
                 <div className="text-sm text-slate-500 mt-1">Messages without a route will drop unless a Default Route exists.</div>
@@ -546,7 +546,7 @@ export default function SmppRoutingPage() {
             )}
 
             {routes.map((r: any) => (
-              <div key={r.id} className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col hover:border-slate-300 dark:border-white/10 transition group gap-4 relative">
+              <div key={r.id} className="bg-white dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl p-6 shadow flex flex-col hover:shadow-md hover:border-brand-500 dark:hover:border-brand-500 transition-all group gap-4 relative">
                 <div className="absolute top-4 right-4 flex gap-2">
                   <button onClick={() => openEditModal(r)} className="p-2 bg-slate-200/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white rounded transition" title="Edit Route">
                     <Edit2 size={15} />
