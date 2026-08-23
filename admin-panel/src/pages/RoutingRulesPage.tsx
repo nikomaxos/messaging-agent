@@ -356,7 +356,7 @@ export default function RoutingRulesPage() {
                         </div>
                       ))}
                       
-                      <button onClick={() => setConditions([...conditions, { field: 'MESSAGE_TEXT', operator: 'MATCHES_REGEX', value: '' }])} className="text-orange-600 dark:text-orange-400 text-sm font-medium flex items-center gap-1 hover:underline">
+                      <button onClick={() => setConditions([...conditions, { field: 'MESSAGE_TEXT', operator: 'MATCHES_REGEX', value: '' }])} className="bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition w-fit">
                         <Plus className="w-4 h-4" /> Add Trigger
                       </button>
                     </div>
@@ -427,7 +427,7 @@ export default function RoutingRulesPage() {
                         </div>
                       ))}
                       
-                      <button onClick={() => setActions([...actions, { actionType: 'REWRITE_TEXT', actionValue: '' }])} className="text-emerald-600 dark:text-emerald-400 text-sm font-medium flex items-center gap-1 hover:underline">
+                      <button onClick={() => setActions([...actions, { actionType: 'REWRITE_TEXT', actionValue: '' }])} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition w-fit">
                         <Plus className="w-4 h-4" /> Add Action
                       </button>
                     </div>

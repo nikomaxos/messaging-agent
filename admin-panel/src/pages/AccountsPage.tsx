@@ -348,7 +348,7 @@ export default function AccountsPage() {
                           setEditingUsername({ username: 'user_' + (selectedAccount.usernames.length + 1), smppEnabled: true });
                           setEditingUsernameIndex(null); 
                           setShowUsernameModal(true); 
-                       }} className="bg-brand-600/20 hover:bg-brand-600/30 text-brand-400 border border-brand-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1">
+                       }} className="bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1">
                           <Plus size={14} /> Add Username
                        </button>
                     </div>

@@ -360,7 +360,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                 </div>
               ))}
               {formData.loadBalancerEnabled && (
-                <button onClick={addDestination} className="text-sm text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 transition mt-2">
+                <button onClick={addDestination} className="bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 w-fit mt-2">
                   <Plus size={14} /> Add Target Destination
                 </button>
               )}
