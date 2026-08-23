@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class SmppClientController {
 
     private final SmppClientRepository repository;
+    private final com.messagingagent.repository.AccountRepository accountRepository;
     private final RedisConfigSyncService syncService;
     private final StringRedisTemplate redis;
 
@@ -45,7 +46,15 @@ public class SmppClientController {
 
     @PostMapping
     @Transactional
-    public SmppClient create(@RequestBody SmppClient client) {
+    public SmppClient create(@RequestBody SmppClientDto clientDetails) {
+        SmppClient client = new SmppClient();
+        client.setName(clientDetails.getName());
+        client.setSystemId(clientDetails.getSystemId());
+        client.setPassword(clientDetails.getPassword());
+        client.setActive(clientDetails.isActive());
+        if (clientDetails.getAccountId() != null) {
+            accountRepository.findById(clientDetails.getAccountId()).ifPresent(client::setAccount);
+        }
         SmppClient saved = repository.save(client);
         syncService.syncClient(saved);
         return saved;
@@ -53,7 +62,7 @@ public class SmppClientController {
 
     @PutMapping("/{id}")
     @Transactional
-    public ResponseEntity<SmppClient> update(@PathVariable Long id, @RequestBody SmppClient clientDetails) {
+    public ResponseEntity<SmppClient> update(@PathVariable Long id, @RequestBody SmppClientDto clientDetails) {
         return repository.findById(id).map(client -> {
             client.setName(clientDetails.getName());
             client.setSystemId(clientDetails.getSystemId());
@@ -61,7 +70,11 @@ public class SmppClientController {
                 client.setPassword(clientDetails.getPassword());
             }
             client.setActive(clientDetails.isActive());
-            client.setPriority(clientDetails.getPriority() != null ? clientDetails.getPriority() : 2);
+            if (clientDetails.getAccountId() != null) {
+                accountRepository.findById(clientDetails.getAccountId()).ifPresent(client::setAccount);
+            } else {
+                client.setAccount(null);
+            }
             SmppClient saved = repository.save(client);
             syncService.syncClient(saved);
             return ResponseEntity.ok(saved);

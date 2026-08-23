@@ -8,6 +8,7 @@ import lombok.Data;
 @Builder
 public class SmscSupplierDto {
     private SmscSupplier supplier;
+    private Long accountId;
     private Long uptimeSeconds;         // Connection duration if bound, null otherwise
     private boolean connected;
     private long totalMessages;

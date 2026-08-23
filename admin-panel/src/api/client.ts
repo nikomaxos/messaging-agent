@@ -88,6 +88,12 @@ export const createRoutingRateLimit = (d: any) => api.post('/routing/rate-limits
 export const updateRoutingRateLimit = (id: number, d: any) => api.put(`/routing/rate-limits/${id}`, d).then((r: any) => r.data)
 export const deleteRoutingRateLimit = (id: number) => api.delete(`/routing/rate-limits/${id}`)
 
+export const getRoutingRules   = () => api.get('/routing/rules').then((r: any) => r.data)
+export const createRoutingRule = (d: any) => api.post('/routing/rules', d).then((r: any) => r.data)
+export const updateRoutingRule = (id: number, d: any) => api.put(`/routing/rules/${id}`, d).then((r: any) => r.data)
+export const deleteRoutingRule = (id: number) => api.delete(`/routing/rules/${id}`)
+export const testRoutingRule   = (d: any) => api.post('/routing/rules/test', d).then((r: any) => r.data)
+
 export const getCountryPrefixes   = () => api.get('/routing/prefixes').then((r: any) => r.data)
 export const createCountryPrefix  = (d: any) => api.post('/routing/prefixes', d).then((r: any) => r.data)
 export const updateCountryPrefix  = (id: string, d: any) => api.put(`/routing/prefixes/${id}`, d).then((r: any) => r.data)

@@ -10,6 +10,7 @@ import SimCardsPage from './pages/SimCardsPage'
 import SmppServerPage from './pages/SmppServerPage'
 import SmppClientsPage from './pages/SmppClientsPage'
 import SmppRoutingPage from './pages/SmppRoutingPage'
+import RoutingRulesPage from './pages/RoutingRulesPage'
 import RoutingRateLimitsPage from './pages/RoutingRateLimitsPage'
 import SmscsPage from './pages/SmscsPage'
 import SmppProxyPage from './pages/SmppProxyPage'
@@ -28,6 +29,7 @@ import DeployPage from './pages/DeployPage'
 import TestingPage from './pages/TestingPage'
 import BackupRestorePage from './pages/BackupRestorePage'
 import BillingPage from './pages/BillingPage'
+import AccountsPage from './pages/AccountsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -49,6 +51,7 @@ export default function App() {
             <Route path="smpp/server" element={<SmppServerPage />} />
             <Route path="smpp/clients" element={<SmppClientsPage />} />
             <Route path="smpp/routing" element={<SmppRoutingPage />} />
+            <Route path="smpp/rules" element={<RoutingRulesPage />} />
             <Route path="smpp/rate-limits" element={<RoutingRateLimitsPage />} />
             <Route path="smscs" element={<SmscsPage />} />
             <Route path="smpp/proxy" element={<SmppProxyPage />} />
@@ -67,6 +70,7 @@ export default function App() {
             <Route path="testing" element={<TestingPage />} />
             <Route path="backup-restore" element={<BackupRestorePage />} />
             <Route path="billing" element={<BillingPage />} />
+            <Route path="accounts" element={<AccountsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

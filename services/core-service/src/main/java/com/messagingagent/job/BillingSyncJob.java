@@ -1,7 +1,7 @@
 package com.messagingagent.job;
 
-import com.messagingagent.model.ClientBilling;
-import com.messagingagent.repository.ClientBillingRepository;
+import com.messagingagent.model.AccountBilling;
+import com.messagingagent.repository.AccountBillingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -18,7 +18,7 @@ import java.util.Set;
 @Slf4j
 public class BillingSyncJob {
 
-    private final ClientBillingRepository clientBillingRepository;
+    private final AccountBillingRepository accountBillingRepository;
     private final StringRedisTemplate redisTemplate;
 
     // Run every 30 seconds
@@ -27,24 +27,23 @@ public class BillingSyncJob {
     public void syncBalancesFromRedis() {
         log.debug("Starting Redis -> DB balance sync...");
         
-        List<ClientBilling> billings = clientBillingRepository.findAll();
-        for (ClientBilling billing : billings) {
-            String systemId = billing.getClient().getSystemId();
-            String liveBalanceStr = redisTemplate.opsForValue().get("balance:" + systemId);
+        List<AccountBilling> billings = accountBillingRepository.findAll();
+        for (AccountBilling billing : billings) {
+            String liveBalanceStr = redisTemplate.opsForValue().get("balance:acc:" + billing.getAccountId());
             if (liveBalanceStr != null) {
                 try {
                     BigDecimal liveBalance = new BigDecimal(liveBalanceStr);
                     if (liveBalance.compareTo(billing.getBalance()) != 0) {
                         billing.setBalance(liveBalance);
-                        clientBillingRepository.save(billing);
-                        log.debug("Synced balance for client {}: {}", billing.getClientId(), liveBalance);
+                        accountBillingRepository.save(billing);
+                        log.debug("Synced balance for account {}: {}", billing.getAccountId(), liveBalance);
                     }
                 } catch (NumberFormatException e) {
-                    log.error("Invalid balance format in Redis for client {}: {}", systemId, liveBalanceStr);
+                    log.error("Invalid balance format in Redis for account {}: {}", billing.getAccountId(), liveBalanceStr);
                 }
             } else {
                 // If not in Redis, push DB balance to Redis to ensure it exists
-                redisTemplate.opsForValue().set("balance:" + systemId, billing.getBalance().toString());
+                redisTemplate.opsForValue().set("balance:acc:" + billing.getAccountId(), billing.getBalance().toString());
             }
         }
         

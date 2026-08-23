@@ -9,11 +9,11 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 - **Core Service (`ma-core-service`)**:
   - A Java Spring Boot application (Port 18080).
   - Handles UI CRUD operations, Admin APIs (including Traffic Analytics, DLQ, Throughput, Reports, System Logs, Audit Logs, and **Billing Tariffs**), and pushes active configuration/metadata to Redis.
-  - Manages the single source of truth for `client_billing` and `tariff_plan` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds to prevent data loss.
+  - Manages the single source of truth for `account` (master entity for customers and suppliers), `account_billing`, and `tariff_plan` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds to prevent data loss.
 - **Routing Engine (`ma-routing-engine`)**:
   - A Java Spring Boot application (Port 18081).
   - 100% Event-Driven. Consumes inbound SMS from Kafka, performs O(1) Redis lookups for rate limiting and routing, and dispatches to outbound queues.
-  - Features a **Real-Time Rating Engine** (`RatingEngine.java`) that executes atomic Lua scripts (`EVAL`) directly in Redis to deduct `PREPAID` balances (`balance:{systemId}`) before messages are queued, dropping messages instantly on insufficient funds.
+  - Features a **Real-Time Rating Engine** (`RatingEngine.java`) that executes atomic Lua scripts (`EVAL`) directly in Redis to deduct `PREPAID` balances (`balance:acc:{accountId}`) before messages are queued, dropping messages instantly on insufficient funds. The `accountId` is resolved via a Redis mapping `client_to_account:{systemId}`.
 - **SMPP Edge Node (`ma-smpp-edge`)**:
   - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
@@ -21,8 +21,18 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
   - Handles WebSocket connections back to the server and OTA (Over-The-Air) updates.
 - **Admin Panel (`admin-panel`)**:
   - A Vite + React + Tailwind CSS dashboard providing UI for device management, logs, and DevOps operations.
+  
+## 2. Advanced Routing & Rules Engine
 
-## 2. Advanced Queueing & Rate Limiting Architecture
+- **Rules Engine (`RoutingRuleService`)**:
+  - Built into `ma-core-service`, it evaluates incoming messages against customizable rules before standard routing.
+  - Supports Triggers (Conditions) based on Regex, Contains, Starts With, or Exact Match on Source, Destination, System ID, or Message Text.
+  - Actions include: Rewrite Text, Rewrite Source, Force SMSC, Fake DLR, and Drop.
+- **Fake DLR Billing Concept**:
+  - When a rule triggers a `FAKE_DLR` action (e.g. `DELIVRD`), the backend (`SmsInboundConsumer`) intercepts the message, emulates the DLR, and persists the specified fake status to the database (`isEmulated = true`).
+  - **Billing Impact:** The system's standard billing logic charges customers based on the final status (i.e. `DELIVRD`). By intentionally faking a `DELIVRD` status, the platform successfully charges the customer the selling price for blocked or dropped traffic, monetizing spam filtering.
+
+## 3. Advanced Queueing & Rate Limiting Architecture
 
 To handle massive asynchronous burst traffic and fractional rate limiting (e.g. 0.1 TPS), the system employs a custom **Modular Monolith Worker** pattern backed by Kafka and Redis:
 - **Zero-Latency OTP Prioritization**: SMPP clients can be assigned Priority 1 (OTP) or Priority 2 (Marketing). The Redis `ZADD` composite score logic (`priority * 10^13 + timestamp`) guarantees OTP messages are mathematically forced to the head of the dispatch queue ahead of any marketing blasts.

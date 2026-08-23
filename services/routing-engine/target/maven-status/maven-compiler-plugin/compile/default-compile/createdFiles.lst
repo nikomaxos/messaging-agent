@@ -8,3 +8,4 @@ com/messagingagent/kafka/SmsInboundEvent$SmsInboundEventBuilder.class
 com/messagingagent/routing/RateLimitDispatcher.class
 com/messagingagent/routing/controller/EmulationController$EmulationRequest.class
 com/messagingagent/routing/InboundQueueConsumer.class
+com/messagingagent/routing/RatingEngine.class

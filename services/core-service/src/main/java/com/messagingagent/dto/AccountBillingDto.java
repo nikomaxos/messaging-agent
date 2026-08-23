@@ -4,9 +4,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class ClientBillingDto {
-    private Long clientId;
-    private String clientName;
+public class AccountBillingDto {
+    private Long accountId;
     private String billingType;
     private BigDecimal balance;
     private BigDecimal creditLimit;

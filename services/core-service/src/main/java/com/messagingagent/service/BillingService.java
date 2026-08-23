@@ -1,6 +1,6 @@
 package com.messagingagent.service;
 
-import com.messagingagent.dto.ClientBillingDto;
+import com.messagingagent.dto.AccountBillingDto;
 import com.messagingagent.dto.TariffPlanDto;
 import com.messagingagent.dto.TariffRateDto;
 import com.messagingagent.dto.TopUpRequestDto;
@@ -23,9 +23,9 @@ public class BillingService {
 
     private final TariffPlanRepository tariffPlanRepository;
     private final TariffRateRepository tariffRateRepository;
-    private final ClientBillingRepository clientBillingRepository;
-    private final BillingTransactionRepository billingTransactionRepository;
-    private final SmppClientRepository smppClientRepository;
+    private final AccountBillingRepository accountBillingRepository;
+    private final AccountTransactionRepository accountTransactionRepository;
+    private final AccountRepository accountRepository;
     private final StringRedisTemplate redisTemplate;
 
     public List<TariffPlanDto> getTariffPlans() {
@@ -87,25 +87,21 @@ public class BillingService {
         }
     }
 
-    public List<ClientBillingDto> getAllClientBilling() {
-        return clientBillingRepository.findAll().stream().map(b -> {
-            ClientBillingDto dto = new ClientBillingDto();
-            dto.setClientId(b.getClientId());
-            if (b.getClient() != null) {
-                dto.setClientName(b.getClient().getName());
-            }
-            dto.setBillingType(b.getBillingType());
+    public List<AccountBillingDto> getAllAccountBilling() {
+        return accountBillingRepository.findAll().stream().map(b -> {
+            AccountBillingDto dto = new AccountBillingDto();
+            dto.setAccountId(b.getAccountId());
             
             // Get live balance from Redis, fallback to DB
-            String systemId = b.getClient().getSystemId();
-            String liveBalanceStr = redisTemplate.opsForValue().get("balance:" + systemId);
+            String liveBalanceStr = redisTemplate.opsForValue().get("balance:acc:" + b.getAccountId());
             if (liveBalanceStr != null) {
                 dto.setBalance(new BigDecimal(liveBalanceStr));
             } else {
                 dto.setBalance(b.getBalance());
-                redisTemplate.opsForValue().set("balance:" + systemId, b.getBalance().toString());
+                redisTemplate.opsForValue().set("balance:acc:" + b.getAccountId(), b.getBalance().toString());
             }
             
+            dto.setBillingType(b.getBillingType());
             dto.setCreditLimit(b.getCreditLimit());
             if (b.getTariffPlan() != null) {
                 dto.setTariffPlanId(b.getTariffPlan().getId());
@@ -116,16 +112,16 @@ public class BillingService {
     }
 
     @Transactional
-    public ClientBillingDto updateClientBilling(Long clientId, ClientBillingDto dto) {
-        ClientBilling billing = clientBillingRepository.findById(clientId).orElse(null);
+    public AccountBillingDto updateAccountBilling(Long accountId, AccountBillingDto dto) {
+        AccountBilling billing = accountBillingRepository.findById(accountId).orElse(null);
         if (billing == null) {
-            SmppClient client = smppClientRepository.findById(clientId)
-                    .orElseThrow(() -> new RuntimeException("Client not found"));
-            billing = new ClientBilling();
-            billing.setClient(client);
-            billing.setClientId(clientId);
+            Account account = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new RuntimeException("Account not found"));
+            billing = new AccountBilling();
+            billing.setAccount(account);
+            billing.setAccountId(accountId);
             billing.setBalance(BigDecimal.ZERO);
-            redisTemplate.opsForValue().set("balance:" + client.getSystemId(), "0");
+            redisTemplate.opsForValue().set("balance:acc:" + accountId, "0");
         }
 
         billing.setBillingType(dto.getBillingType());
@@ -135,40 +131,40 @@ public class BillingService {
             TariffPlan plan = tariffPlanRepository.findById(dto.getTariffPlanId())
                     .orElseThrow(() -> new RuntimeException("Tariff plan not found"));
             billing.setTariffPlan(plan);
-            redisTemplate.opsForValue().set("client_plan:" + billing.getClient().getSystemId(), plan.getId().toString());
-            redisTemplate.opsForValue().set("client_type:" + billing.getClient().getSystemId(), dto.getBillingType());
+            redisTemplate.opsForValue().set("client_plan:acc:" + accountId, plan.getId().toString());
+            redisTemplate.opsForValue().set("client_type:acc:" + accountId, dto.getBillingType());
         }
 
-        billing = clientBillingRepository.save(billing);
+        billing = accountBillingRepository.save(billing);
         
-        dto.setClientId(clientId);
+        dto.setAccountId(accountId);
         return dto;
     }
 
     @Transactional
-    public void topUp(Long clientId, TopUpRequestDto request) {
+    public void topUp(Long accountId, TopUpRequestDto request) {
         if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Top up amount must be positive");
         }
 
-        ClientBilling billing = clientBillingRepository.findById(clientId)
+        AccountBilling billing = accountBillingRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Billing profile not found"));
 
         // Increase in DB
         billing.setBalance(billing.getBalance().add(request.getAmount()));
-        clientBillingRepository.save(billing);
+        accountBillingRepository.save(billing);
 
         // Increase in Redis atomically
-        redisTemplate.opsForValue().increment("balance:" + billing.getClient().getSystemId(), request.getAmount().doubleValue());
+        redisTemplate.opsForValue().increment("balance:acc:" + accountId, request.getAmount().doubleValue());
 
         // Create Transaction Record
-        BillingTransaction tx = new BillingTransaction();
-        tx.setClient(billing.getClient());
+        AccountTransaction tx = new AccountTransaction();
+        tx.setAccount(billing.getAccount());
         tx.setAmount(request.getAmount());
         tx.setType("TOPUP");
         tx.setDescription(request.getDescription());
-        billingTransactionRepository.save(tx);
+        accountTransactionRepository.save(tx);
         
-        log.info("TopUp successful: Client {} added {}", clientId, request.getAmount());
+        log.info("TopUp successful: Account {} added {}", accountId, request.getAmount());
     }
 }

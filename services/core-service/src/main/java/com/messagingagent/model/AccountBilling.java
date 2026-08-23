@@ -8,22 +8,22 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "client_billing")
+@Table(name = "account_billing")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ClientBilling {
+public class AccountBilling {
 
     @Id
-    @Column(name = "client_id")
-    private Long clientId;
+    @Column(name = "account_id")
+    private Long accountId;
 
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
-    @JoinColumn(name = "client_id")
-    private SmppClient client;
+    @JoinColumn(name = "account_id")
+    private Account account;
 
     @Column(name = "billing_type", nullable = false, length = 20)
     @Builder.Default

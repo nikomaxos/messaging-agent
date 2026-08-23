@@ -59,12 +59,18 @@ public class RedisConfigSyncService {
         }
         redis.opsForValue().set("config:client:" + client.getSystemId() + ":password", client.getPassword());
         redis.opsForValue().set("config:client:" + client.getSystemId() + ":priority", String.valueOf(client.getPriority()));
+        
+        if (client.getAccount() != null) {
+            redis.opsForValue().set("client_to_account:" + client.getSystemId(), client.getAccount().getId().toString());
+        }
+        
         log.debug("Synced SMPP Client config to Redis: {}", client.getSystemId());
     }
 
     public void deleteClient(String systemId) {
         redis.delete("config:client:" + systemId + ":password");
         redis.delete("config:client:" + systemId + ":priority");
+        redis.delete("client_to_account:" + systemId);
         log.debug("Deleted SMPP Client config from Redis: {}", systemId);
     }
 

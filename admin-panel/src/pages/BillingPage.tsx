@@ -40,7 +40,7 @@ export default function BillingPage() {
     setLoading(true);
     try {
       const [accRes, planRes] = await Promise.all([
-        api.get('/billing/clients'),
+        api.get('/billing/accounts'),
         api.get('/billing/tariffs')
       ]);
       setAccounts(accRes.data || []);
@@ -68,7 +68,7 @@ export default function BillingPage() {
     e.preventDefault();
     if (!topUpClient) return;
     try {
-      await api.post(`/billing/clients/${topUpClient.clientId}/topup`, {
+      await api.post(`/billing/accounts/${topUpClient.accountId}/topup`, {
         amount: parseFloat(topUpAmount),
         description: topUpDesc || 'Manual Top-Up via Admin Panel'
       });
@@ -118,9 +118,9 @@ export default function BillingPage() {
     }
   };
 
-  const handleUpdateAccount = async (clientId: number, billingType: string, tariffPlanId: number | null) => {
+  const handleUpdateAccount = async (accountId: number, billingType: string, tariffPlanId: number | null) => {
     try {
-      await api.put(`/billing/clients/${clientId}`, {
+      await api.put(`/billing/accounts/${accountId}`, {
         billingType,
         tariffPlanId,
         creditLimit: 0
@@ -182,7 +182,7 @@ export default function BillingPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-800/50 border-b border-slate-700/50">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Account</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Billing Type</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Tariff Plan</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Live Balance</th>
@@ -191,12 +191,12 @@ export default function BillingPage() {
             </thead>
             <tbody className="divide-y divide-slate-800/50">
               {accounts.map(acc => (
-                <tr key={acc.clientId} className="hover:bg-slate-800/20 transition group">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{acc.clientName || `Client #${acc.clientId}`}</td>
+                <tr key={acc.accountId} className="hover:bg-slate-800/20 transition group">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">Account #{acc.accountId}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <select 
                       value={acc.billingType || 'POSTPAID'} 
-                      onChange={(e) => handleUpdateAccount(acc.clientId, e.target.value, acc.tariffPlanId)}
+                      onChange={(e) => handleUpdateAccount(acc.accountId, e.target.value, acc.tariffPlanId)}
                       className="bg-slate-800 border border-slate-700 text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="PREPAID">Prepaid</option>
@@ -206,7 +206,7 @@ export default function BillingPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <select 
                       value={acc.tariffPlanId || ''} 
-                      onChange={(e) => handleUpdateAccount(acc.clientId, acc.billingType, e.target.value ? Number(e.target.value) : null)}
+                      onChange={(e) => handleUpdateAccount(acc.accountId, acc.billingType, e.target.value ? Number(e.target.value) : null)}
                       className="bg-slate-800 border border-slate-700 text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="">No Plan (Free)</option>
@@ -338,7 +338,7 @@ export default function BillingPage() {
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
               <h3 className="font-semibold text-lg">Top-Up Account</h3>
-              <p className="text-slate-400 text-sm">Add funds for {topUpClient.clientName || `Client #${topUpClient.clientId}`}</p>
+              <p className="text-slate-400 text-sm">Add funds for Account #{topUpClient.accountId}</p>
             </div>
             <form onSubmit={handleTopUp} className="p-6 space-y-4">
               <div>

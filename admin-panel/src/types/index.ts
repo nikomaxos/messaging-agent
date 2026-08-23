@@ -67,6 +67,7 @@ export interface SmppClient {
   password?: string
   active: boolean
   priority?: number
+  accountId?: number
   createdAt: string
   activeSessions?: SmppSession[]
 }
@@ -109,6 +110,7 @@ export interface MessageLog {
   errorDetail?: string
   isEmulated?: boolean
   fallbackSmsc?: any
+  traceData?: string
   createdAt: string
   dispatchedAt?: string
   rcsDlrReceivedAt?: string
@@ -156,6 +158,7 @@ export interface SmscSupplierConfig {
   bypassDuplicateFilter?: boolean
   sentCount?: number
   triggerResendErrorCodes?: string
+  accountId?: number
   createdAt: string
   updatedAt?: string
 }

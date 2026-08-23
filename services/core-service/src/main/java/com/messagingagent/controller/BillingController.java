@@ -1,6 +1,6 @@
 package com.messagingagent.controller;
 
-import com.messagingagent.dto.ClientBillingDto;
+import com.messagingagent.dto.AccountBillingDto;
 import com.messagingagent.dto.TariffPlanDto;
 import com.messagingagent.dto.TariffRateDto;
 import com.messagingagent.dto.TopUpRequestDto;
@@ -44,19 +44,19 @@ public class BillingController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/clients")
-    public ResponseEntity<List<ClientBillingDto>> getAllClientBilling() {
-        return ResponseEntity.ok(billingService.getAllClientBilling());
+    @GetMapping("/accounts")
+    public ResponseEntity<List<AccountBillingDto>> getAllAccountBilling() {
+        return ResponseEntity.ok(billingService.getAllAccountBilling());
     }
 
-    @PutMapping("/clients/{clientId}")
-    public ResponseEntity<ClientBillingDto> updateClientBilling(@PathVariable Long clientId, @RequestBody ClientBillingDto dto) {
-        return ResponseEntity.ok(billingService.updateClientBilling(clientId, dto));
+    @PutMapping("/accounts/{accountId}")
+    public ResponseEntity<AccountBillingDto> updateAccountBilling(@PathVariable Long accountId, @RequestBody AccountBillingDto dto) {
+        return ResponseEntity.ok(billingService.updateAccountBilling(accountId, dto));
     }
 
-    @PostMapping("/clients/{clientId}/topup")
-    public ResponseEntity<Void> topUp(@PathVariable Long clientId, @RequestBody TopUpRequestDto dto) {
-        billingService.topUp(clientId, dto);
+    @PostMapping("/accounts/{accountId}/topup")
+    public ResponseEntity<Void> topUp(@PathVariable Long accountId, @RequestBody TopUpRequestDto dto) {
+        billingService.topUp(accountId, dto);
         return ResponseEntity.ok().build();
     }
 }

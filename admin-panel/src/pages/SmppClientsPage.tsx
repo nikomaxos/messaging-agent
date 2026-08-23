@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient, disconnectSmppClient } from '../api/client'
+import api from '../api/client'
 import { SmppClient } from '../types'
 import { Plus, Pencil, Trash2, X, Check, Unplug, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import { format } from 'date-fns'
@@ -9,6 +10,7 @@ import { ConfirmModal } from '../components/ConfirmModal'
 export default function SmppClientsPage() {
   const qc = useQueryClient()
   const { data: clients = [], isFetching, refetch, dataUpdatedAt } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients, refetchInterval: 5000 })
+  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: async () => (await api.get('/accounts')).data })
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -41,7 +43,7 @@ export default function SmppClientsPage() {
   const startCreate = () => {
     setIsCreating(true)
     setEditingId(null)
-    setFormData({ name: '', systemId: '', password: '', active: true })
+    setFormData({ name: '', systemId: '', password: '', active: true, accountId: undefined })
   }
 
   // Start edit
@@ -119,6 +121,7 @@ export default function SmppClientsPage() {
           <thead className="bg-[#12121f] text-slate-400 border-b border-white/[0.05]">
             <tr>
               <th className="px-5 py-4 font-medium">Name</th>
+              <th className="px-5 py-4 font-medium">Account</th>
               <th className="px-5 py-4 font-medium">System ID</th>
               <th className="px-5 py-4 font-medium">Password</th>
               <th className="px-5 py-4 font-medium">Status</th>
@@ -135,6 +138,13 @@ export default function SmppClientsPage() {
                 <td className="px-5 py-3">
                   <input autoFocus className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
                     value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Client Name" />
+                </td>
+                <td className="px-5 py-3">
+                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                    value={formData.accountId || ''} onChange={e => setFormData({ ...formData, accountId: parseInt(e.target.value) || undefined })}>
+                    <option value="">-- No Account --</option>
+                    {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
                 </td>
                 <td className="px-5 py-3">
                   <input className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
@@ -170,6 +180,17 @@ export default function SmppClientsPage() {
                   <td className="px-5 py-3">
                     {isEd ? <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" autoFocus value={formData.name || ''} onChange={(e: any) => setFormData({ ...formData, name: e.target.value })} />
                           : <span className="font-medium text-white">{c.name}</span>}
+                  </td>
+                  <td className="px-5 py-3 text-sm">
+                    {isEd ? (
+                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                        value={formData.accountId || ''} onChange={(e: any) => setFormData({ ...formData, accountId: parseInt(e.target.value) || undefined })}>
+                        <option value="">-- No Account --</option>
+                        {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    ) : (
+                      c.accountId ? <span className="text-blue-400 font-medium">{accounts.find((a:any) => a.id === c.accountId)?.name || `Account #${c.accountId}`}</span> : <span className="text-slate-500 text-xs">Unlinked</span>
+                    )}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" value={formData.systemId || ''} onChange={(e: any) => setFormData({ ...formData, systemId: e.target.value })} />

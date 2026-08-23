@@ -136,4 +136,7 @@ public class MessageLog {
     @Column(name = "is_emulated", nullable = false)
     @Builder.Default
     private boolean isEmulated = false;
+
+    @Column(name = "trace_data", columnDefinition = "TEXT")
+    private String traceData;
 }

@@ -8,21 +8,21 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "billing_transaction")
+@Table(name = "account_transaction")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BillingTransaction {
+public class AccountTransaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", nullable = false)
-    private SmppClient client;
+    @JoinColumn(name = "account_id", nullable = false)
+    private Account account;
 
     @Column(nullable = false, precision = 15, scale = 5)
     private BigDecimal amount;

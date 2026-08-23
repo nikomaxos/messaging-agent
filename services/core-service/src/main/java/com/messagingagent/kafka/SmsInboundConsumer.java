@@ -9,6 +9,7 @@ import com.messagingagent.repository.SmppClientRepository;
 import com.messagingagent.repository.SmppRoutingRepository;
 import com.messagingagent.repository.SmscSupplierRepository;
 import com.messagingagent.model.SmscSupplier;
+import com.messagingagent.service.RoutingRuleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -34,6 +35,7 @@ public class SmsInboundConsumer {
     private final MessageLogRepository messageLogRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final RoutingRuleService routingRuleService;
 
     @KafkaListener(topics = "sms.inbound.raw", groupId = "core-service-raw-group")
     public void consumeRawInbound(String messageJson) {
@@ -105,7 +107,67 @@ public class SmsInboundConsumer {
                 return;
             }
 
+            // --- Rules Engine Evaluation ---
+            List<com.messagingagent.model.RoutingRule> rules = routingRuleService.getActiveRulesSorted();
+            StringBuilder traceLogBuilder = new StringBuilder();
+            boolean terminateRouting = false;
+
+            for (com.messagingagent.model.RoutingRule rule : rules) {
+                String ruleTrace = routingRuleService.evaluateRule(rule, event);
+                if (ruleTrace != null) {
+                    traceLogBuilder.append(ruleTrace).append(" | ");
+                    if (event.containsKey("terminateRouting") && (Boolean) event.get("terminateRouting")) {
+                        traceLogBuilder.append("Terminated. ");
+                        terminateRouting = true;
+                        break;
+                    }
+                }
+            }
+
+            // Refresh variables that might have been modified by rules
+            final String finalSourceAddress = (String) event.get("sourceAddress");
+            final String finalMessageText = (String) event.get("messageText");
+            String traceData = traceLogBuilder.toString();
+
             Optional<SmppClient> clientOpt = smppClientRepository.findBySystemId(systemId);
+
+            if (terminateRouting) {
+                log.info("Message {} terminated by Rules Engine", correlationId);
+                MessageLog logEntry = messageLogRepository.findBySmppMessageId(correlationId)
+                        .orElseGet(() -> MessageLog.builder()
+                                .smppMessageId(correlationId)
+                                .customerMessageId(correlationId)
+                                .smppClient(clientOpt.orElse(null))
+                                .sourceAddress(finalSourceAddress)
+                                .destinationAddress(destinationAddress)
+                                .messageText(finalMessageText)
+                                .isEmulated(false)
+                                .dataCoding(dataCoding)
+                                .build());
+
+                logEntry.setSourceAddress(finalSourceAddress);
+                logEntry.setMessageText(finalMessageText);
+                logEntry.setTraceData(!traceData.isEmpty() ? traceData : null);
+
+                if (event.containsKey("fakeDlrStatus")) {
+                    String fakeStatus = (String) event.get("fakeDlrStatus");
+                    logEntry.setStatus("DELIVRD".equalsIgnoreCase(fakeStatus) ? MessageLog.Status.DELIVERED : MessageLog.Status.FAILED);
+                    logEntry.setErrorDetail("RULES_ENGINE_FAKE_DLR " + fakeStatus);
+                    messageLogRepository.save(logEntry);
+
+                    String dlrStatus = logEntry.getStatus() == MessageLog.Status.DELIVERED ? "DELIVERED" : "FAILED";
+                    String dlrJson = String.format("{\"correlationId\":\"%s\", \"status\":\"%s\", \"reason\":\"%s\"}", 
+                            correlationId, dlrStatus, fakeStatus);
+                    kafkaTemplate.send("sms.delivery.receipt", correlationId, dlrJson);
+                } else if (event.containsKey("dropMessage")) {
+                    logEntry.setStatus(MessageLog.Status.FAILED);
+                    logEntry.setErrorDetail("RULES_ENGINE_DROPPED");
+                    messageLogRepository.save(logEntry);
+                }
+                return;
+            }
+            // --- End Rules Engine ---
+
             SmppRouting routing = null;
 
             if (clientOpt.isPresent()) {
@@ -158,12 +220,16 @@ public class SmsInboundConsumer {
                                     .smppMessageId(correlationId)
                                     .customerMessageId(correlationId)
                                     .smppClient(clientOpt.orElse(null))
-                                    .sourceAddress(sourceAddress)
+                                    .sourceAddress(finalSourceAddress)
                                     .destinationAddress(destinationAddress)
-                                    .messageText(messageText)
+                                    .messageText(finalMessageText)
                                     .isEmulated(false)
                                     .dataCoding(dataCoding)
                                     .build());
+
+                    logEntry.setSourceAddress(finalSourceAddress);
+                    logEntry.setMessageText(finalMessageText);
+                    logEntry.setTraceData(!traceData.isEmpty() ? traceData : null);
 
                     logEntry.setStatus(MessageLog.Status.QUEUED);
                     if (logEntry.getSmppClient() == null && clientOpt.isPresent()) {
@@ -179,9 +245,9 @@ public class SmsInboundConsumer {
                     java.util.Map<String, Object> outboundEvent = new java.util.HashMap<>();
                     outboundEvent.put("correlationId", correlationId);
                     outboundEvent.put("supplierId", forcedSupplier.getId());
-                    outboundEvent.put("sourceAddress", sourceAddress);
+                    outboundEvent.put("sourceAddress", finalSourceAddress);
                     outboundEvent.put("destinationAddress", destinationAddress);
-                    outboundEvent.put("messageText", messageText);
+                    outboundEvent.put("messageText", finalMessageText);
                     if (logEntry.getDataCoding() != null) {
                         outboundEvent.put("dataCoding", logEntry.getDataCoding());
                     }
@@ -198,12 +264,16 @@ public class SmsInboundConsumer {
                             .smppMessageId(correlationId)
                             .customerMessageId(correlationId)
                             .smppClient(clientOpt.orElse(null))
-                            .sourceAddress(sourceAddress)
+                            .sourceAddress(finalSourceAddress)
                             .destinationAddress(destinationAddress)
-                            .messageText(messageText)
+                            .messageText(finalMessageText)
                             .isEmulated(false)
                             .dataCoding(dataCoding)
                             .build());
+
+            logEntry.setSourceAddress(finalSourceAddress);
+            logEntry.setMessageText(finalMessageText);
+            logEntry.setTraceData(!traceData.isEmpty() ? traceData : null);
 
             logEntry.setStatus(MessageLog.Status.QUEUED);
             if (logEntry.getSmppClient() == null && clientOpt.isPresent()) {
@@ -250,9 +320,9 @@ public class SmsInboundConsumer {
                 java.util.Map<String, Object> outboundEvent = new java.util.HashMap<>();
                 outboundEvent.put("correlationId", correlationId);
                 outboundEvent.put("supplierId", logEntry.getFallbackSmsc().getId());
-                outboundEvent.put("sourceAddress", sourceAddress);
+                outboundEvent.put("sourceAddress", finalSourceAddress);
                 outboundEvent.put("destinationAddress", destinationAddress);
-                outboundEvent.put("messageText", messageText);
+                outboundEvent.put("messageText", finalMessageText);
                 if (logEntry.getDataCoding() != null) {
                     outboundEvent.put("dataCoding", logEntry.getDataCoding());
                 }

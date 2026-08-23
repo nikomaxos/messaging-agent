@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmscSuppliers, createSmscSupplier, updateSmscSupplier, deleteSmscSupplier, bindSmscSupplier, unbindSmscSupplier } from '../api/client'
+import api from '../api/client'
 import { SmscSupplier, SmscSupplierConfig } from '../types'
 import { Plus, Pencil, Trash2, X, Check, Server, RefreshCw, Play, Square, HelpCircle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -14,6 +15,7 @@ export default function SmscsPage() {
     queryFn: getSmscSuppliers,
     refetchInterval: autoRefresh ? 3000 : false
   })
+  const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: async () => (await api.get('/accounts')).data })
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -55,7 +57,7 @@ export default function SmscsPage() {
       systemType: '', bindType: 'TRANSCEIVER', maxBinds: 1, addressRange: '',
       sourceTon: 0, sourceNpi: 0, destTon: 0, destNpi: 0,
       throughput: 0, enquireLinkInterval: 30000, maxSessionLifetime: 5, active: true,
-      triggerResendErrorCodes: ''
+      triggerResendErrorCodes: '', accountId: undefined
     })
     setModalOpen(true)
   }
@@ -130,6 +132,7 @@ export default function SmscsPage() {
           <thead className="bg-[#12121f] text-slate-400 border-b border-white/[0.05]">
             <tr>
               <th className="px-5 py-4 font-medium">Name</th>
+              <th className="px-5 py-4 font-medium">Account</th>
               <th className="px-5 py-4 font-medium">Endpoint</th>
               <th className="px-5 py-4 font-medium">Status / Uptime</th>
               <th className="px-5 py-4 font-medium text-right">Total SMS</th>
@@ -148,6 +151,9 @@ export default function SmscsPage() {
                 <td className="px-5 py-3 text-white">
                   <div className="font-medium">{s.name}</div>
                   <div className="text-[10px] text-slate-500 mt-1">{s.systemId} ({s.bindType})</div>
+                </td>
+                <td className="px-5 py-3 text-sm">
+                  {s.accountId ? <span className="text-blue-400 font-medium">{accounts.find((a:any) => a.id === s.accountId)?.name || `Account #${s.accountId}`}</span> : <span className="text-slate-500 text-xs">Unlinked</span>}
                 </td>
                 <td className="px-5 py-3 font-mono text-xs text-slate-400">{s.host}:{s.port}</td>
                 <td className="px-5 py-3">
@@ -224,6 +230,14 @@ export default function SmscsPage() {
                   <label className="block text-xs font-medium text-slate-400 mb-1">Friendly Name</label>
                   <input className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
                     value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Provider A" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Account (Supplier/Bilateral)</label>
+                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                    value={formData.accountId || ''} onChange={e => setFormData({ ...formData, accountId: parseInt(e.target.value) || undefined })}>
+                    <option value="">-- No Account --</option>
+                    {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
                 </div>
                 <div className="flex items-center pt-6">
                   <label className="flex items-center gap-2 cursor-pointer">

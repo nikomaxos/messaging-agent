@@ -26,6 +26,7 @@ const nav = [
   {
     icon: <RouteIcon size={20} />, label: 'Routing',
     children: [
+      { to: '/smpp/rules',    icon: <RouteIcon size={20} className="text-orange-400" />, label: 'Rules Engine' },
       { to: '/smpp/routing',  icon: <RouteIcon size={20} />,       label: 'Routing Configuration' },
       { to: '/smpp/rate-limits', icon: <Activity size={20} />,     label: 'Rate Limits' },
     ]
@@ -46,6 +47,7 @@ const nav = [
   {
     icon: <Shield size={20} className="text-slate-400" />, label: 'Administration',
     children: [
+      { to: '/accounts',      icon: <Users size={20} className="text-blue-400" />, label: 'Accounts' },
       { to: '/billing',       icon: <DollarSign size={20} className="text-emerald-400" />, label: 'Billing & Rating' },
       { to: '/deploy',        icon: <Rocket size={20} className="text-teal-400" />, label: 'Auto-Deploy' },
       { to: '/backup-restore',icon: <Database size={20} className="text-emerald-400" />, label: 'Backup/Restore' },

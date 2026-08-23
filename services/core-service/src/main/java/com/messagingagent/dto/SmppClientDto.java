@@ -18,6 +18,7 @@ public class SmppClientDto {
     private String password;
     private boolean active;
     private Instant createdAt;
+    private Long accountId;
     private List<SmppSessionDto> activeSessions;
 
     public static SmppClientDto fromEntity(SmppClient client, List<SmppSessionDto> activeSessions) {
@@ -28,6 +29,7 @@ public class SmppClientDto {
                 client.getPassword(),
                 client.isActive(),
                 client.getCreatedAt(),
+                client.getAccount() != null ? client.getAccount().getId() : null,
                 activeSessions
         );
     }

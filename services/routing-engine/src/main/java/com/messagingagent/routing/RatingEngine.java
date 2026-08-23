@@ -46,15 +46,21 @@ public class RatingEngine {
      * @return true if allowed to send, false if insufficient funds.
      */
     public boolean evaluateAndDeduct(String systemId, String destinationNumber) {
+        String accountId = redis.opsForValue().get("client_to_account:" + systemId);
+        if (accountId == null) {
+            log.warn("System {} has no associated Account. Blocking traffic to prevent revenue leak.", systemId);
+            return false;
+        }
+
         // 1. Get Billing Type
-        String billingType = redis.opsForValue().get("client_type:" + systemId);
+        String billingType = redis.opsForValue().get("client_type:acc:" + accountId);
         if (billingType == null) {
             // Default to POSTPAID if not configured to prevent blocking traffic
             return true;
         }
 
         // 2. Get Tariff Plan ID
-        String planIdStr = redis.opsForValue().get("client_plan:" + systemId);
+        String planIdStr = redis.opsForValue().get("client_plan:acc:" + accountId);
         if (planIdStr == null) {
             return true; // No plan assigned
         }
@@ -70,15 +76,15 @@ public class RatingEngine {
 
         if ("POSTPAID".equalsIgnoreCase(billingType)) {
             // Just deduct (can go negative)
-            redis.opsForValue().increment("balance:" + systemId, -Double.parseDouble(rateStr));
+            redis.opsForValue().increment("balance:acc:" + accountId, -Double.parseDouble(rateStr));
             return true;
         }
 
         // 4. Atomic PREPAID Deduction
         try {
-            String result = redis.execute(deductRedisScript, Collections.singletonList("balance:" + systemId), rateStr);
+            String result = redis.execute(deductRedisScript, Collections.singletonList("balance:acc:" + accountId), rateStr);
             if ("0".equals(result)) {
-                log.warn("System {} rejected due to insufficient funds. Required: {}", systemId, rateStr);
+                log.warn("System {} (Account {}) rejected due to insufficient funds. Required: {}", systemId, accountId, rateStr);
                 return false;
             }
             return true;

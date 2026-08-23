@@ -12,6 +12,7 @@
   "dependencies": {
     "@stomp/stompjs": "^7.0.0",
     "@tanstack/react-query": "^5.40.0",
+    "@xyflow/react": "^12.11.3",
     "axios": "^1.7.2",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",

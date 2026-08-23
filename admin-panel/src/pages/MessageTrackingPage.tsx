@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getLogs, getLogIds, getGroups, getDevices, resubmitMessages, getSmscSuppliers, cancelQueuedMessages, getSmppClients } from '../api/client'
 import { MessageLog, DeviceGroup, Device, SmscSupplier, SmppClient } from '../types'
-import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare, Layers } from 'lucide-react'
+import { RefreshCw, Search, X, Info, ChevronUp, ChevronDown, ChevronsUpDown, Send, CheckSquare, Layers, GitMerge } from 'lucide-react'
 import { format } from 'date-fns'
+import MessageTraceView from '../components/MessageTraceView'
 
 const statusClass = (s: MessageLog['status']) => ({
   RECEIVED:  'pill-gray',
@@ -28,6 +29,7 @@ export default function MessageTrackingPage() {
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [intervalSec, setIntervalSec] = useState(5)
   const [perPage, setPerPage] = useState(50)
+  const [modalTab, setModalTab] = useState<'DETAILS' | 'TRACE'>('DETAILS')
 
   // Mass selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -394,7 +396,7 @@ export default function MessageTrackingPage() {
               <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
             )}
             {logs.map(l => (
-              <tr key={l.id} className={`cursor-pointer hover:bg-white/[0.02] ${selectedIds.has(l.id) ? 'bg-brand-500/5' : ''}`} onClick={() => setSelectedLog(l)}>
+              <tr key={l.id} className={`cursor-pointer hover:bg-white/[0.02] ${selectedIds.has(l.id) ? 'bg-brand-500/5' : ''}`} onClick={() => { setSelectedLog(l); setModalTab('DETAILS'); }}>
                 <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" className="accent-brand-500 cursor-pointer"
                     checked={selectedIds.has(l.id)}
@@ -525,13 +527,30 @@ export default function MessageTrackingPage() {
       {/* Modal View for Detailed Message */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedLog(null)}>
-          <div className="bg-[#12121f] border border-white/10 rounded-xl shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+          <div className="bg-[#12121f] border border-white/10 rounded-xl shadow-2xl max-w-4xl w-full flex flex-col overflow-hidden h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-slate-900/50">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><Info size={18} className="text-brand-400" /> Message Details</h2>
-              <button onClick={() => setSelectedLog(null)} className="text-slate-500 hover:text-white transition"><X size={20} /></button>
+              <div className="flex bg-[#1a1a2e] p-1 rounded-lg border border-white/5 mx-auto">
+                <button 
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${modalTab === 'DETAILS' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  onClick={() => setModalTab('DETAILS')}
+                >
+                  <Info size={14} className="inline mr-1" /> Data
+                </button>
+                <button 
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${modalTab === 'TRACE' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  onClick={() => setModalTab('TRACE')}
+                >
+                  <GitMerge size={14} className="inline mr-1" /> Traces
+                </button>
+              </div>
+              <button onClick={() => setSelectedLog(null)} className="text-slate-500 hover:text-white transition p-1"><X size={20} /></button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {modalTab === 'DETAILS' ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Log ID</div>
                   <div className="text-sm font-mono text-slate-300">{selectedLog.id}</div>
@@ -610,8 +629,14 @@ export default function MessageTrackingPage() {
                   <div className={`text-sm font-mono whitespace-pre-wrap leading-relaxed ${selectedLog.status === 'FAILED' || selectedLog.status === 'RCS_FAILED' ? 'text-red-300' : selectedLog.errorDetail === 'SEEN/READ' ? 'text-emerald-300' : 'text-slate-300'}`}>{selectedLog.errorDetail || 'Silent failure (No error details captured)'}</div>
                 </div>
               )}
+                </div>
+              ) : (
+                <div className="h-full">
+                  <MessageTraceView log={selectedLog} />
+                </div>
+              )}
             </div>
-            <div className="px-6 py-4 border-t border-white/5 bg-black/20 flex justify-end">
+            <div className="px-6 py-4 border-t border-white/5 bg-[#12121f] flex justify-end">
               <button onClick={() => setSelectedLog(null)} className="btn-secondary">Close</button>
             </div>
           </div>
