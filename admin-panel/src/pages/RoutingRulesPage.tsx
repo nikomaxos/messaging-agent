@@ -225,7 +225,7 @@ export default function RoutingRulesPage() {
 
       <div className="grid grid-cols-1 gap-4">
         {rules.map(r => (
-          <div key={r.id} className={`bg-white dark:bg-[#1a1a2e] rounded-xl shadow-sm border p-4 flex items-center justify-between transition-colors hover:border-blue-400 ${!r.active ? 'opacity-75 border-slate-200 dark:border-slate-700' : 'border-slate-200 dark:border-slate-700'}`}>
+          <div key={r.id} className={`bg-white dark:bg-[#1a1a2e] rounded-xl shadow border p-4 flex items-center justify-between transition-all hover:shadow-md hover:border-blue-500 ${!r.active ? 'opacity-75 border-slate-300 dark:border-slate-600' : 'border-slate-300 dark:border-slate-600'}`}>
             <div className="flex items-center gap-4">
               <div className={`w-3 h-3 rounded-full ${r.active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-400'}`}></div>
               <div>
