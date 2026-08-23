@@ -146,8 +146,8 @@ export default function SystemLogsPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-white">System Logs</h1>
-            <p className="text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">System Logs</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
               {wsConnected
                 ? <><Wifi size={12} className="text-emerald-400" /> WebSocket is connected</>
                 : <><WifiOff size={12} className="text-amber-400" /> WebSocket reconnecting…</>}
@@ -156,7 +156,7 @@ export default function SystemLogsPage() {
           <div className="flex items-center gap-3">
             <button
               className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
-                autoUpdate ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-400 hover:text-white'
+                autoUpdate ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
               }`}
               onClick={() => setAutoUpdate(!autoUpdate)}
             >
@@ -244,7 +244,7 @@ export default function SystemLogsPage() {
                       <div className="text-[10px] text-slate-600">{formatDistanceToNow(e.time, { addSuffix: true })}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-bold font-mono ${levelColor[e.level] ?? 'text-slate-400'}`}>
+                      <span className={`text-xs font-bold font-mono ${levelColor[e.level] ?? 'text-slate-600 dark:text-slate-400'}`}>
                         {e.level}
                       </span>
                     </td>
@@ -263,7 +263,7 @@ export default function SystemLogsPage() {
       
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-slate-400">
+        <div className="flex items-center justify-between mt-4 text-sm text-slate-600 dark:text-slate-400">
           <div>
             Page {currentPage + 1} of {totalPages}
           </div>

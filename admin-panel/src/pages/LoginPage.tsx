@@ -38,15 +38,15 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-600/30 mb-4">
-              <MessageSquare size={26} className="text-white" />
+              <MessageSquare size={26} className="text-slate-900 dark:text-white" />
             </div>
-            <h1 className="text-xl font-bold text-white">Messaging Agent</h1>
-            <p className="text-slate-400 text-sm mt-1">Admin Panel</p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Messaging Agent</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Admin Panel</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Username</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Username</label>
               <input
                 id="username"
                 className="inp"
@@ -58,7 +58,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Password</label>
               <input
                 id="password"
                 className="inp"

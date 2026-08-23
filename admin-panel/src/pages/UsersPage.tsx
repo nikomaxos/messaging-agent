@@ -44,8 +44,8 @@ export default function UsersPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Users</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Manage admin panel user accounts</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">Manage admin panel user accounts</p>
         </div>
         <button id="add-user-btn" className="btn-primary" onClick={() => setShowForm(true)}>
           <Plus size={16} /> Add User
@@ -57,21 +57,21 @@ export default function UsersPage() {
           <h2 className="text-sm font-semibold text-slate-300">{editing ? 'Edit' : 'New'} User</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Username</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Username</label>
               <input className="input text-black" placeholder="Enter username" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
             </div>
             {!editing && (
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Password</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Password</label>
                 <input className="input text-black" type="password" placeholder="Enter password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Alert Phone #</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Alert Phone #</label>
               <input className="input text-black" placeholder="Optional (e.g. +1234)" value={form.alertPhoneNumber} onChange={e => setForm({ ...form, alertPhoneNumber: e.target.value })} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Role</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Role</label>
               <select className="input text-black" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                 <option value="ADMIN">Admin</option>
                 <option value="VIEWER">Viewer</option>
@@ -105,18 +105,18 @@ export default function UsersPage() {
                     <div className="w-7 h-7 rounded-full bg-brand-900 flex items-center justify-center text-brand-400 font-semibold text-xs uppercase">
                       {u.username[0]}
                     </div>
-                    <span className="font-medium text-white">{u.username}</span>
+                    <span className="font-medium text-slate-900 dark:text-white">{u.username}</span>
                   </div>
                 </td>
                 <td className="px-4">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    u.role === 'ADMIN' ? 'bg-brand-900/40 text-brand-400' : 'bg-slate-800 text-slate-400'
+                    u.role === 'ADMIN' ? 'bg-brand-900/40 text-brand-400' : 'bg-slate-800 text-slate-600 dark:text-slate-400'
                   }`}>
                     {u.role === 'ADMIN' ? <ShieldCheck size={10} /> : <ShieldOff size={10} />}
                     {u.role}
                   </span>
                 </td>
-                <td className="px-4 text-slate-400 text-xs">
+                <td className="px-4 text-slate-600 dark:text-slate-400 text-xs">
                   {u.alertPhoneNumber || '-'}
                 </td>
                 <td className="px-4">
@@ -130,7 +130,7 @@ export default function UsersPage() {
                     {u.active ? 'Active' : 'Inactive'}
                   </button>
                 </td>
-                <td className="px-4 text-slate-400 text-xs">
+                <td className="px-4 text-slate-600 dark:text-slate-400 text-xs">
                   {u.createdAt && (
                     <span title={format(new Date(u.createdAt), 'PPpp')}>
                       {formatDistanceToNow(new Date(u.createdAt), { addSuffix: true })}
@@ -184,8 +184,8 @@ export default function UsersPage() {
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="glass p-6 max-w-sm space-y-4">
-            <h3 className="text-white font-semibold">{confirmAction.title}</h3>
-            <p className="text-slate-400 text-sm">{confirmAction.message}</p>
+            <h3 className="text-slate-900 dark:text-white font-semibold">{confirmAction.title}</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-sm">{confirmAction.message}</p>
             <div className="flex gap-2 justify-end">
               <button className="btn-secondary" onClick={() => setConfirmAction(null)}>Cancel</button>
               <button className="btn-danger" onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }}>Delete</button>

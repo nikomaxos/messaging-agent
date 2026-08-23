@@ -121,10 +121,10 @@ export default function NotificationsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Notifications & Alerts</h1>
-          <p className="text-slate-400 text-sm">Configure alert rules and view triggered notifications.</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Notifications & Alerts</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Configure alert rules and view triggered notifications.</p>
         </div>
-        <button className="bg-brand-600 hover:bg-brand-500 text-white rounded px-4 py-1.5 text-sm font-medium transition flex items-center gap-2"
+        <button className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white rounded px-4 py-1.5 text-sm font-medium transition flex items-center gap-2"
           onClick={() => { resetForm(); setShowForm(true) }}>
           <Plus size={14} /> New Alert Rule
         </button>
@@ -132,7 +132,7 @@ export default function NotificationsPage() {
 
       {/* ── Alert Rules ───────────────────────────────────────────── */}
       <div className="glass p-5">
-        <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
           <Bell size={14} className="text-brand-400" /> Alert Rules
         </h2>
         {configs.length === 0 ? (
@@ -140,13 +140,13 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-2">
             {configs.map((c: any) => (
-              <div key={c.id} className={`flex items-center justify-between p-3 rounded-lg border ${c.enabled ? 'bg-white/[0.02] border-white/5' : 'bg-slate-900/30 border-slate-800 opacity-60'}`}>
+              <div key={c.id} className={`flex items-center justify-between p-3 rounded-lg border ${c.enabled ? 'bg-white/[0.02] border-slate-200 dark:border-white/5' : 'bg-slate-900/30 border-slate-800 opacity-60'}`}>
                 <div className="flex items-center gap-3 flex-1">
-                  <button onClick={() => toggleEnabled(c)} className="text-slate-400 hover:text-white transition" title="Toggle">
+                  <button onClick={() => toggleEnabled(c)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white transition" title="Toggle">
                     {c.enabled ? <ToggleRight size={20} className="text-emerald-400" /> : <ToggleLeft size={20} />}
                   </button>
                   <div>
-                    <div className="text-sm font-medium text-white">{c.name}</div>
+                    <div className="text-sm font-medium text-slate-900 dark:text-white">{c.name}</div>
                     <div className="text-[10px] text-slate-500">
                       {c.type} • Threshold: {c.threshold} • Cooldown: {c.cooldownMinutes}min
                       {c.channels && c.channels.length > 0 && ` • Channels: ${c.channels.join(', ')}`}
@@ -155,7 +155,7 @@ export default function NotificationsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="text-xs text-slate-400 hover:text-brand-400 transition" onClick={() => startEdit(c)}>Edit</button>
+                  <button className="text-xs text-slate-600 dark:text-slate-400 hover:text-brand-400 transition" onClick={() => startEdit(c)}>Edit</button>
                   <button className="text-slate-500 hover:text-red-400 transition" onClick={() => deleteMut.mutate(c.id)}>
                     <Trash2 size={14} />
                   </button>
@@ -169,7 +169,7 @@ export default function NotificationsPage() {
       {/* ── Active Alert History ──────────────────────────────────────────── */}
       <div className="glass p-5">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <AlertTriangle size={14} className="text-amber-400" /> Active Alerts
           </h2>
           {activeAlerts.length > 0 && (
@@ -188,7 +188,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1">
             {activeAlerts.map((a: any) => (
-              <div key={a.id} className={`flex items-center gap-3 px-3 py-2 rounded text-xs ${a.severity === 'CRITICAL' ? 'bg-red-900/10 border border-red-500/15' : a.severity === 'WARNING' ? 'bg-amber-900/10 border border-amber-500/15' : 'bg-white/[0.02] border border-white/5'}`}>
+              <div key={a.id} className={`flex items-center gap-3 px-3 py-2 rounded text-xs ${a.severity === 'CRITICAL' ? 'bg-red-900/10 border border-red-500/15' : a.severity === 'WARNING' ? 'bg-amber-900/10 border border-amber-500/15' : 'bg-white/[0.02] border border-slate-200 dark:border-white/5'}`}>
                 {severityIcon(a.severity)}
                 <span className="text-slate-300 flex-1">{a.message}</span>
                 <span className="text-slate-600 font-mono">{a.metricValue != null ? `${a.metricValue}` : ''}</span>
@@ -204,17 +204,17 @@ export default function NotificationsPage() {
 
       {/* ── Archived Alerts ──────────────────────────────────────────────── */}
       <div className="glass p-5 opacity-80">
-        <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-          <Info size={14} className="text-slate-400" /> Archived Alerts (Acknowledged)
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+          <Info size={14} className="text-slate-600 dark:text-slate-400" /> Archived Alerts (Acknowledged)
         </h2>
         {archivedAlerts.length === 0 ? (
           <div className="text-slate-500 text-sm text-center py-6">No archived alerts found.</div>
         ) : (
           <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1">
             {archivedAlerts.map((a: any) => (
-              <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded text-xs bg-black/20 border border-white/5 opacity-70">
+              <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded text-xs bg-black/20 border border-slate-200 dark:border-white/5 opacity-70">
                 {severityIcon(a.severity)}
-                <span className="text-slate-400 flex-1">{a.message}</span>
+                <span className="text-slate-600 dark:text-slate-400 flex-1">{a.message}</span>
                 <span className="text-slate-600 font-mono">{a.metricValue != null ? `${a.metricValue}` : ''}</span>
                 <span className="text-slate-600 whitespace-nowrap">{format(new Date(a.createdAt), 'MMM d HH:mm')}</span>
               </div>
@@ -226,20 +226,20 @@ export default function NotificationsPage() {
       {/* ── Create/Edit Modal ──────────────────────────────────────── */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={resetForm}>
-          <div className="bg-[#12121f] border border-white/10 rounded-xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">{editConfig ? 'Edit Rule' : 'New Alert Rule'}</h2>
-              <button onClick={resetForm} className="text-slate-500 hover:text-white transition"><X size={20} /></button>
+          <div className="bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editConfig ? 'Edit Rule' : 'New Alert Rule'}</h2>
+              <button onClick={resetForm} className="text-slate-500 hover:text-slate-900 dark:text-white transition"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Name</label>
-                <input className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                <input className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
                   value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Low Delivery Warning" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Alert Type</label>
-                <select className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                <select className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
                   value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
                   {ALERT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
@@ -248,12 +248,12 @@ export default function NotificationsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Threshold</label>
-                  <input type="number" className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                  <input type="number" className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
                     value={form.threshold} onChange={e => setForm({ ...form, threshold: Number(e.target.value) })} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Cooldown (min)</label>
-                  <input type="number" className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-2"
+                  <input type="number" className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-2"
                     value={form.cooldownMinutes} onChange={e => setForm({ ...form, cooldownMinutes: Number(e.target.value) })} />
                 </div>
                 {form.type === 'POSSIBLE_AIT_TRAFFIC' && (
@@ -262,7 +262,7 @@ export default function NotificationsPage() {
                       <input type="checkbox" checked={form.autoBlock} onChange={e => setForm({ ...form, autoBlock: e.target.checked })} className="mt-1 rounded border-slate-700 bg-slate-900 text-red-500" />
                       <div>
                         <div className="text-sm font-bold text-red-400">Enable Active Target Auto-Blocking</div>
-                        <div className="text-xs text-slate-400 mt-1">If enabled, any generated alert will actively push the destination phone numbers to the Edge Redis blocklist with a 24-hour TTL, mitigating further SMS pumping attacks.</div>
+                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">If enabled, any generated alert will actively push the destination phone numbers to the Edge Redis blocklist with a 24-hour TTL, mitigating further SMS pumping attacks.</div>
                       </div>
                     </div>
                     {form.autoBlock && (
@@ -293,7 +293,7 @@ export default function NotificationsPage() {
                   </label>
                   {form.channels.includes('RCS_VIRTUAL_SMSC') && (
                     <div className="pl-6 pt-1">
-                      <select className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-1.5"
+                      <select className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-1.5"
                         value={form.alertDeviceGroupId || ''} onChange={e => setForm({ ...form, alertDeviceGroupId: e.target.value ? Number(e.target.value) : null })}>
                         <option value="">-- Select Admin Device Group --</option>
                         {deviceGroups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -306,7 +306,7 @@ export default function NotificationsPage() {
                   </label>
                   {form.channels.includes('SMPP_SUPPLIER') && (
                     <div className="pl-6 pt-1">
-                      <select className="w-full bg-[#0d0d18] text-sm text-white border border-white/10 rounded px-3 py-1.5"
+                      <select className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded px-3 py-1.5"
                         value={form.alertSmppSupplierId || ''} onChange={e => setForm({ ...form, alertSmppSupplierId: e.target.value ? Number(e.target.value) : null })}>
                         <option value="">-- Select Admin SMPP Supplier --</option>
                         {smppSuppliers.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name} ({s.supplier.systemId})</option>)}
@@ -317,7 +317,7 @@ export default function NotificationsPage() {
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button className="btn-secondary" onClick={resetForm}>Cancel</button>
-                <button className="bg-brand-600 hover:bg-brand-500 text-white rounded px-4 py-1.5 text-sm font-medium transition disabled:opacity-40"
+                <button className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white rounded px-4 py-1.5 text-sm font-medium transition disabled:opacity-40"
                   disabled={!form.name} onClick={saveConfig}>
                   {editConfig ? 'Save Changes' : 'Create Rule'}
                 </button>

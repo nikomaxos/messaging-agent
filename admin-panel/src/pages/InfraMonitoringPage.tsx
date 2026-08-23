@@ -36,18 +36,18 @@ const GaugeRing = ({ value, label, color, icon: Icon, detail }: {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <Icon size={18} style={{ color: gaugeColor }} />
-          <span className="text-xl font-bold text-white mt-0.5">{pct.toFixed(0)}%</span>
+          <span className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{pct.toFixed(0)}%</span>
         </div>
       </div>
       <div className="text-center">
-        <div className="text-sm font-medium text-white">{label}</div>
+        <div className="text-sm font-medium text-slate-900 dark:text-white">{label}</div>
         {detail && <div className="text-[10px] text-slate-500 mt-0.5">{detail}</div>}
       </div>
     </div>
   )
 }
 
-const MetricCard = ({ label, value, sub, color = 'text-white' }: {
+const MetricCard = ({ label, value, sub, color = 'text-slate-900 dark:text-white' }: {
   label: string, value: string | number, sub?: string, color?: string
 }) => (
   <div className="glass p-4">
@@ -80,8 +80,8 @@ export default function InfraMonitoringPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Infrastructure Monitoring</h1>
-          <p className="text-slate-400 text-sm">Real-time system health • Auto-refreshes every 5s</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Infrastructure Monitoring</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Real-time system health • Auto-refreshes every 5s</p>
         </div>
         <button className="btn-secondary" onClick={() => refetch()}>
           <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
@@ -116,12 +116,12 @@ export default function InfraMonitoringPage() {
 
           {/* ── Device Fleet ──────────────────────────────────────────── */}
           <div className="glass p-5">
-            <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
               <Smartphone size={14} className="text-brand-400" /> Device Fleet
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/5 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-white">{fleet.total ?? 0}</div>
+              <div className="bg-slate-200/50 dark:bg-white/5 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{fleet.total ?? 0}</div>
                 <div className="text-[10px] text-slate-500 uppercase font-bold">Total</div>
               </div>
               <div className="bg-emerald-500/10 rounded-lg p-3 text-center border border-emerald-500/20">
@@ -129,7 +129,7 @@ export default function InfraMonitoringPage() {
                 <div className="text-[10px] text-emerald-600 uppercase font-bold">Online</div>
               </div>
               <div className="bg-slate-500/10 rounded-lg p-3 text-center">
-                <div className="text-2xl font-bold text-slate-400">{fleet.offline ?? 0}</div>
+                <div className="text-2xl font-bold text-slate-600 dark:text-slate-400">{fleet.offline ?? 0}</div>
                 <div className="text-[10px] text-slate-500 uppercase font-bold">Offline</div>
               </div>
               <div className="bg-amber-500/10 rounded-lg p-3 text-center border border-amber-500/20">
@@ -141,12 +141,12 @@ export default function InfraMonitoringPage() {
 
           {/* ── Message Pipeline ───────────────────────────────────────── */}
           <div className="glass p-5">
-            <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
               <MailCheck size={14} className="text-emerald-400" /> Message Pipeline
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="bg-slate-500/10 rounded-lg p-3 text-center">
-                <div className="text-xl font-bold text-white">{pipeline.receivedLastHour ?? 0}</div>
+                <div className="text-xl font-bold text-slate-900 dark:text-white">{pipeline.receivedLastHour ?? 0}</div>
                 <div className="text-[10px] text-slate-500 uppercase font-bold">Received (1h)</div>
               </div>
               <div className="bg-amber-500/10 rounded-lg p-3 text-center">
@@ -175,7 +175,7 @@ export default function InfraMonitoringPage() {
           {/* ── Disk Details ──────────────────────────────────────────── */}
           {disks.length > 1 && (
             <div className="glass p-5">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                 <HardDrive size={14} className="text-amber-400" /> Disk Partitions
               </h2>
               <div className="space-y-2">
@@ -183,8 +183,8 @@ export default function InfraMonitoringPage() {
                   const pct = d.totalSpace > 0 ? (d.usedSpace / d.totalSpace) * 100 : 0
                   return (
                     <div key={i} className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-slate-400 w-16">{d.path}</span>
-                      <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                      <span className="text-xs font-mono text-slate-600 dark:text-slate-400 w-16">{d.path}</span>
+                      <div className="flex-1 h-3 bg-slate-200/50 dark:bg-white/5 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-500 ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-brand-500'}`}
                           style={{ width: `${pct}%` }} />
                       </div>

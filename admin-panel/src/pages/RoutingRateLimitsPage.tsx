@@ -90,24 +90,24 @@ export default function RoutingRateLimitsPage() {
       
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
             <Gauge size={24} className="text-brand-400" />
             Rate Limits & Speeds
           </h1>
-          <p className="text-slate-400 text-sm">Configure fractional TPS limits (Minimum Delay Algorithm) per connection</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Configure fractional TPS limits (Minimum Delay Algorithm) per connection</p>
         </div>
         <button
           onClick={startCreate}
           disabled={isCreating}
-          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
         >
           <Plus size={16} /> Add Limit
         </button>
       </div>
 
-      <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
         <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-[#12121f] text-slate-400 border-b border-white/[0.05]">
+          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-white/[0.05]">
             <tr>
               <th className="px-5 py-4 font-medium">Customer (System ID)</th>
               <th className="px-5 py-4 font-medium">Country</th>
@@ -121,14 +121,14 @@ export default function RoutingRateLimitsPage() {
             {isCreating && (
               <tr className="bg-brand-900/10">
                 <td className="px-5 py-3">
-                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.customerProfileId} onChange={e => setFormData({ ...formData, customerProfileId: e.target.value })}>
                     <option value="ALL">ALL (Default)</option>
                     {clients.map((c: SmppClient) => <option key={c.systemId} value={c.systemId}>{c.systemId}</option>)}
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.countryCode} onChange={e => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
                     <option value="ALL">ALL Countries</option>
                     {uniqueCountries.map((cName: any) => {
@@ -138,14 +138,14 @@ export default function RoutingRateLimitsPage() {
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.networkId} onChange={e => setFormData({ ...formData, networkId: e.target.value })}>
                     <option value="ALL">ALL Networks</option>
                     {networksForCountry.map((net: any) => <option key={net} value={net}>{net}</option>)}
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                  <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.supplierId} onChange={e => setFormData({ ...formData, supplierId: e.target.value })}>
                     <option value="ALL">ALL</option>
                     <option value="WEBSOCKET">WEBSOCKET (Devices)</option>
@@ -153,12 +153,12 @@ export default function RoutingRateLimitsPage() {
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <input type="number" step="0.1" min="0.1" className="w-24 bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                  <input type="number" step="0.1" min="0.1" className="w-24 bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                     value={formData.speedTps} onChange={e => setFormData({ ...formData, speedTps: parseFloat(e.target.value) })} />
                 </td>
                 <td className="px-5 py-3 flex items-center justify-end gap-2">
                   <button onClick={handleSave} className="p-1.5 text-green-400 hover:bg-green-400/10 rounded transition" title="Save"><Check size={16} /></button>
-                  <button onClick={handleCancel} className="p-1.5 text-slate-500 hover:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
+                  <button onClick={handleCancel} className="p-1.5 text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
                 </td>
               </tr>
             )}
@@ -169,18 +169,18 @@ export default function RoutingRateLimitsPage() {
                 <tr key={l.id} className="hover:bg-white/[0.02] transition">
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? (
-                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                      <select className="w-full bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                         value={formData.customerProfileId} onChange={(e: any) => setFormData({ ...formData, customerProfileId: e.target.value })}>
                         <option value="ALL">ALL (Default)</option>
                         {clients.map((c: SmppClient) => <option key={c.systemId} value={c.systemId}>{c.systemId}</option>)}
                       </select>
                     ) : (
-                      l.customerProfileId === 'ALL' ? <span className="text-slate-500">ALL</span> : <span className="text-white">{l.customerProfileId}</span>
+                      l.customerProfileId === 'ALL' ? <span className="text-slate-500">ALL</span> : <span className="text-slate-900 dark:text-white">{l.customerProfileId}</span>
                     )}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? (
-                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                      <select className="w-full bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                         value={formData.countryCode} onChange={(e: any) => setFormData({ ...formData, countryCode: e.target.value, networkId: 'ALL' })}>
                         <option value="ALL">ALL Countries</option>
                         {uniqueCountries.map((cName: any) => {
@@ -194,7 +194,7 @@ export default function RoutingRateLimitsPage() {
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? (
-                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                      <select className="w-full bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                         value={formData.networkId} onChange={(e: any) => setFormData({ ...formData, networkId: e.target.value })}>
                         <option value="ALL">ALL Networks</option>
                         {networksForCountry.map((net: any) => <option key={net} value={net}>{net}</option>)}
@@ -205,19 +205,19 @@ export default function RoutingRateLimitsPage() {
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
                     {isEd ? (
-                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                      <select className="w-full bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                         value={formData.supplierId} onChange={(e: any) => setFormData({ ...formData, supplierId: e.target.value })}>
                         <option value="ALL">ALL</option>
                         <option value="WEBSOCKET">WEBSOCKET (Devices)</option>
                         {suppliers.map((s: SmscSupplier) => <option key={s.supplier.systemId} value={s.supplier.systemId}>{s.supplier.name}</option>)}
                       </select>
                     ) : (
-                      <span className={l.supplierId === 'ALL' ? "text-slate-500" : "text-white"}>{getSupplierName(l.supplierId)}</span>
+                      <span className={l.supplierId === 'ALL' ? "text-slate-500" : "text-slate-900 dark:text-white"}>{getSupplierName(l.supplierId)}</span>
                     )}
                   </td>
                   <td className="px-5 py-3">
                     {isEd ? (
-                      <input type="number" step="0.1" min="0.1" className="w-24 bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
+                      <input type="number" step="0.1" min="0.1" className="w-24 bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm"
                         value={formData.speedTps} onChange={(e: any) => setFormData({ ...formData, speedTps: parseFloat(e.target.value) })} />
                     ) : (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
@@ -229,16 +229,16 @@ export default function RoutingRateLimitsPage() {
                     {isEd ? (
                       <>
                         <button onClick={handleSave} className="p-1.5 text-green-400 hover:bg-green-400/10 rounded transition" title="Save"><Check size={16} /></button>
-                        <button onClick={handleCancel} className="p-1.5 text-slate-400 hover:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
+                        <button onClick={handleCancel} className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => startEdit(l)} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition" title="Edit"><Pencil size={15} /></button>
+                        <button onClick={() => startEdit(l)} className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Edit"><Pencil size={15} /></button>
                         <button onClick={() => setConfirmAction({
                           title: 'Delete Rate Limit',
                           message: `Are you sure you want to delete this limit?`,
                           onConfirm: () => deleteMut.mutate(l.id!)
-                        })} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
+                        })} className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete"><Trash2 size={15} /></button>
                       </>
                     )}
                   </td>

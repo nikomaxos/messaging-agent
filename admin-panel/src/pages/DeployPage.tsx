@@ -198,14 +198,14 @@ export default function DeployPage() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3 tracking-tight">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3 tracking-tight">
             <Rocket size={32} className="text-brand-400" />
             Messaging Agent Deployments
             <span className="ml-4 text-xs font-normal text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20 shadow-sm whitespace-nowrap">
               Staging Version: {packageJson.version}
             </span>
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">
             Dynamic SSH Deployments to Kubernetes Clusters
           </p>
         </div>
@@ -217,28 +217,28 @@ export default function DeployPage() {
         <div className="space-y-6 lg:col-span-1">
           
           {/* Target Configuration */}
-          <div className="rounded-xl border border-white/[0.07] bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+          <div className="rounded-xl border border-white/[0.07] bg-slate-50 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
               <Server size={18} className="text-emerald-400" />
               Target Configuration
             </h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-1"><Network size={12}/> Target IP</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1"><Network size={12}/> Target IP</label>
                 <input 
                   type="text" 
                   value={targetIp} 
                   onChange={e => setTargetIp(e.target.value)}
                   disabled={isDeploying}
-                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50"
                 />
               </div>
               
               <button
                 onClick={fetchDeployInfo}
                 disabled={isFetchingInfo || isDeploying}
-                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-white border border-white/10 rounded-lg text-sm transition disabled:opacity-50"
+                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg text-sm transition disabled:opacity-50"
               >
                 {isFetchingInfo ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                 Fetch Target Info
@@ -247,8 +247,8 @@ export default function DeployPage() {
           </div>
 
           {/* Deployment Actions */}
-          <div className="rounded-xl border border-white/[0.07] bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden group hover:border-brand-500/50 transition-colors">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-2">
+          <div className="rounded-xl border border-white/[0.07] bg-slate-50 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden group hover:border-brand-500/50 transition-colors">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
               <Rocket size={20} className="text-brand-400" />
               Production
               <span className="ml-auto text-sm font-normal text-brand-400/80 bg-brand-400/10 px-2 py-0.5 rounded">{prodVersion}</span>
@@ -261,7 +261,7 @@ export default function DeployPage() {
               <button
                 onClick={() => triggerDeploy('production')}
                 disabled={isDeploying}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-white border border-brand-500/50 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(var(--brand-500),0.3)]"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-slate-900 dark:text-white border border-brand-500/50 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(var(--brand-500),0.3)]"
               >
                 {isDeploying && activeEnv === 'production' ? <RefreshCw className="animate-spin" size={18} /> : <PlayCircle size={18} />}
                 Deploy to Target
@@ -282,9 +282,9 @@ export default function DeployPage() {
           
           {/* Progress Overview (Only show during or after deployment) */}
           {(currentStep > 0 || logs.length > 0) && (
-            <div className="rounded-xl border border-white/[0.07] bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
+            <div className="rounded-xl border border-white/[0.07] bg-slate-50 dark:bg-[#1a1a2e]/80 backdrop-blur p-6 relative overflow-hidden">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                   <RefreshCw size={18} className={isDeploying ? "animate-spin text-brand-400" : "text-emerald-400"} />
                   Deployment Progress
                 </h2>
@@ -299,11 +299,11 @@ export default function DeployPage() {
               </div>
               
               <div className="mb-4">
-                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                   <span>Step {Math.min(currentStep, totalSteps)} of {totalSteps}</span>
                   <span>{Math.round((Math.min(currentStep, totalSteps) / totalSteps) * 100)}%</span>
                 </div>
-                <div className="w-full bg-[#12121f] rounded-full h-2.5 border border-white/5 overflow-hidden">
+                <div className="w-full bg-white dark:bg-[#12121f] rounded-full h-2.5 border border-slate-200 dark:border-white/5 overflow-hidden">
                   <div 
                     className={`h-2.5 rounded-full transition-all duration-500 ease-out ${isDeploying ? 'bg-brand-500' : 'bg-emerald-500'}`}
                     style={{ width: `${(Math.min(currentStep, totalSteps) / totalSteps) * 100}%` }}
@@ -344,13 +344,13 @@ export default function DeployPage() {
                               <RefreshCw size={12} className="animate-spin" />
                             </div>
                           ) : (
-                            <div className="w-5 h-5 rounded-full bg-white/10 text-white/40 flex items-center justify-center text-xs">
+                            <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white/40 flex items-center justify-center text-xs">
                               {s.step}
                             </div>
                           )}
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <div className={`text-sm font-semibold truncate ${isActive ? 'text-brand-300' : isCompleted ? 'text-emerald-400' : 'text-slate-400'}`}>
+                          <div className={`text-sm font-semibold truncate ${isActive ? 'text-brand-300' : isCompleted ? 'text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`}>
                             {s.title}
                           </div>
                           <div className={`text-xs mt-1 truncate ${isActive ? 'text-brand-200/70' : isCompleted ? 'text-emerald-400/50' : 'text-slate-500'}`}>
@@ -410,7 +410,7 @@ export default function DeployPage() {
               {logs.length > 0 && (
                 <button
                   onClick={() => navigator.clipboard.writeText(logs.join('\n'))}
-                  className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-xs font-medium"
+                  className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-colors text-xs font-medium"
                   title="Copy logs to clipboard"
                 >
                   <Copy size={14} />

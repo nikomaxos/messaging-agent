@@ -101,8 +101,8 @@ export default function PushSubscriptionPrompt() {
                     <Bell size={20} />
                 </div>
                 <div>
-                    <h4 className="text-white font-medium text-sm">Enable Notifications</h4>
-                    <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
+                    <h4 className="text-slate-900 dark:text-white font-medium text-sm">Enable Notifications</h4>
+                    <p className="text-slate-600 dark:text-slate-400 text-xs mt-0.5 leading-relaxed">
                         Receive instant alerts about system issues, SMPP drops, and queue pileups.
                     </p>
                 </div>
@@ -110,13 +110,13 @@ export default function PushSubscriptionPrompt() {
             <div className="flex items-center justify-end gap-2 mt-1">
                 <button 
                     onClick={handleDismiss}
-                    className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition bg-slate-800/50 hover:bg-slate-700/50 rounded"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-200 transition bg-slate-800/50 hover:bg-slate-700/50 rounded"
                 >
                     Not Now
                 </button>
                 <button 
                     onClick={handleSubscribe}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-brand-600 hover:bg-brand-500 transition rounded shadow-sm flex items-center gap-1.5 shadow-brand-900/20"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-900 dark:text-white bg-brand-600 hover:bg-brand-500 transition rounded shadow-sm flex items-center gap-1.5 shadow-brand-900/20"
                 >
                     Enable
                 </button>

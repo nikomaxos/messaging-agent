@@ -50,8 +50,8 @@ export default function GroupsPage() {
       />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Device Groups</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Each group is a virtual SMSC presented to requesters</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Device Groups</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">Each group is a virtual SMSC presented to requesters</p>
         </div>
         <button id="create-group-btn" className="btn-primary" onClick={openCreate}>
           <Plus size={16} /> New Group
@@ -64,22 +64,22 @@ export default function GroupsPage() {
           <h2 className="text-sm font-semibold text-slate-300">{mode === 'create' ? 'New' : 'Edit'} Group</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Group Name *</label>
+              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Group Name *</label>
               <input id="group-name" className="inp" placeholder="e.g. EMEA Pool"
                 value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Description</label>
+              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Description</label>
               <input className="inp" placeholder="Optional description"
                 value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">DLR Delay Min (sec)</label>
+              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">DLR Delay Min (sec)</label>
               <input className="inp" type="number" min={0} placeholder="2"
                 value={form.dlrDelayMinSec} onChange={e => setForm(f => ({ ...f, dlrDelayMinSec: Number(e.target.value) }))} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">DLR Delay Max (sec)</label>
+              <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">DLR Delay Max (sec)</label>
               <input className="inp" type="number" min={0} placeholder="5"
                 value={form.dlrDelayMaxSec} onChange={e => setForm(f => ({ ...f, dlrDelayMaxSec: Number(e.target.value) }))} />
             </div>
@@ -114,8 +114,8 @@ export default function GroupsPage() {
             {groups.map((g: DeviceGroup) => (
               <tr key={g.id}>
                 <td className="px-4 font-medium text-slate-200">{g.name}</td>
-                <td className="px-4 text-slate-400">{g.description || '—'}</td>
-                <td className="px-4 text-slate-400 text-xs font-mono">{g.dlrDelayMinSec ?? 2}–{g.dlrDelayMaxSec ?? 5} sec</td>
+                <td className="px-4 text-slate-600 dark:text-slate-400">{g.description || '—'}</td>
+                <td className="px-4 text-slate-600 dark:text-slate-400 text-xs font-mono">{g.dlrDelayMinSec ?? 2}–{g.dlrDelayMaxSec ?? 5} sec</td>
                 <td className="px-4">
                   <span className={`pill ${g.active ? 'pill-green' : 'pill-gray'}`}>
                     {g.active ? 'Active' : 'Inactive'}

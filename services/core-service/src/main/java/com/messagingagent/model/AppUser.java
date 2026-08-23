@@ -36,6 +36,10 @@ public class AppUser {
     @Column(name = "alert_phone_number", length = 30)
     private String alertPhoneNumber;
 
+    @Column(name = "theme_preference", length = 10)
+    @Builder.Default
+    private String themePreference = "dark";
+
     @CreationTimestamp
     private Instant createdAt;
 }

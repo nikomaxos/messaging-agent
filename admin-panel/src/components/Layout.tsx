@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Smartphone, FileText, LogOut, Users, Route as RouteIcon,
   Server, UserCog, Activity, Bell, Bot, Skull, Shield, BarChart3, PieChart,
-  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown, Globe, Database, DollarSign
+  PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown, Globe, Database, DollarSign, Sun, Moon
 } from 'lucide-react'
 import PushSubscriptionPrompt from './PushSubscriptionPrompt'
 
@@ -45,7 +45,7 @@ const nav = [
   { to: '/testing',       icon: <Activity size={20} className="text-yellow-400" />, label: 'Testing' },
 
   {
-    icon: <Shield size={20} className="text-slate-400" />, label: 'Administration',
+    icon: <Shield size={20} className="text-slate-600 dark:text-slate-400" />, label: 'Administration',
     children: [
       { to: '/accounts',      icon: <Users size={20} className="text-blue-400" />, label: 'Accounts' },
       { to: '/billing',       icon: <DollarSign size={20} className="text-emerald-400" />, label: 'Billing & Rating' },
@@ -98,7 +98,7 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
         }}
         className={`group relative flex items-center justify-between w-full gap-3 rounded-lg text-sm transition-all
           ${collapsed ? 'px-0 py-2.5 justify-center' : 'px-3 py-2.5'}
-          ${isActive ? 'text-brand-400 font-medium' : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'}
+          ${isActive ? 'text-brand-400 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'}
         `}
       >
         <div className={`flex items-center gap-3 ${collapsed ? 'justify-center w-full' : ''}`}>
@@ -117,7 +117,7 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
       </button>
 
       {!collapsed && expanded && (
-        <div className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-0.5">
+        <div className="mt-1 ml-4 pl-3 border-l border-slate-200 dark:border-white/10 space-y-0.5">
           {item.children.map((child: any) => (
             <NavLink
               key={child.to}
@@ -126,7 +126,7 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
                 `flex items-center gap-3 rounded-lg text-sm transition-all px-3 py-2
                  ${isActive
                    ? 'bg-brand-600/20 text-brand-400 font-medium border border-brand-600/30'
-                   : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
+                   : 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
               }
             >
               {child.icon && <span className="shrink-0 scale-90 opacity-80">{child.icon}</span>}
@@ -140,7 +140,7 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
 }
 
 export default function Layout() {
-  const { username, logout } = useAuth()
+  const { username, logout, themePreference, toggleTheme } = useAuth()
   const isMobile = useMediaQuery('(max-width: 768px)')
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -170,16 +170,16 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className={`sidebar flex flex-col shrink-0 bg-[#12121f] border-r border-white/[0.07] transition-all duration-300 ease-in-out ${sidebarWidth}`}>
+      <aside className={`sidebar flex flex-col shrink-0 bg-white dark:bg-[#12121f] border-r border-white/[0.07] transition-all duration-300 ease-in-out ${sidebarWidth}`}>
 
         {/* Logo + Toggle */}
         <div className={`border-b border-white/[0.07] ${collapsed ? 'px-2 py-3 flex flex-col items-center gap-2' : 'px-3 py-4 flex items-center gap-2.5'} min-h-[64px]`}>
-          <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-slate-900 dark:text-white font-bold text-sm shrink-0">
             MA
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0 sidebar-label">
-              <div className="text-white font-semibold text-sm leading-tight">Messaging Agent</div>
+              <div className="text-slate-900 dark:text-white font-semibold text-sm leading-tight">Messaging Agent</div>
               <div className="text-slate-500 text-[10px]">SMPP · RCS Gateway</div>
             </div>
           )}
@@ -208,7 +208,7 @@ export default function Layout() {
                  ${collapsed ? 'px-0 py-2.5 justify-center' : 'px-3 py-2.5'}
                  ${isActive
                    ? 'bg-brand-600/20 text-brand-400 border border-brand-600/30 font-medium'
-                   : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
+                   : 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
               }
             >
               <span className="shrink-0">{item.icon}</span>
@@ -236,26 +236,40 @@ export default function Layout() {
                   <div className="text-xs font-medium text-slate-300 truncate">{username}</div>
                   <div className="text-[10px] text-slate-500">Admin</div>
                 </div>
-                <button onClick={logout} className="text-slate-500 hover:text-red-400 transition shrink-0" title="Logout">
-                  <LogOut size={15} />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={toggleTheme} className="text-slate-500 hover:text-blue-400 transition p-1.5 rounded-lg hover:bg-white/[0.05]" title="Toggle Theme">
+                    {themePreference === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                  </button>
+                  <button onClick={logout} className="text-slate-500 hover:text-red-400 transition p-1.5 rounded-lg hover:bg-white/[0.05]" title="Logout">
+                    <LogOut size={15} />
+                  </button>
+                </div>
               </>
             )}
           </div>
           {collapsed && (
-            <button
-              onClick={logout}
-              className="mt-2 w-full flex justify-center text-slate-500 hover:text-red-400 transition p-1 rounded hover:bg-white/[0.05]"
-              title="Logout"
-            >
-              <LogOut size={16} />
-            </button>
+            <div className="mt-2 flex flex-col gap-1">
+              <button
+                onClick={toggleTheme}
+                className="w-full flex justify-center text-slate-500 hover:text-blue-400 transition p-1 rounded hover:bg-white/[0.05]"
+                title="Toggle Theme"
+              >
+                {themePreference === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+              <button
+                onClick={logout}
+                className="w-full flex justify-center text-slate-500 hover:text-red-400 transition p-1 rounded hover:bg-white/[0.05]"
+                title="Logout"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
           )}
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-y-auto bg-[#0f0f1a]">
+      <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0f0f1a]">
         <Outlet />
       </main>
 

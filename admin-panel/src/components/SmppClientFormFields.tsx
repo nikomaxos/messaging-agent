@@ -26,11 +26,11 @@ export function SmppClientFormFields({
     const [showPassword, setShowPassword] = useState(false);
 
     const inputClass = layout === 'horizontal-td' 
-        ? "w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" 
-        : "w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm";
+        ? "w-full bg-white dark:bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-slate-900 dark:text-white text-sm" 
+        : "w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm";
     
     const wrapperClass = layout === 'horizontal-td' ? "" : "flex flex-col gap-1";
-    const labelClass = "block text-xs font-medium text-slate-400 mb-1";
+    const labelClass = "block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1";
 
     const renderField = (label: string, element: React.ReactNode, isTd: boolean) => {
         if (isTd) return <td className="px-5 py-3">{element}</td>;
@@ -93,7 +93,7 @@ export function SmppClientFormFields({
                     <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className={`absolute text-slate-400 hover:text-white transition ${isTd ? 'right-2' : 'right-3'}`}
+                        className={`absolute text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white transition ${isTd ? 'right-2' : 'right-3'}`}
                     >
                         {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
@@ -102,7 +102,7 @@ export function SmppClientFormFields({
 
             {renderField('Active Status', (
                 <label className={isTd ? "" : "flex items-center gap-2 mt-2 cursor-pointer"}>
-                    <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-[#12121f] border-white/20"
+                    <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20"
                         checked={formData.active !== false} 
                         onChange={e => setFormData({ ...formData, active: e.target.checked })} /> 
                     {isTd ? ' Active' : <span className="text-sm text-slate-300">Active Connection</span>}

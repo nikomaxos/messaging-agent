@@ -29,7 +29,8 @@ public class AuthController {
                 .map(u -> ResponseEntity.ok(Map.of(
                         "token", jwtService.generateToken(u.getUsername(), u.getRole()),
                         "username", u.getUsername(),
-                        "role", u.getRole())))
+                        "role", u.getRole(),
+                        "themePreference", u.getThemePreference())))
                 .orElse(ResponseEntity.status(401).body(Map.of("error", "Invalid credentials")));
     }
 

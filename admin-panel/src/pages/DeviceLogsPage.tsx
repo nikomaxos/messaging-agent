@@ -52,8 +52,8 @@ export default function DeviceLogsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Device Logs</h1>
-          <p className="text-slate-400 text-sm">Review error stack traces and warnings uploaded from Android devices.</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Device Logs</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Review error stack traces and warnings uploaded from Android devices.</p>
         </div>
         <button className="btn-secondary" onClick={() => refetch()}>
           <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
@@ -64,7 +64,7 @@ export default function DeviceLogsPage() {
       <div className="glass p-4 flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-[200px]">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device</label>
-          <select className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.deviceId} onChange={e => setFilters({ ...filters, deviceId: e.target.value })}>
             <option value="">All Devices</option>
             {devices.map((d: Device) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -72,7 +72,7 @@ export default function DeviceLogsPage() {
         </div>
         <div className="flex-1 min-w-[150px]">
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Log Level</label>
-          <select className="w-full bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5"
+          <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.level} onChange={e => setFilters({ ...filters, level: e.target.value })}>
             <option value="">All Levels</option>
             <option value="INFO">INFO</option>
@@ -81,7 +81,7 @@ export default function DeviceLogsPage() {
           </select>
         </div>
         <div className="flex gap-2">
-          <button onClick={applyFilters} className="bg-brand-600 hover:bg-brand-500 text-white px-4 rounded text-sm py-1.5 font-medium transition flex items-center gap-2">
+          <button onClick={applyFilters} className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 rounded text-sm py-1.5 font-medium transition flex items-center gap-2">
             <Search size={14} /> Search
           </button>
           <button onClick={clearFilters} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 rounded text-sm font-medium transition flex justify-center items-center" title="Clear Filters">
@@ -116,7 +116,7 @@ export default function DeviceLogsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs font-bold font-mono ${levelColor[l.level] ?? 'text-slate-400'}`}>
+                    <span className={`text-xs font-bold font-mono ${levelColor[l.level] ?? 'text-slate-600 dark:text-slate-400'}`}>
                       {l.level}
                     </span>
                   </td>
@@ -143,7 +143,7 @@ export default function DeviceLogsPage() {
       {totalPages > 1 && (
         <div className="flex items-center gap-2 justify-center">
           <button className="btn-secondary !px-3" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span className="text-slate-400 text-sm">Page {page + 1} of {totalPages}</span>
+          <span className="text-slate-600 dark:text-slate-400 text-sm">Page {page + 1} of {totalPages}</span>
           <button className="btn-secondary !px-3" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>
       )}

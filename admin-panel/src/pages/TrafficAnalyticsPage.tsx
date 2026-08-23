@@ -29,12 +29,12 @@ const REASON_STYLES: Record<string, { bg: string; text: string }> = {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 70 ? 'text-red-400 bg-red-500/20' : score >= 40 ? 'text-amber-400 bg-amber-500/20' : 'text-slate-400 bg-white/5'
+  const color = score >= 70 ? 'text-red-400 bg-red-500/20' : score >= 40 ? 'text-amber-400 bg-amber-500/20' : 'text-slate-600 dark:text-slate-400 bg-slate-200/50 dark:bg-white/5'
   return <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${color}`}>{score}/100</span>
 }
 
 function ReasonBadge({ reason }: { reason: string }) {
-  const style = REASON_STYLES[reason] || { bg: 'bg-white/5', text: 'text-slate-400' }
+  const style = REASON_STYLES[reason] || { bg: 'bg-slate-200/50 dark:bg-white/5', text: 'text-slate-600 dark:text-slate-400' }
   return <span className={`px-2 py-0.5 rounded text-[10px] font-mono ${style.bg} ${style.text}`}>{reason.replace(/_/g, ' ')}</span>
 }
 
@@ -71,7 +71,7 @@ export default function TrafficAnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <PieChart size={22} className="text-brand-400" /> Traffic Analytics
           </h1>
           <p className="text-slate-500 text-xs mt-0.5">BI reporting, spam detection & AIT analysis</p>
@@ -79,7 +79,7 @@ export default function TrafficAnalyticsPage() {
         <div className="flex gap-1">
           {WINDOWS.map(w => (
             <button key={w.value}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition ${window === w.value ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-400 hover:text-white bg-white/5'}`}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition ${window === w.value ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5'}`}
               onClick={() => setWindow(w.value)}>
               {w.label}
             </button>
@@ -109,7 +109,7 @@ export default function TrafficAnalyticsPage() {
           senderLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Total</th>
                   <th className="px-4 py-2 text-right">Delivered</th>
@@ -123,14 +123,14 @@ export default function TrafficAnalyticsPage() {
               <tbody>
                 {(senderData ?? []).map((s: any, i: number) => (
                   <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                    <td className="px-4 py-2 text-white font-mono text-xs">{s.sender}</td>
-                    <td className="px-4 py-2 text-right text-white text-xs font-bold">{s.total?.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-slate-900 dark:text-white font-mono text-xs">{s.sender}</td>
+                    <td className="px-4 py-2 text-right text-slate-900 dark:text-white text-xs font-bold">{s.total?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right text-emerald-400 text-xs">{s.delivered?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right text-red-400 text-xs">{s.failed?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right">
                       <RateBadge rate={s.deliveryRate} />
                     </td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{s.uniqueDestinations}</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{s.uniqueDestinations}</td>
                     <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(s.firstSeen)}</td>
                     <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(s.lastSeen)}</td>
                   </tr>
@@ -145,7 +145,7 @@ export default function TrafficAnalyticsPage() {
           contentLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Message Content</th>
                   <th className="px-4 py-2 text-right">Count</th>
                   <th className="px-4 py-2 text-right">Unique Dests</th>
@@ -160,9 +160,9 @@ export default function TrafficAnalyticsPage() {
                     <td className="px-4 py-2 text-slate-300 text-xs max-w-[400px]">
                       <div className="truncate" title={c.fullContent}>{c.content}</div>
                     </td>
-                    <td className="px-4 py-2 text-right text-white text-xs font-bold">{c.total?.toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{c.uniqueDestinations}</td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{c.uniqueSenders}</td>
+                    <td className="px-4 py-2 text-right text-slate-900 dark:text-white text-xs font-bold">{c.total?.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{c.uniqueDestinations}</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{c.uniqueSenders}</td>
                     <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(c.firstSeen)}</td>
                     <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(c.lastSeen)}</td>
                   </tr>
@@ -177,7 +177,7 @@ export default function TrafficAnalyticsPage() {
           spamLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Score</th>
                   <th className="px-4 py-2 text-left">Reasons</th>
@@ -190,17 +190,17 @@ export default function TrafficAnalyticsPage() {
               <tbody>
                 {(spamData ?? []).map((s: any, i: number) => (
                   <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                    <td className="px-4 py-2 text-white font-mono text-xs">{s.sender}</td>
+                    <td className="px-4 py-2 text-slate-900 dark:text-white font-mono text-xs">{s.sender}</td>
                     <td className="px-4 py-2 text-right"><ScoreBadge score={s.score} /></td>
                     <td className="px-4 py-2">
                       <div className="flex gap-1 flex-wrap">
                         {(s.reasons ?? []).map((r: string) => <ReasonBadge key={r} reason={r} />)}
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-right text-white text-xs font-bold">{s.total?.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-slate-900 dark:text-white text-xs font-bold">{s.total?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right"><RateBadge rate={s.deliveryRate} /></td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{s.repetitionRate}%</td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{s.maxBurstPerMin}</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{s.repetitionRate}%</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{s.maxBurstPerMin}</td>
                   </tr>
                 ))}
                 {(spamData ?? []).length === 0 && (
@@ -217,7 +217,7 @@ export default function TrafficAnalyticsPage() {
           aitLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-white/5">
+                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-200 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Score</th>
                   <th className="px-4 py-2 text-left">Reasons</th>
@@ -231,18 +231,18 @@ export default function TrafficAnalyticsPage() {
               <tbody>
                 {(aitData ?? []).map((a: any, i: number) => (
                   <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                    <td className="px-4 py-2 text-white font-mono text-xs">{a.sender}</td>
+                    <td className="px-4 py-2 text-slate-900 dark:text-white font-mono text-xs">{a.sender}</td>
                     <td className="px-4 py-2 text-right"><ScoreBadge score={a.score} /></td>
                     <td className="px-4 py-2">
                       <div className="flex gap-1 flex-wrap">
                         {(a.reasons ?? []).map((r: string) => <ReasonBadge key={r} reason={r} />)}
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-right text-white text-xs font-bold">{a.total?.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-slate-900 dark:text-white text-xs font-bold">{a.total?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right text-red-400 text-xs">{a.failRate}%</td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{a.uniqueDestinations}</td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs font-mono">{a.numberRange?.toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right text-slate-400 text-xs">{a.sequentialScore}%</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{a.uniqueDestinations}</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs font-mono">{a.numberRange?.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{a.sequentialScore}%</td>
                   </tr>
                 ))}
                 {(aitData ?? []).length === 0 && (

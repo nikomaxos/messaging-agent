@@ -43,7 +43,7 @@ function DeviceCard({ d }: { d: Device }) {
           {d.isCharging ? (
             <BatteryCharging size={12} className="text-emerald-400 mb-1 animate-pulse" />
           ) : (
-            <Battery size={12} className={d.batteryPercent != null && d.batteryPercent < 20 ? 'text-red-400 mb-1' : 'text-slate-400 mb-1'} />
+            <Battery size={12} className={d.batteryPercent != null && d.batteryPercent < 20 ? 'text-red-400 mb-1' : 'text-slate-600 dark:text-slate-400 mb-1'} />
           )}
           <span className={
             d.isCharging 
@@ -55,12 +55,12 @@ function DeviceCard({ d }: { d: Device }) {
           <span className="text-slate-600 text-[9px]">Battery</span>
         </div>
         <div className="flex flex-col items-center bg-slate-800/50 rounded-lg p-2">
-          <Wifi size={12} className="text-slate-400 mb-1" />
+          <Wifi size={12} className="text-slate-600 dark:text-slate-400 mb-1" />
           <span className="text-slate-300">{d.wifiSignalDbm != null ? `${d.wifiSignalDbm} dBm` : '—'}</span>
           <span className="text-slate-600 text-[9px]">Wi-Fi</span>
         </div>
         <div className="flex flex-col items-center bg-slate-800/50 rounded-lg p-2">
-          <Signal size={12} className="text-slate-400 mb-1" />
+          <Signal size={12} className="text-slate-600 dark:text-slate-400 mb-1" />
           <span className="text-slate-300">{d.gsmSignalDbm != null ? `${d.gsmSignalDbm} dBm` : '—'}</span>
           <span className="text-slate-600 text-[9px]">GSM</span>
         </div>
@@ -87,12 +87,12 @@ function StatCard({ label, value, icon, sub }: { label: string; value: number | 
   return (
     <div className="glass p-5">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</span>
+        <span className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wider">{label}</span>
         <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center text-brand-400">
           {icon}
         </div>
       </div>
-      <div className="text-3xl font-bold text-white">{value}</div>
+      <div className="text-3xl font-bold text-slate-900 dark:text-white">{value}</div>
       {sub && <div className="text-xs text-slate-500 mt-1">{sub}</div>}
     </div>
   )
@@ -117,8 +117,8 @@ export default function DashboardPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-white">Dashboard</h1>
-        <p className="text-slate-400 text-sm mt-0.5 dot-live">Live — auto-refreshes every 5s</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5 dot-live">Live — auto-refreshes every 5s</p>
       </div>
 
       {/* Stats */}

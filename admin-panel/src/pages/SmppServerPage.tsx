@@ -59,13 +59,13 @@ export default function SmppServerPage() {
     <div className="p-8">
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">SMPP Server Configuration</h1>
-          <p className="text-slate-400 text-sm">Global properties for the embedded SMPP Server</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">SMPP Server Configuration</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Global properties for the embedded SMPP Server</p>
         </div>
         <button
           onClick={() => restartMut.mutate()}
           disabled={restartMut.isPending}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
         >
           <RefreshCw size={16} className={restartMut.isPending ? "animate-spin" : ""} />
           Restart SMPP
@@ -73,33 +73,33 @@ export default function SmppServerPage() {
       </div>
 
       {isLoading || !formData ? (
-        <div className="text-slate-400 animate-pulse">Loading server settings...</div>
+        <div className="text-slate-600 dark:text-slate-400 animate-pulse">Loading server settings...</div>
       ) : (
         <div className="space-y-8">
           {/* Metrics Dashboard */}
-          <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
                   <Activity size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Monthly Traffic Statistics</h2>
-                  <p className="text-xs text-slate-400">Live metrics for the current calendar month</p>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Monthly Traffic Statistics</h2>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Live metrics for the current calendar month</p>
                 </div>
               </div>
               
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition"
+                  className="flex items-center gap-2 text-sm text-slate-300 hover:text-slate-900 dark:text-white transition"
                 >
                   {autoRefresh ? <ToggleRight className="text-brand-500" size={24} /> : <ToggleLeft className="text-slate-500" size={24} />}
                   <span>Auto Refresh</span>
                 </button>
                 <button
                   onClick={() => refetchMetrics()}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 transition"
+                  className="p-2 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 rounded-lg text-slate-300 transition"
                   title="Manual Refresh"
                 >
                   <RefreshCw size={16} className={isFetchingMetrics ? "animate-spin" : ""} />
@@ -108,52 +108,52 @@ export default function SmppServerPage() {
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+              <div className="bg-white dark:bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400 font-medium">Total Messages</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Total Messages</span>
                   <MessageSquare size={16} className="text-blue-400" />
                 </div>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
                   {metrics?.totalMessages?.toLocaleString() || '0'}
                 </div>
               </div>
               
-              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+              <div className="bg-white dark:bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400 font-medium">DLRs Received</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">DLRs Received</span>
                   <CheckCircle size={16} className="text-green-400" />
                 </div>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
                   {metrics?.dlrsReceived?.toLocaleString() || '0'}
                 </div>
               </div>
 
-              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+              <div className="bg-white dark:bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400 font-medium">Failed</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Failed</span>
                   <AlertTriangle size={16} className="text-red-400" />
                 </div>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
                   {metrics?.failedMessages?.toLocaleString() || '0'}
                 </div>
               </div>
 
-              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+              <div className="bg-white dark:bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400 font-medium">In Queue</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">In Queue</span>
                   <Hourglass size={16} className="text-yellow-400" />
                 </div>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
                   {metrics?.queuedMessages?.toLocaleString() || '0'}
                 </div>
               </div>
 
-              <div className="bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
+              <div className="bg-white dark:bg-[#12121f] rounded-lg p-4 border border-white/[0.02]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400 font-medium">Re-Sent (Fallback)</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Re-Sent (Fallback)</span>
                   <RefreshCcw size={16} className="text-orange-400" />
                 </div>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
                   {metrics?.resentFallback?.toLocaleString() || '0'}
                 </div>
               </div>
@@ -162,34 +162,34 @@ export default function SmppServerPage() {
 
           {/* Settings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
-          <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-brand-500/10 text-brand-400 rounded-lg">
                 <Server size={20} />
               </div>
-              <h2 className="text-lg font-semibold text-white">Network & Bind Profile</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Network & Bind Profile</h2>
             </div>
             <dl className="space-y-4">
               <div>
-                <dt className="text-sm font-medium text-slate-400 mb-1">Bind Host (IP)</dt>
+                <dt className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Bind Host (IP)</dt>
                 <input 
                   type="text" 
                   value={formData.host} 
                   onChange={(e: any) => setFormData({ ...formData, host: e.target.value })}
-                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
               </div>
               <div>
-                <dt className="text-sm font-medium text-slate-400 mb-1">Bind Port</dt>
+                <dt className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Bind Port</dt>
                 <input 
                   type="number" 
                   value={formData.port} 
                   onChange={(e: any) => setFormData({ ...formData, port: parseInt(e.target.value) || 2775 })}
-                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
               </div>
-              <div className="pt-4 border-t border-white/5">
-                <dt className="text-sm font-medium text-slate-400">Operating Status</dt>
+              <div className="pt-4 border-t border-slate-200 dark:border-white/5">
+                <dt className="text-sm font-medium text-slate-600 dark:text-slate-400">Operating Status</dt>
                 <dd className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${config?.status === 'RUNNING' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
@@ -197,7 +197,7 @@ export default function SmppServerPage() {
                       {config?.status || 'UNKNOWN'}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
                     Uptime: {config?.uptimeStartedAt ? <LiveUptime since={config.uptimeStartedAt} /> : 'Offline'}
                   </div>
                 </dd>
@@ -205,28 +205,28 @@ export default function SmppServerPage() {
             </dl>
           </div>
 
-          <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col">
+          <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg">
                 <Activity size={20} />
               </div>
-              <h2 className="text-lg font-semibold text-white">Connection Limits</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Connection Limits</h2>
             </div>
             <dl className="space-y-4 flex-grow">
               <div>
-                <dt className="text-sm font-medium text-slate-400 flex items-center gap-2 mb-1">
+                <dt className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2 mb-1">
                   <ArrowRightLeft size={14} /> Max Connections
                 </dt>
                 <input 
                   type="number" 
                   value={formData.maxConnections} 
                   onChange={(e: any) => setFormData({ ...formData, maxConnections: parseInt(e.target.value) || 50 })}
-                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
                 <p className="text-xs text-slate-500 mt-1">Maximum allowed active SMPP binds across all users.</p>
               </div>
               <div className="pt-2">
-                <dt className="text-sm font-medium text-slate-400 flex items-center gap-2 mb-1">
+                <dt className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2 mb-1">
                   <Clock size={14} /> Enquire Link Timeout (ms)
                 </dt>
                 <input 
@@ -234,16 +234,16 @@ export default function SmppServerPage() {
                   step="1000"
                   value={formData.enquireLinkTimeout} 
                   onChange={(e: any) => setFormData({ ...formData, enquireLinkTimeout: parseInt(e.target.value) || 30000 })}
-                  className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white font-mono text-sm"
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
                 <p className="text-xs text-slate-500 mt-1">Maximum wait time for an enquire_link_resp before dropping.</p>
               </div>
             </dl>
-            <div className="mt-8 pt-6 border-t border-white/5 flex justify-end">
+            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5 flex justify-end">
               <button
                 onClick={handleSave}
                 disabled={updateMut.isPending}
-                className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-6 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
               >
                 <Save size={16} />
                 {updateMut.isPending ? 'Saving...' : 'Save Settings'}

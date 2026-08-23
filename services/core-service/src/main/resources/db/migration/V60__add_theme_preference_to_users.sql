@@ -1,0 +1,1 @@
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) DEFAULT 'dark';

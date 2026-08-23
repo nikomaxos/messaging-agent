@@ -136,7 +136,7 @@ export default function BillingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Billing & Rating</h1>
-          <p className="text-slate-400 mt-1">Manage carrier tariffs and client balances in real-time.</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Manage carrier tariffs and client balances in real-time.</p>
         </div>
         <button 
           onClick={fetchData} 
@@ -159,7 +159,7 @@ export default function BillingPage() {
         <button
           onClick={() => setActiveTab('accounts')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition ${
-            activeTab === 'accounts' ? 'bg-indigo-500 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            activeTab === 'accounts' ? 'bg-indigo-500 text-slate-900 dark:text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-800'
           }`}
         >
           <CreditCard size={18} />
@@ -168,7 +168,7 @@ export default function BillingPage() {
         <button
           onClick={() => setActiveTab('tariffs')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition ${
-            activeTab === 'tariffs' ? 'bg-indigo-500 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            activeTab === 'tariffs' ? 'bg-indigo-500 text-slate-900 dark:text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-800'
           }`}
         >
           <DollarSign size={18} />
@@ -182,11 +182,11 @@ export default function BillingPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-800/50 border-b border-slate-700/50">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Account</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Billing Type</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Tariff Plan</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Live Balance</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Account</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Billing Type</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Tariff Plan</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right">Live Balance</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -197,7 +197,7 @@ export default function BillingPage() {
                     <select 
                       value={acc.billingType || 'POSTPAID'} 
                       onChange={(e) => handleUpdateAccount(acc.accountId, e.target.value, acc.tariffPlanId)}
-                      className="bg-slate-800 border border-slate-700 text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="bg-slate-800 border border-slate-700 text-slate-900 dark:text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="PREPAID">Prepaid</option>
                       <option value="POSTPAID">Postpaid</option>
@@ -207,7 +207,7 @@ export default function BillingPage() {
                     <select 
                       value={acc.tariffPlanId || ''} 
                       onChange={(e) => handleUpdateAccount(acc.accountId, acc.billingType, e.target.value ? Number(e.target.value) : null)}
-                      className="bg-slate-800 border border-slate-700 text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="bg-slate-800 border border-slate-700 text-slate-900 dark:text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="">No Plan (Free)</option>
                       {plans.map(p => (
@@ -241,7 +241,7 @@ export default function BillingPage() {
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-1 space-y-4">
             <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl p-4">
-              <h3 className="font-semibold mb-4 text-sm uppercase text-slate-400 tracking-wider">Plans</h3>
+              <h3 className="font-semibold mb-4 text-sm uppercase text-slate-600 dark:text-slate-400 tracking-wider">Plans</h3>
               <ul className="space-y-2">
                 {plans.map(p => (
                   <li key={p.id}>
@@ -265,7 +265,7 @@ export default function BillingPage() {
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
                     required
                   />
-                  <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-2 text-sm">
+                  <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white font-medium py-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-2 text-sm">
                     <Plus size={16} /> Create Plan
                   </button>
                 </form>
@@ -276,7 +276,7 @@ export default function BillingPage() {
           <div className="col-span-2">
             <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
               <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
-                <h3 className="font-semibold text-white">
+                <h3 className="font-semibold text-slate-900 dark:text-white">
                   Rates for {plans.find(p => p.id === selectedPlanId)?.name || 'Selected Plan'}
                 </h3>
               </div>
@@ -299,7 +299,7 @@ export default function BillingPage() {
                     className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
                     required
                   />
-                  <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium transition text-sm">
+                  <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg font-medium transition text-sm">
                     Add Rate
                   </button>
                 </form>
@@ -307,9 +307,9 @@ export default function BillingPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-800/50 border-y border-slate-700/50">
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Prefix</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Rate</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right"></th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Prefix</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right">Rate</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
@@ -338,15 +338,15 @@ export default function BillingPage() {
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
               <h3 className="font-semibold text-lg">Top-Up Account</h3>
-              <p className="text-slate-400 text-sm">Add funds for Account #{topUpClient.accountId}</p>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">Add funds for Account #{topUpClient.accountId}</p>
             </div>
             <form onSubmit={handleTopUp} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Current Balance</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Current Balance</label>
                 <div className="text-2xl font-mono text-emerald-400">€{Number(topUpClient.balance).toFixed(5)}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Amount to Add (€)</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Amount to Add (€)</label>
                 <input 
                   type="number" 
                   step="0.01"
@@ -358,7 +358,7 @@ export default function BillingPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Description (Optional)</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Description (Optional)</label>
                 <input 
                   type="text" 
                   value={topUpDesc}
@@ -371,13 +371,13 @@ export default function BillingPage() {
                 <button 
                   type="button" 
                   onClick={() => setShowTopUpModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-slate-900 dark:text-white transition"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition flex items-center gap-2"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-900 dark:text-white px-6 py-2 rounded-lg font-medium transition flex items-center gap-2"
                 >
                   <Plus size={18} /> Add Funds
                 </button>

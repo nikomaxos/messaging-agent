@@ -41,14 +41,14 @@ function PrefixModal({ isOpen, onClose, prefix, isEditing }: any) {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center">
-      <div className="bg-[#1a1a2e] border border-white/10 rounded-xl w-[500px] shadow-2xl p-6">
-        <h2 className="text-xl font-bold text-white mb-4">{isEditing ? 'Edit Prefix' : 'Add Prefix'}</h2>
+      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl w-[500px] shadow-2xl p-6">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{isEditing ? 'Edit Prefix' : 'Add Prefix'}</h2>
         
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-slate-300 mb-1">Country Name</label>
             <select 
-              className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white"
+              className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"
               value={formData.countryName}
               onChange={e => setFormData({...formData, countryName: e.target.value, mcc: '', mnc: '', iso: '', networkName: ''})}
             >
@@ -60,13 +60,13 @@ function PrefixModal({ isOpen, onClose, prefix, isEditing }: any) {
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Prefix (e.g., 3069)</label>
-            <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" 
+            <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" 
                    value={formData.prefix} onChange={e => setFormData({...formData, prefix: e.target.value})} />
           </div>
           <div>
             <label className="block text-sm text-slate-300 mb-1">Network (MCC / MNC)</label>
             <select 
-              className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white"
+              className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white"
               value={`${formData.mcc}-${formData.mnc}`}
               onChange={e => {
                 const rec = selectedCountryRecords.find(r => `${r.mcc}-${r.mnc}` === e.target.value)
@@ -87,24 +87,24 @@ function PrefixModal({ isOpen, onClose, prefix, isEditing }: any) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-slate-300 mb-1">Network Name</label>
-              <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white" 
+              <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white" 
                      value={formData.networkName} onChange={e => setFormData({...formData, networkName: e.target.value})} />
             </div>
             <div>
               <label className="block text-sm text-slate-300 mb-1">ISO Code</label>
-              <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white uppercase" 
+              <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white uppercase" 
                      value={formData.iso || ''} onChange={e => setFormData({...formData, iso: e.target.value.toUpperCase()})} />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-            <input type="checkbox" checked={formData.active} onChange={e => setFormData({...formData, active: e.target.checked})} className="rounded bg-[#12121f]" />
+            <input type="checkbox" checked={formData.active} onChange={e => setFormData({...formData, active: e.target.checked})} className="rounded bg-white dark:bg-[#12121f]" />
             Active
           </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
-          <button onClick={handleSave} className="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded text-sm font-medium">Save</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white">Cancel</button>
+          <button onClick={handleSave} className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 py-2 rounded text-sm font-medium">Save</button>
         </div>
       </div>
     </div>
@@ -136,8 +136,8 @@ export default function CountryPrefixesTab() {
 
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold text-white">Country Mobile Prefixes</h2>
-          <p className="text-sm text-slate-400">Manage network prefixes and MCC/MNC codes for carrier-grade routing.</p>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Country Mobile Prefixes</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Manage network prefixes and MCC/MNC codes for carrier-grade routing.</p>
           <p className="text-xs text-brand-400 mt-1 flex items-center gap-1">
             <Database size={12}/> Data Source: <code>mcc-mnc-list</code> public npm package
           </p>
@@ -150,18 +150,18 @@ export default function CountryPrefixesTab() {
                 qc.invalidateQueries({ queryKey: ['countryPrefixes'] });
               }).catch(err => alert("Error syncing prefixes: " + err.message));
             }
-          }} className="bg-slate-800 hover:bg-slate-700 border border-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
+          }} className="bg-slate-800 hover:bg-slate-700 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
             <Database size={16} /> Sync Carrier Data
           </button>
-          <button onClick={() => { setEditingPrefix(null); setModalOpen(true) }} className="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
+          <button onClick={() => { setEditingPrefix(null); setModalOpen(true) }} className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
             <Plus size={16} /> Add Prefix
           </button>
         </div>
       </div>
 
-      <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden">
+      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden">
         <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-black/20 border-b border-white/5 text-slate-400 text-xs uppercase tracking-wider">
+          <thead className="bg-black/20 border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">
             <tr>
               <th className="px-6 py-4 font-medium">Country (ISO)</th>
               <th className="px-6 py-4 font-medium">Network Name</th>
@@ -178,11 +178,11 @@ export default function CountryPrefixesTab() {
               <tr key={p.id} className="hover:bg-white/[0.02] transition">
                 <td className="px-6 py-4 flex items-center gap-2">
                   <Globe size={16} className="text-brand-400" />
-                  <span className="font-medium text-white">{p.countryName}</span>
-                  {p.iso && <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] text-slate-400 ml-1">{p.iso}</span>}
+                  <span className="font-medium text-slate-900 dark:text-white">{p.countryName}</span>
+                  {p.iso && <span className="bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 rounded text-[10px] text-slate-600 dark:text-slate-400 ml-1">{p.iso}</span>}
                 </td>
                 <td className="px-6 py-4">{p.networkName}</td>
-                <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                <td className="px-6 py-4 font-mono text-xs text-slate-600 dark:text-slate-400">
                   {p.mcc && p.mnc ? `${p.mcc} / ${p.mnc}` : '-'}
                 </td>
                 <td className="px-6 py-4 font-mono text-emerald-400">{p.prefix || '-'}</td>
@@ -190,8 +190,8 @@ export default function CountryPrefixesTab() {
                   {p.active ? <span className="inline-flex items-center gap-1 text-green-400 bg-green-400/10 px-2 py-1 rounded text-xs"><CheckCircle2 size={12}/> Active</span> : <span className="inline-flex items-center gap-1 text-red-400 bg-red-400/10 px-2 py-1 rounded text-xs"><XCircle size={12}/> Inactive</span>}
                 </td>
                 <td className="px-6 py-4 text-right flex justify-end gap-2">
-                  <button onClick={() => { setEditingPrefix(p); setModalOpen(true) }} className="p-1.5 text-slate-400 hover:text-white bg-white/5 rounded"><Edit2 size={14}/></button>
-                  <button onClick={() => setConfirmDelete(p)} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded"><Trash2 size={14}/></button>
+                  <button onClick={() => { setEditingPrefix(p); setModalOpen(true) }} className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5 rounded"><Edit2 size={14}/></button>
+                  <button onClick={() => setConfirmDelete(p)} className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded"><Trash2 size={14}/></button>
                 </td>
               </tr>
             ))}

@@ -350,10 +350,10 @@ export default function DevicesPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
             Devices
           </h1>
-          <p className="text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
             {wsConnected
               ? <><Wifi size={12} className="text-emerald-400" /> Live — updates via WebSocket</>
               : <><WifiOff size={12} className="text-slate-500" /> Reconnecting…</>}
@@ -374,7 +374,7 @@ export default function DevicesPage() {
             {/* Upload Group */}
             <div className="flex items-center rounded-lg border border-slate-700 bg-slate-800/50 p-0.5 shadow-sm">
               <button 
-                className={`flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors ${uploadSuccess ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`} 
+                className={`flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors ${uploadSuccess ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-300 hover:bg-slate-700 hover:text-slate-900 dark:text-white'}`} 
                 onClick={() => fileRef.current?.click()} 
                 disabled={uploadingApk} 
                 title="Upload Agent APK">
@@ -383,7 +383,7 @@ export default function DevicesPage() {
               </button>
               <div className="w-px h-4 bg-slate-700 mx-0.5"></div>
               <button 
-                className={`flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors ${uploadGuardianSuccess ? 'bg-amber-500/20 text-amber-400' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`} 
+                className={`flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors ${uploadGuardianSuccess ? 'bg-amber-500/20 text-amber-400' : 'text-slate-300 hover:bg-slate-700 hover:text-slate-900 dark:text-white'}`} 
                 onClick={() => fileGuardianRef.current?.click()} 
                 disabled={uploadingGuardianApk} 
                 title="Upload Guardian APK">
@@ -472,14 +472,14 @@ export default function DevicesPage() {
             <div className="w-px h-6 bg-slate-700/50 mx-1 hidden sm:block"></div>
 
             <button
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 hover:text-slate-900 dark:text-white transition-colors"
               onClick={handleRefresh}
               disabled={isFetching}
               title="Refresh device statuses"
             >
               <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} /> Refresh
             </button>
-            <button id="add-device-btn" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-500 bg-brand-600 text-white text-xs font-medium hover:bg-brand-500 transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]" onClick={() => setShowForm(true)}>
+            <button id="add-device-btn" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-500 bg-brand-600 text-slate-900 dark:text-white text-xs font-medium hover:bg-brand-500 transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]" onClick={() => setShowForm(true)}>
               <Plus size={14} /> Add Device
             </button>
           </div>
@@ -487,7 +487,7 @@ export default function DevicesPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 border-b border-white/10 -mb-3">
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-white/10 -mb-3">
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -509,7 +509,7 @@ export default function DevicesPage() {
       {showForm && !editing && (
         <div className="glass p-5 flex flex-col items-center justify-center space-y-4 mb-6">
           <h2 className="text-lg font-semibold text-slate-300">Add New Device</h2>
-          <p className="text-sm text-slate-400 text-center max-w-sm">
+          <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-sm">
             Scan this QR code with the target device to automatically download and install the Guardian system.
           </p>
           <div className="bg-white p-4 rounded-xl shadow-lg border-4 border-slate-200">
@@ -529,7 +529,7 @@ export default function DevicesPage() {
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device Group</label>
           <select
-            className="bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5 min-w-[140px]"
+            className="bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5 min-w-[140px]"
             value={filterGroup}
             onChange={e => setFilterGroup(e.target.value)}
           >
@@ -540,7 +540,7 @@ export default function DevicesPage() {
         <div>
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
           <select
-            className="bg-[#12121f] text-sm text-white border border-white/5 rounded px-2 py-1.5 min-w-[120px]"
+            className="bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded px-2 py-1.5 min-w-[120px]"
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
           >
@@ -552,13 +552,13 @@ export default function DevicesPage() {
           </select>
         </div>
         {(filterGroup || filterStatus) && (
-          <button className="text-xs text-slate-400 hover:text-white mt-4" onClick={() => { setFilterGroup(''); setFilterStatus('') }}>Clear Filters</button>
+          <button className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white mt-4" onClick={() => { setFilterGroup(''); setFilterStatus('') }}>Clear Filters</button>
         )}
         <div className="flex items-center gap-3 ml-auto mt-4">
           <div className="flex items-center bg-slate-800/50 rounded-lg p-1 mr-2 border border-slate-700/50">
-            <button className="px-2 py-1 text-[10px] uppercase font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-700/50 rounded transition" onClick={handleExpandAll}>Expand All</button>
+            <button className="px-2 py-1 text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-400 hover:bg-slate-700/50 rounded transition" onClick={handleExpandAll}>Expand All</button>
             <div className="w-px h-3 bg-slate-700 mx-1"></div>
-            <button className="px-2 py-1 text-[10px] uppercase font-bold text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded transition" onClick={handleCollapseAll}>Collapse All</button>
+            <button className="px-2 py-1 text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded transition" onClick={handleCollapseAll}>Collapse All</button>
           </div>
           <span className="text-xs text-slate-500">{filteredDevices.length} of {devices.length} devices</span>
           
@@ -566,7 +566,7 @@ export default function DevicesPage() {
           
           <div className="flex items-center gap-2">
             <button 
-              className="p-1 px-2 rounded-md hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="p-1 px-2 rounded-md hover:bg-slate-700 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:hover:bg-transparent"
               disabled={validPage <= 1}
               onClick={() => setCurrentPage(p => p - 1)}
             >
@@ -574,7 +574,7 @@ export default function DevicesPage() {
             </button>
             <span className="text-xs text-slate-300 font-medium">Page {validPage} of {totalPages}</span>
             <button 
-              className="p-1 px-2 rounded-md hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="p-1 px-2 rounded-md hover:bg-slate-700 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:hover:bg-transparent"
               disabled={validPage >= totalPages}
               onClick={() => setCurrentPage(p => p + 1)}
             >
@@ -694,7 +694,7 @@ export default function DevicesPage() {
                        <div className="flex flex-col gap-1">
                           <span className="text-brand-400 font-medium text-[10px] bg-brand-500/10 border border-brand-500/20 px-1.5 py-0.5 rounded w-fit">{d.simCards.length} SIM{d.simCards.length > 1 ? 's' : ''}</span>
                           {d.simCards.slice(0, 2).map((s: any) => (
-                              <span key={s.id} className="text-[10px] text-slate-400">{s.phoneNumber || 'No Number'}</span>
+                              <span key={s.id} className="text-[10px] text-slate-600 dark:text-slate-400">{s.phoneNumber || 'No Number'}</span>
                           ))}
                           {d.simCards.length > 2 && <span className="text-[10px] text-slate-500">+{d.simCards.length - 2} more...</span>}
                        </div>
@@ -720,7 +720,7 @@ export default function DevicesPage() {
                 
                 <td className="px-3 py-2 align-top">
                   <div className="h-4 flex items-center">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium ${d.rcsCapable ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/50 text-slate-400 border border-slate-700'}`}>{d.rcsCapable ? 'Yes' : 'No'}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium ${d.rcsCapable ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700/50 text-slate-600 dark:text-slate-400 border border-slate-700'}`}>{d.rcsCapable ? 'Yes' : 'No'}</span>
                   </div>
                 </td>
                 
@@ -762,7 +762,7 @@ export default function DevicesPage() {
                     <div className="flex flex-wrap items-center justify-between gap-4 p-2 bg-slate-800/40 border border-slate-700/50 rounded-lg shadow-inner w-full">
                       
                       <div className="flex flex-wrap items-center justify-start gap-3">
-                        <div className="flex items-center gap-3 bg-[#12121f] px-2 py-1.5 rounded border border-slate-700/50">
+                        <div className="flex items-center gap-3 bg-white dark:bg-[#12121f] px-2 py-1.5 rounded border border-slate-700/50">
                           <label className="flex items-center gap-1 text-[9px] text-slate-500 uppercase tracking-wider font-bold">
                             Auto Purge 
                             <span className="relative group">
@@ -780,7 +780,7 @@ export default function DevicesPage() {
                           </select>
                         </div>
                         
-                        <div className="flex items-center gap-3 bg-[#12121f] px-2 py-1.5 rounded border border-slate-700/50">
+                        <div className="flex items-center gap-3 bg-white dark:bg-[#12121f] px-2 py-1.5 rounded border border-slate-700/50">
                           <label className="flex items-center gap-1 text-[9px] text-slate-500 uppercase tracking-wider font-bold">
                             Interval
                             <span className="relative group">
@@ -857,17 +857,17 @@ export default function DevicesPage() {
                       <h2 className="text-sm font-semibold text-slate-200 mb-4 pb-2 border-b border-slate-700/50">Edit Device: {d.name}</h2>
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">Device Name *</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Device Name *</label>
                           <input id="device-name" className="inp w-full" placeholder="Pixel 8 #1"
                             value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">Hardware ID</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Hardware ID</label>
                           <input className="inp w-full text-slate-500" placeholder="16-digit android ID"
                             value={form.hardwareId} onChange={e => setForm(f => ({ ...f, hardwareId: e.target.value }))} readOnly={!!editing} />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">Group</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Group</label>
                           <select className="inp w-full bg-slate-800/90"
                             value={form.groupId} onChange={e => setForm(f => ({ ...f, groupId: e.target.value }))}>
                             <option value="">— No group —</option>
@@ -875,7 +875,7 @@ export default function DevicesPage() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">SIM 1 Assignment</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">SIM 1 Assignment</label>
                           <select className="inp w-full bg-slate-800/90"
                             value={form.sim1Id} onChange={e => setForm(f => ({ ...f, sim1Id: e.target.value }))}>
                             <option value="">— Unassigned —</option>
@@ -885,7 +885,7 @@ export default function DevicesPage() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">SIM 2 Assignment</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">SIM 2 Assignment</label>
                           <select className="inp w-full bg-slate-800/90"
                             value={form.sim2Id} onChange={e => setForm(f => ({ ...f, sim2Id: e.target.value }))}>
                             <option value="">— Unassigned —</option>

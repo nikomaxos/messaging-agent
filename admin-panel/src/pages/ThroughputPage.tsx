@@ -13,7 +13,7 @@ function TpsCard({ label, value, icon, color }: {
         {icon}
       </div>
       <div>
-        <div className="text-2xl font-bold text-white font-mono">{value}</div>
+        <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{value}</div>
         <div className="text-[11px] text-slate-500">{label}</div>
       </div>
     </div>
@@ -174,12 +174,12 @@ function Bar({ label, count, max }: { label: string; count: number; max: number 
   const pct = max > 0 ? (count / max) * 100 : 0
   return (
     <div className="flex items-center gap-3">
-      <div className="w-32 text-xs text-slate-400 truncate text-right">{label}</div>
+      <div className="w-32 text-xs text-slate-600 dark:text-slate-400 truncate text-right">{label}</div>
       <div className="flex-1 h-6 bg-white/[0.03] rounded-full overflow-hidden relative">
         <div
           className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 transition-all duration-500"
           style={{ width: `${Math.max(pct, 1)}%` }} />
-        <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/80 font-mono">
+        <span className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-900 dark:text-white/80 font-mono">
           {count.toLocaleString()}
         </span>
       </div>
@@ -223,7 +223,7 @@ export default function ThroughputPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <BarChart3 size={22} className="text-orange-400" /> Throughput
         </h1>
         <p className="text-slate-500 text-xs mt-0.5">
@@ -266,11 +266,11 @@ export default function ThroughputPage() {
 
       {/* ── Volume Breakdown ────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-white">Volume Breakdown</h2>
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white">Volume Breakdown</h2>
         <div className="flex gap-1">
           {WINDOWS.map(w => (
             <button key={w.value}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition ${window === w.value ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-400 hover:text-white bg-white/5'}`}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition ${window === w.value ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5'}`}
               onClick={() => setWindow(w.value)}>
               {w.label}
             </button>
@@ -282,7 +282,7 @@ export default function ThroughputPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* SMSC Throughput */}
           <div className="glass p-5 space-y-3">
-            <h2 className="text-sm font-bold text-white">SMSC Suppliers</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">SMSC Suppliers</h2>
             {smsc.length === 0 ? (
               <div className="text-slate-600 text-xs py-4 text-center">No SMSC suppliers configured</div>
             ) : (
@@ -294,7 +294,7 @@ export default function ThroughputPage() {
 
           {/* Device Throughput */}
           <div className="glass p-5 space-y-3">
-            <h2 className="text-sm font-bold text-white">Devices</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Devices</h2>
             {devices.length === 0 ? (
               <div className="text-slate-600 text-xs py-4 text-center">No devices registered</div>
             ) : (

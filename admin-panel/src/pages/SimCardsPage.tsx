@@ -90,7 +90,7 @@ export default function SimCardsPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white flex items-center gap-3">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
           SIM Inventory
         </h1>
         <div className="flex gap-2">
@@ -101,7 +101,7 @@ export default function SimCardsPage() {
             + Add SIM Manually
           </button>
           <button 
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 hover:text-slate-900 dark:text-white transition-colors"
             onClick={() => qc.invalidateQueries({ queryKey: ['sim-cards'] })}
             disabled={isFetching}
           >
@@ -128,27 +128,27 @@ export default function SimCardsPage() {
                 <td colSpan={6} className="p-4">
                   <div className="p-4 bg-emerald-900/10 rounded-xl border border-emerald-500/30 w-full relative grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">ICCID (Hardware ID)</label>
+                      <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ICCID (Hardware ID)</label>
                       <input className="inp w-full" value={form.iccid} onChange={e => setForm(f => ({ ...f, iccid: e.target.value }))} placeholder="Auto-generated if empty" />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">Phone Number</label>
+                      <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Phone Number</label>
                       <input className="inp w-full" value={form.phoneNumber} onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))} placeholder="+1234567890" />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">Carrier</label>
+                      <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Carrier</label>
                       <input className="inp w-full" value={form.carrierName} onChange={e => setForm(f => ({ ...f, carrierName: e.target.value }))} placeholder="Vodafone" />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">IMSI</label>
+                      <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">IMSI</label>
                       <input className="inp w-full" value={form.imsi} onChange={e => setForm(f => ({ ...f, imsi: e.target.value }))} placeholder="Optional" />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
+                      <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">IMEI</label>
                       <input className="inp w-full" value={form.imei} onChange={e => setForm(f => ({ ...f, imei: e.target.value }))} placeholder="Optional" />
                     </div>
                     <div className="col-span-1 md:col-span-1">
-                      <label className="block text-xs text-slate-400 mb-1.5">Slot Index</label>
+                      <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Slot Index</label>
                       <input type="number" min="0" max="1" className="inp w-full" value={form.slotIndex} onChange={e => setForm(f => ({ ...f, slotIndex: e.target.value }))} placeholder="0 or 1" />
                     </div>
                     <div className="col-span-1 md:col-span-4 flex justify-end gap-2 items-end mt-2">
@@ -166,23 +166,23 @@ export default function SimCardsPage() {
                     <td colSpan={6} className="p-4">
                       <div className="p-4 bg-slate-800/60 rounded-xl border border-indigo-500/30 w-full relative grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">ICCID (Hardware ID)</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ICCID (Hardware ID)</label>
                           <input className="inp w-full text-slate-500 cursor-not-allowed" readOnly value={sim.iccid} />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">Phone Number</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Phone Number</label>
                           <input className="inp w-full" value={form.phoneNumber} onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))} placeholder="+1234567890" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">Carrier</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Carrier</label>
                           <input className="inp w-full" value={form.carrierName} onChange={e => setForm(f => ({ ...f, carrierName: e.target.value }))} placeholder="Vodafone" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">IMSI</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">IMSI</label>
                           <input className="inp w-full" value={form.imsi} onChange={e => setForm(f => ({ ...f, imsi: e.target.value }))} placeholder="Optional" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 mb-1.5">IMEI</label>
+                          <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">IMEI</label>
                           <input className="inp w-full" value={form.imei} onChange={e => setForm(f => ({ ...f, imei: e.target.value }))} placeholder="Optional" />
                         </div>
                         <div className="col-span-1 md:col-span-5 flex justify-end gap-2 mt-2">
@@ -200,10 +200,10 @@ export default function SimCardsPage() {
                       <div className="flex flex-col">
                         <span className="text-slate-200 text-xs">{sim.carrierName || 'Unknown Carrier'}</span>
                         <span className="text-slate-500 font-mono text-[10px]">{sim.imsi ? `IMSI: ${sim.imsi}` : 'No IMSI'}</span>
-                        <span className="text-slate-400 font-mono text-[10px]">{sim.imei ? `IMEI: ${sim.imei}` : ''}</span>
+                        <span className="text-slate-600 dark:text-slate-400 font-mono text-[10px]">{sim.imei ? `IMEI: ${sim.imei}` : ''}</span>
                       </div>
                     </td>
-                    <td className="px-4 text-slate-400">
+                    <td className="px-4 text-slate-600 dark:text-slate-400">
                       {sim.slotIndex !== undefined && sim.slotIndex !== -1 ? `Slot ${sim.slotIndex + 1}` : '—'}
                     </td>
                     <td className="px-4">
@@ -218,7 +218,7 @@ export default function SimCardsPage() {
                     <td className="px-4">
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <select 
-                          className="bg-[#12121f] text-xs text-slate-300 border border-slate-700 rounded px-2 py-1 max-w-[140px]"
+                          className="bg-white dark:bg-[#12121f] text-xs text-slate-300 border border-slate-700 rounded px-2 py-1 max-w-[140px]"
                           value={sim.device?.id || ''}
                           onChange={(e) => handleAssign(sim.id, e.target.value)}
                         >

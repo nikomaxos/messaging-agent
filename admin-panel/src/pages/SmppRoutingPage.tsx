@@ -159,12 +159,12 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center overflow-y-auto pt-10 pb-10">
-      <div className="bg-[#1a1a2e] border border-white/10 rounded-xl w-[700px] max-w-full shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl w-[700px] max-w-full shadow-2xl flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex justify-between items-center p-5 border-b border-white/10 shrink-0">
-          <h2 className="text-xl font-bold text-white">{route ? 'Edit Routing Rule' : 'Add Routing Rule'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition"><X size={20} /></button>
+        <div className="flex justify-between items-center p-5 border-b border-slate-200 dark:border-white/10 shrink-0">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">{route ? 'Edit Routing Rule' : 'Add Routing Rule'}</h2>
+          <button onClick={onClose} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white transition"><X size={20} /></button>
         </div>
 
         {/* Body */}
@@ -175,7 +175,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Incoming SMPP Client</label>
-                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
+                <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white text-sm"
                   value={formData.smppClientId} onChange={(e: any) => setFormData({...formData, smppClientId: e.target.value})}>
                   <option value="">-- Select Source Client --</option>
                   {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.systemId})</option>)}
@@ -186,7 +186,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Country</label>
-                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
+                <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white text-sm"
                   value={selectedCountry} onChange={(e: any) => { setSelectedCountry(e.target.value); setFormData({...formData, countryPrefixId: ''}) }}>
                   <option value="">-- ALL COUNTRIES --</option>
                   {(uniqueCountries as string[]).map((c: string) => <option key={c} value={c}>{c}</option>)}
@@ -194,7 +194,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Target Network (MCC/MNC)</label>
-                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm"
+                <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2.5 text-slate-900 dark:text-white text-sm"
                   value={formData.countryPrefixId} onChange={(e: any) => setFormData({...formData, countryPrefixId: e.target.value})}>
                   <option value="">-- ALL NETWORKS {selectedCountry ? `IN ${selectedCountry.toUpperCase()}` : ''} --</option>
                   {prefixes?.filter((p: any) => !selectedCountry || p.countryName === selectedCountry).map((p: any) => <option key={p.id} value={p.id}>{p.countryName} - {p.networkName} ({p.mcc}/{p.mnc})</option>)}
@@ -203,21 +203,21 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             </div>
 
             <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit">
-              <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
+              <input type="checkbox" className="rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20 text-brand-500 focus:ring-brand-500" 
                  checked={formData.isDefault} onChange={(e: any) => setFormData({...formData, isDefault: e.target.checked})} />
               <span className="font-medium">Default Route</span>
             </label>
           </div>
 
-          <hr className="border-white/5" />
+          <hr className="border-slate-200 dark:border-white/5" />
 
           {/* Routing Strategy */}
           <div className="space-y-4">
-            <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400">Routing Strategy & Validation</h3>
-            <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-lg border border-white/5">
+            <h3 className="text-sm font-bold tracking-wide uppercase text-slate-600 dark:text-slate-400">Routing Strategy & Validation</h3>
+            <div className="grid grid-cols-2 gap-4 bg-black/20 p-4 rounded-lg border border-slate-200 dark:border-white/5">
               <div>
-                <label className="block text-xs text-slate-400 mb-1.5">Delivery Method</label>
-                <select className="w-full bg-[#12121f] border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+                <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Delivery Method</label>
+                <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
                   value={formData.routingMode} onChange={(e: any) => setFormData({...formData, routingMode: e.target.value})}>
                   <option value="WEBSOCKET">WebSocket (Native App)</option>
                   <option value="MATRIX">Matrix (Mautrix Bridge)</option>
@@ -226,28 +226,28 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
               </div>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit mt-1">
-                  <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
+                  <input type="checkbox" className="rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20 text-brand-500 focus:ring-brand-500" 
                     checked={formData.autoFailEnabled} onChange={(e: any) => setFormData({...formData, autoFailEnabled: e.target.checked})} />
                   <span className="font-medium">Enable Auto-Fail Timeout</span>
                 </label>
                 {formData.autoFailEnabled && (
                   <div className="flex items-center gap-2">
-                    <input type="number" min="1" className="w-20 bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm text-center"
+                    <input type="number" min="1" className="w-20 bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-slate-900 dark:text-white text-sm text-center"
                       value={formData.autoFailTimeoutMinutes} onChange={(e: any) => setFormData({...formData, autoFailTimeoutMinutes: parseInt(e.target.value) || 0})} />
-                    <span className="text-xs text-slate-400">Time (mins) before marking dropped</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-400">Time (mins) before marking dropped</span>
                   </div>
                 )}
               </div>
-              <div className="space-y-2 col-span-2 pt-2 border-t border-white/5">
+              <div className="space-y-2 col-span-2 pt-2 border-t border-slate-200 dark:border-white/5">
                 <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer w-fit">
-                  <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500 focus:ring-brand-500" 
+                  <input type="checkbox" className="rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20 text-brand-500 focus:ring-brand-500" 
                     checked={formData.emulateDelivery} onChange={(e: any) => setFormData({...formData, emulateDelivery: e.target.checked})} />
                   <span className="font-medium text-amber-400">Emulate (Fake) Delivery (Do not send)</span>
                 </label>
                 {formData.emulateDelivery && (
                   <div className="flex items-center gap-3 pl-6 mt-1">
-                    <label className="text-xs text-slate-400">Simulated Final Status:</label>
-                    <select className="bg-[#12121f] border border-white/10 rounded px-3 py-1.5 text-white text-sm"
+                    <label className="text-xs text-slate-600 dark:text-slate-400">Simulated Final Status:</label>
+                    <select className="bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-1.5 text-slate-900 dark:text-white text-sm"
                       value={formData.emulatedErrorCode} onChange={(e: any) => setFormData({...formData, emulatedErrorCode: e.target.value})}>
                       <option value="DELIVRD">DELIVRD (Success)</option>
                       <option value="UNDELIV">UNDELIV (Undelivered)</option>
@@ -259,16 +259,16 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             </div>
           </div>
 
-          <hr className="border-white/5" />
+          <hr className="border-slate-200 dark:border-white/5" />
 
           {/* Destinations & Load Balancing */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400">
+              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-600 dark:text-slate-400">
                 Target Destinations
               </h3>
               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                <input type="checkbox" className="rounded bg-[#12121f] border-white/20 text-brand-500" 
+                <input type="checkbox" className="rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20 text-brand-500" 
                   checked={formData.loadBalancerEnabled} onChange={(e: any) => setFormData({...formData, loadBalancerEnabled: e.target.checked})} />
                 <span>Enable Load Balancer</span>
               </label>
@@ -276,7 +276,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
 
             <div className="space-y-3">
               {formData.destinations.map((dest: any, idx: number) => (
-                <div key={idx} className="bg-black/20 border border-white/5 rounded-lg p-4 space-y-3 relative group">
+                <div key={idx} className="bg-black/20 border border-slate-200 dark:border-white/5 rounded-lg p-4 space-y-3 relative group">
                   {formData.loadBalancerEnabled && formData.destinations.length > 1 && (
                     <button onClick={() => removeDestination(idx)} className="absolute right-3 top-3 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition">
                       <Trash2 size={16} />
@@ -288,7 +288,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                       {formData.routingMode !== 'SMS' ? (
                         <>
                           <label className="block text-xs text-slate-500 mb-1">Target Device Group</label>
-                          <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                          <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                             value={dest.deviceGroupId} onChange={(e: any) => updateDestination(idx, 'deviceGroupId', e.target.value)}>
                             <option value="">-- Select Group --</option>
                             {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -297,7 +297,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                       ) : (
                         <>
                           <label className="block text-xs text-slate-500 mb-1">Target SMSC Supplier</label>
-                          <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                          <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                             value={dest.fallbackSmscId} onChange={(e: any) => updateDestination(idx, 'fallbackSmscId', e.target.value)}>
                             <option value="">-- Select Target SMSC --</option>
                             {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
@@ -308,7 +308,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                     {formData.loadBalancerEnabled && (
                       <div className="w-24">
                         <label className="block text-xs text-slate-500 mb-1">Weight %</label>
-                        <input type="number" min="1" max="100" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm text-center"
+                        <input type="number" min="1" max="100" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm text-center"
                           value={dest.weightPercent} onChange={(e: any) => updateDestination(idx, 'weightPercent', parseInt(e.target.value) || 0)} />
                       </div>
                     )}
@@ -316,11 +316,11 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
 
                   {formData.resendEnabled && (
                     <div className="flex gap-4 items-end">
-                      <div className="flex-1 text-xs text-slate-400 pt-2 border-t border-white/5 space-y-3">
+                      <div className="flex-1 text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-white/5 space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs text-slate-500 mb-1">Per-Destination Fallback Channel</label>
-                            <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                            <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                               value={dest.fallbackRoutingMode} onChange={(e: any) => updateDestination(idx, 'fallbackRoutingMode', e.target.value)}>
                               <option value="SMS">Native SMS</option>
                               <option value="WEBSOCKET">WebSocket App</option>
@@ -330,7 +330,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                             {dest.fallbackRoutingMode === 'WEBSOCKET' ? (
                               <>
                                 <label className="block text-xs text-slate-500 mb-1">Target Device Group</label>
-                                <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                                <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                                   value={dest.fallbackDeviceGroupId} onChange={(e: any) => updateDestination(idx, 'fallbackDeviceGroupId', e.target.value)}>
                                   <option value="">-- Select Group --</option>
                                   {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -339,7 +339,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                             ) : (
                               <>
                                 <label className="block text-xs text-slate-500 mb-1">Target SMSC Supplier</label>
-                                <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                                <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                                   value={dest.fallbackSmscId} onChange={(e: any) => updateDestination(idx, 'fallbackSmscId', e.target.value)}>
                                   <option value="">-- Select Target SMSC --</option>
                                   {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
@@ -350,7 +350,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                         </div>
                         <div>
                            <label className="block text-xs text-slate-500 mb-1">Trigger Error Codes (Comma separated)</label>
-                           <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm placeholder-white/20"
+                           <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm placeholder-white/20"
                              placeholder="e.g. 500, UNDELIV, 0x00000045"
                              value={dest.fallbackErrorCodes} onChange={(e: any) => updateDestination(idx, 'fallbackErrorCodes', e.target.value)} />
                         </div>
@@ -367,7 +367,7 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             </div>
           </div>
 
-          <hr className="border-white/5" />
+          <hr className="border-slate-200 dark:border-white/5" />
 
           {/* Delivery & Timers */}
           <div className="space-y-4">
@@ -384,11 +384,11 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
             </div>
 
             {formData.resendEnabled && (
-              <div className="bg-black/20 p-4 rounded-lg border border-white/5 space-y-4">
+              <div className="bg-black/20 p-4 rounded-lg border border-slate-200 dark:border-white/5 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Global Fallback Channel</label>
-                    <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Global Fallback Channel</label>
+                    <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                       value={formData.fallbackRoutingMode} onChange={(e: any) => setFormData({...formData, fallbackRoutingMode: e.target.value})}>
                       <option value="SMS">Native SMS</option>
                       <option value="WEBSOCKET">WebSocket App</option>
@@ -397,8 +397,8 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                   <div>
                     {formData.fallbackRoutingMode === 'WEBSOCKET' ? (
                       <>
-                        <label className="block text-xs text-slate-400 mb-1">Global Target Device Group</label>
-                        <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                        <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Global Target Device Group</label>
+                        <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                           value={formData.fallbackDeviceGroupId} onChange={(e: any) => setFormData({...formData, fallbackDeviceGroupId: e.target.value})}>
                           <option value="">-- Select Group --</option>
                           {groups.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -406,8 +406,8 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                       </>
                     ) : (
                       <>
-                        <label className="block text-xs text-slate-400 mb-1">Global Fallback SMSC</label>
-                        <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                        <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Global Fallback SMSC</label>
+                        <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                           value={formData.fallbackSmscId} onChange={(e: any) => setFormData({...formData, fallbackSmscId: e.target.value})}>
                           <option value="">-- Select Global Fallback --</option>
                           {smscs.map((s: any) => <option key={s.supplier.id} value={s.supplier.id}>{s.supplier.name}</option>)}
@@ -419,14 +419,14 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Trigger Error Codes (Comma separated)</label>
-                    <input type="text" className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm placeholder-white/20"
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Trigger Error Codes (Comma separated)</label>
+                    <input type="text" className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm placeholder-white/20"
                       placeholder="e.g. 500, UNDELIV, 0x00000045"
                       value={formData.fallbackErrorCodes} onChange={(e: any) => setFormData({...formData, fallbackErrorCodes: e.target.value})} />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Trigger Condition</label>
-                    <select className="w-full bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Trigger Condition</label>
+                    <select className="w-full bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                       value={formData.resendTrigger} onChange={(e: any) => setFormData({...formData, resendTrigger: e.target.value})}>
                       <option value="ALL_FAILURES">Message Failed (Any Reason / Timeout)</option>
                       <option value="UNDELIVERED">Message Undelivered</option>
@@ -435,10 +435,10 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
                   </div>
                 </div>
                 
-                <div className="pt-2 border-t border-white/5">
-                  <label className="block text-xs text-slate-400 mb-1">Delivery Expiration (Seconds)</label>
+                <div className="pt-2 border-t border-slate-200 dark:border-white/5">
+                  <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Delivery Expiration (Seconds)</label>
                   <p className="text-[10px] text-slate-500 mb-2">If delivery is not confirmed within this timeframe, it triggers a timeout failure and activates the fallback automatically.</p>
-                  <input type="number" min="5" className="w-1/3 bg-[#12121f] border border-white/10 rounded px-3 py-2 text-white text-sm"
+                  <input type="number" min="5" className="w-1/3 bg-white dark:bg-[#12121f] border border-slate-200 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm"
                     value={formData.rcsExpirationSeconds} onChange={(e: any) => setFormData({...formData, rcsExpirationSeconds: parseInt(e.target.value) || 0})} />
                 </div>
               </div>
@@ -448,14 +448,14 @@ function SmppRoutingModal({ isOpen, onClose, route, clients, groups, smscs, pref
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-white/10 bg-black/20 flex justify-end gap-3 shrink-0 rounded-b-xl items-center">
+        <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-black/20 flex justify-end gap-3 shrink-0 rounded-b-xl items-center">
           { (createMut.isError || updateMut.isError) && (
             <span className="text-red-400 text-sm flex-1 ml-2">
               {(createMut.error as any)?.response?.data?.message || (updateMut.error as any)?.response?.data?.message || "Failed to save configuration. Please check the network log."}
             </span>
           )}
-          <button onClick={onClose} className="px-4 py-2 rounded text-sm text-slate-400 hover:text-white hover:bg-white/5 transition">Cancel</button>
-          <button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} className="bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white px-6 py-2 rounded text-sm font-medium transition shadow-lg shadow-brand-500/20">
+          <button onClick={onClose} className="px-4 py-2 rounded text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-200/50 dark:bg-white/5 transition">Cancel</button>
+          <button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} className="bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-slate-900 dark:text-white px-6 py-2 rounded text-sm font-medium transition shadow-lg shadow-brand-500/20">
             {updateMut.isPending || createMut.isPending ? 'Saving...' : 'Save Configuration'}
           </button>
         </div>
@@ -497,22 +497,22 @@ export default function SmppRoutingPage() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Routing Configuration</h1>
-          <p className="text-slate-400 text-sm">Map incoming requests to Virtual SMSCs and manage routing assets.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Routing Configuration</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Map incoming requests to Virtual SMSCs and manage routing assets.</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-white/10 mb-6 pb-2">
+      <div className="flex gap-4 border-b border-slate-200 dark:border-white/10 mb-6 pb-2">
         <button 
           onClick={() => setActiveTab('rules')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'rules' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white'}`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'rules' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'}`}
         >
           <Network size={16} /> Routing Rules
         </button>
         <button 
           onClick={() => setActiveTab('prefixes')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'prefixes' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-400 hover:text-white'}`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${activeTab === 'prefixes' ? 'bg-brand-600/20 text-brand-400 border border-brand-500/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'}`}
         >
           <Globe size={16} /> Country Prefixes
         </button>
@@ -530,7 +530,7 @@ export default function SmppRoutingPage() {
           <div className="flex justify-end mb-4">
             <button
               onClick={openCreateModal}
-              className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/20"
+              className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-brand-500/20"
             >
               <Plus size={16} /> Add Route
             </button>
@@ -538,20 +538,20 @@ export default function SmppRoutingPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {routes.length === 0 && !isLoading && (
-              <div className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-12 text-center">
+              <div className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-12 text-center">
                 <Route className="mx-auto text-slate-600 mb-3" size={32} />
-                <div className="text-slate-400">No active routes defined.</div>
+                <div className="text-slate-600 dark:text-slate-400">No active routes defined.</div>
                 <div className="text-sm text-slate-500 mt-1">Messages without a route will drop unless a Default Route exists.</div>
               </div>
             )}
 
             {routes.map((r: any) => (
-              <div key={r.id} className="bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col hover:border-white/10 transition group gap-4 relative">
+              <div key={r.id} className="bg-slate-50 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col hover:border-slate-200 dark:border-white/10 transition group gap-4 relative">
                 <div className="absolute top-4 right-4 flex gap-2">
-                  <button onClick={() => openEditModal(r)} className="p-2 bg-white/5 text-slate-400 hover:text-white rounded transition" title="Edit Route">
+                  <button onClick={() => openEditModal(r)} className="p-2 bg-slate-200/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white rounded transition" title="Edit Route">
                     <Edit2 size={15} />
                   </button>
-                  <button onClick={() => setConfirmDelete({ id: r.id, name: r.smppClientName })} className="p-2 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete Route">
+                  <button onClick={() => setConfirmDelete({ id: r.id, name: r.smppClientName })} className="p-2 bg-slate-200/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition" title="Delete Route">
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -559,8 +559,8 @@ export default function SmppRoutingPage() {
                 <div className="flex items-start gap-6">
                    <div className="w-1/4">
                      <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Source Client</div>
-                     <div className="font-medium text-white text-lg">{r.smppClientName}</div>
-                     <div className="text-xs text-slate-400 font-mono mt-0.5">{r.smppClientSystemId}</div>
+                     <div className="font-medium text-slate-900 dark:text-white text-lg">{r.smppClientName}</div>
+                     <div className="text-xs text-slate-600 dark:text-slate-400 font-mono mt-0.5">{r.smppClientSystemId}</div>
                      <div className="flex items-center gap-2 mt-2">
                        {r.isDefault && <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest leading-none">Default</span>}
                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest leading-none border ${r.routingMode === 'MATRIX' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
@@ -581,13 +581,13 @@ export default function SmppRoutingPage() {
                      <div className="mt-4">
                        <div className="text-xs text-slate-500 mb-1 uppercase font-semibold tracking-wider">Target Network</div>
                        {r.countryPrefix ? (
-                         <div className="flex items-center gap-2 text-sm text-white">
+                         <div className="flex items-center gap-2 text-sm text-slate-900 dark:text-white">
                            <Globe size={14} className="text-brand-400" />
                            {r.countryPrefix.countryName} - {r.countryPrefix.networkName} 
-                           <span className="text-slate-400 text-xs">({r.countryPrefix.mcc}/{r.countryPrefix.mnc})</span>
+                           <span className="text-slate-600 dark:text-slate-400 text-xs">({r.countryPrefix.mcc}/{r.countryPrefix.mnc})</span>
                          </div>
                        ) : (
-                         <div className="text-sm text-slate-400 italic">ALL NETWORKS</div>
+                         <div className="text-sm text-slate-600 dark:text-slate-400 italic">ALL NETWORKS</div>
                        )}
                      </div>
                    </div>
@@ -602,12 +602,12 @@ export default function SmppRoutingPage() {
                      
                      <div className="space-y-2">
                        {r.destinations?.map((dest: any) => (
-                         <div key={dest.id} className="flex items-center gap-3 bg-black/20 px-3 py-2 rounded-lg border border-white/5 text-sm">
+                         <div key={dest.id} className="flex items-center gap-3 bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 text-sm">
                            <span className="font-medium text-brand-400 w-1/3 truncate">
                              {r.routingMode === 'SMS' ? dest.fallbackSmscName : dest.deviceGroupName}
                            </span>
                            {r.loadBalancerEnabled && (
-                             <span className="text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded w-16 text-center">{dest.weightPercent}%</span>
+                             <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded w-16 text-center">{dest.weightPercent}%</span>
                            )}
                            {(dest.fallbackSmscId || dest.fallbackDeviceGroupId) && (
                              <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 truncate">
@@ -624,14 +624,14 @@ export default function SmppRoutingPage() {
                      {r.resendEnabled ? (
                        <div className="space-y-1">
                          <div className="text-sm text-amber-400 font-medium">{r.resendTrigger === 'ALL_FAILURES' ? 'On Any Error' : r.resendTrigger === 'UNDELIVERED' ? 'On Undelivered' : 'On Non-RCS Client'}</div>
-                         <div className="text-xs text-slate-400">Timer: {r.rcsExpirationSeconds}s</div>
+                         <div className="text-xs text-slate-600 dark:text-slate-400">Timer: {r.rcsExpirationSeconds}s</div>
                           {r.fallbackErrorCodes && (
                              <div className="text-[10px] text-amber-500/70 truncate" title={r.fallbackErrorCodes}>
                                Codes: {r.fallbackErrorCodes}
                              </div>
                           )}
                           {(r.fallbackSmscId || r.fallbackDeviceGroupId) && (
-                             <div className="text-xs mt-2 px-2 py-1 bg-white/5 rounded line-clamp-2" title={r.fallbackRoutingMode === 'WEBSOCKET' ? r.fallbackDeviceGroupName : r.fallbackSmscName}>
+                             <div className="text-xs mt-2 px-2 py-1 bg-slate-200/50 dark:bg-white/5 rounded line-clamp-2" title={r.fallbackRoutingMode === 'WEBSOCKET' ? r.fallbackDeviceGroupName : r.fallbackSmscName}>
                                Global: {r.fallbackRoutingMode === 'WEBSOCKET' ? r.fallbackDeviceGroupName : r.fallbackSmscName}
                              </div>
                           )}

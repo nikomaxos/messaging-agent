@@ -23,8 +23,8 @@ export function ConfirmModal({
             <AlertTriangle size={24} />
           </div>
           <div className="flex-1 mt-1">
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
-            <p className="text-sm text-slate-400 mt-1">{message}</p>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{message}</p>
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">

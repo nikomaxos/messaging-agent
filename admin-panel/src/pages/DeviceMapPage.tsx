@@ -151,7 +151,7 @@ export default function DeviceMapPage() {
     <div className="space-y-4 h-[calc(100vh-220px)] flex flex-col">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <MapPin size={22} className="text-teal-400" /> Device Map
           </h1>
           <p className="text-slate-500 text-xs mt-0.5">
@@ -161,7 +161,7 @@ export default function DeviceMapPage() {
         
         {/* Group Filter */}
         <div className="flex items-center gap-2">
-          <Filter size={16} className="text-slate-400" />
+          <Filter size={16} className="text-slate-600 dark:text-slate-400" />
           <select
             value={selectedGroupId}
             onChange={(e) => setSelectedGroupId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
@@ -180,13 +180,13 @@ export default function DeviceMapPage() {
         {Object.entries(STATUS_COLORS).map(([status, color]) => (
           <div key={status} className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-            <span className="text-slate-400">{status}</span>
+            <span className="text-slate-600 dark:text-slate-400">{status}</span>
           </div>
         ))}
       </div>
 
       {/* Map */}
-      <div className="flex-1 rounded-lg overflow-hidden border border-white/10 min-h-[400px]" ref={mapRef}>
+      <div className="flex-1 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 min-h-[400px]" ref={mapRef}>
         {devicesWithCoords.length === 0 && (
           <div className="flex items-center justify-center h-full bg-slate-900/50">
             <div className="text-center">
