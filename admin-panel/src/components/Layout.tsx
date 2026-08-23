@@ -98,7 +98,7 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
         }}
         className={`group relative flex items-center justify-between w-full gap-3 rounded-lg text-sm transition-all
           ${collapsed ? 'px-0 py-2.5 justify-center' : 'px-3 py-2.5'}
-          ${isActive ? 'text-brand-400 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'}
+          ${isActive ? 'text-brand-700 dark:text-brand-400 font-medium' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-slate-200'}
         `}
       >
         <div className={`flex items-center gap-3 ${collapsed ? 'justify-center w-full' : ''}`}>
@@ -125,8 +125,8 @@ function NavGroup({ item, collapsed, setCollapsed }: any) {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg text-sm transition-all px-3 py-2
                  ${isActive
-                   ? 'bg-brand-600/20 text-brand-400 font-medium border border-brand-600/30'
-                   : 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
+                   ? 'bg-brand-600/10 dark:bg-brand-600/20 text-brand-700 dark:text-brand-400 font-medium border border-brand-600/20 dark:border-brand-600/30'
+                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'}`
               }
             >
               {child.icon && <span className="shrink-0 scale-90 opacity-80">{child.icon}</span>}
@@ -207,8 +207,8 @@ export default function Layout() {
                 `group relative flex items-center gap-3 rounded-lg text-sm transition-all
                  ${collapsed ? 'px-0 py-2.5 justify-center' : 'px-3 py-2.5'}
                  ${isActive
-                   ? 'bg-brand-600/20 text-brand-400 border border-brand-600/30 font-medium'
-                   : 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.05] hover:text-slate-200 border border-transparent'}`
+                   ? 'bg-brand-600/10 dark:bg-brand-600/20 text-brand-700 dark:text-brand-400 border border-brand-600/20 dark:border-brand-600/30 font-medium'
+                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'}`
               }
             >
               <span className="shrink-0">{item.icon}</span>
