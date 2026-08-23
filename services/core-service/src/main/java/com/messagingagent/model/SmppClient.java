@@ -24,9 +24,9 @@ public class SmppClient {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id")
+    @JoinColumn(name = "username_id", nullable = false)
     @com.fasterxml.jackson.annotation.JsonBackReference
-    private Account account;
+    private Username username;
 
     @Column(nullable = false, unique = true, length = 16)
     private String systemId;

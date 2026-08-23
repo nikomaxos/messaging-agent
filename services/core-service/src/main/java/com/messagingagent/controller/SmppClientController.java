@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 public class SmppClientController {
 
     private final SmppClientRepository repository;
-    private final com.messagingagent.repository.AccountRepository accountRepository;
+    private final com.messagingagent.repository.UsernameRepository usernameRepository;
     private final RedisConfigSyncService syncService;
     private final StringRedisTemplate redis;
 
@@ -52,8 +52,8 @@ public class SmppClientController {
         client.setSystemId(clientDetails.getSystemId());
         client.setPassword(clientDetails.getPassword());
         client.setActive(clientDetails.isActive());
-        if (clientDetails.getAccountId() != null) {
-            accountRepository.findById(clientDetails.getAccountId()).ifPresent(client::setAccount);
+        if (clientDetails.getUsernameId() != null) {
+            usernameRepository.findById(clientDetails.getUsernameId()).ifPresent(client::setUsername);
         }
         SmppClient saved = repository.save(client);
         syncService.syncClient(saved);
@@ -70,10 +70,10 @@ public class SmppClientController {
                 client.setPassword(clientDetails.getPassword());
             }
             client.setActive(clientDetails.isActive());
-            if (clientDetails.getAccountId() != null) {
-                accountRepository.findById(clientDetails.getAccountId()).ifPresent(client::setAccount);
+            if (clientDetails.getUsernameId() != null) {
+                usernameRepository.findById(clientDetails.getUsernameId()).ifPresent(client::setUsername);
             } else {
-                client.setAccount(null);
+                client.setUsername(null);
             }
             SmppClient saved = repository.save(client);
             syncService.syncClient(saved);

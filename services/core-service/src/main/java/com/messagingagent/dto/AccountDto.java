@@ -2,6 +2,7 @@ package com.messagingagent.dto;
 
 import lombok.Data;
 import java.time.Instant;
+import java.util.List;
 
 @Data
 public class AccountDto {
@@ -13,11 +14,7 @@ public class AccountDto {
     private String address;
     private String email;
     private String contactPerson;
-    private String whitelistedIps;
-    private boolean enforceIpWhitelist;
-    private boolean smppEnabled;
-    private boolean apiEnabled;
-    private boolean webEnabled;
+    private List<UsernameDto> usernames;
     private Instant createdAt;
     private Instant updatedAt;
 }

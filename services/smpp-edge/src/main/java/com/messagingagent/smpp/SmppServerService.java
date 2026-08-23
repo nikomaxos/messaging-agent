@@ -154,6 +154,12 @@ public class SmppServerService {
         public void sessionBindRequested(Long sessionId,
                                           SmppSessionConfiguration cfg,
                                           BaseBind bindRequest) throws SmppProcessingException {
+            String isBanned = redis.opsForValue().get("config:client:" + cfg.getSystemId() + ":banned");
+            if ("true".equalsIgnoreCase(isBanned)) {
+                log.warn("SMPP Bind Rejected: User is banned for systemId: {}", cfg.getSystemId());
+                throw new SmppProcessingException(SmppConstants.STATUS_BINDFAIL);
+            }
+
             String expectedPassword = redis.opsForValue().get("config:client:" + cfg.getSystemId() + ":password");
             if (expectedPassword == null || !expectedPassword.equals(cfg.getPassword())) {
                 log.warn("SMPP Bind Rejected: Invalid credentials for systemId: {}", cfg.getSystemId());
@@ -226,6 +232,15 @@ public class SmppServerService {
             try {
                 String srcAddr = sm.getSourceAddress() != null ? sm.getSourceAddress().getAddress() : "";
                 String dstAddr = sm.getDestAddress()   != null ? sm.getDestAddress().getAddress()   : "";
+                
+                String isBanned = redis.opsForValue().get("config:client:" + systemId + ":banned");
+                if ("true".equalsIgnoreCase(isBanned)) {
+                    log.warn("Blocked SUBMIT_SM because user is banned: systemId={}", systemId);
+                    publishRejected(sm, "User is banned", "0x00000008");
+                    SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
+                    resp.setCommandStatus(SmppConstants.STATUS_SYSERR);
+                    return resp;
+                }
                 
                 if (dstAddr == null || dstAddr.trim().isEmpty()) {
                     log.warn("Blocked SUBMIT_SM due to empty destination address");

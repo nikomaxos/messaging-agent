@@ -1,13 +1,16 @@
 package com.messagingagent.service;
 
 import com.messagingagent.dto.AccountDto;
+import com.messagingagent.dto.UsernameDto;
 import com.messagingagent.model.Account;
+import com.messagingagent.model.Username;
 import com.messagingagent.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,11 +52,39 @@ public class AccountService {
         account.setAddress(dto.getAddress());
         account.setEmail(dto.getEmail());
         account.setContactPerson(dto.getContactPerson());
-        account.setWhitelistedIps(dto.getWhitelistedIps());
-        account.setEnforceIpWhitelist(dto.isEnforceIpWhitelist());
-        account.setSmppEnabled(dto.isSmppEnabled());
-        account.setApiEnabled(dto.isApiEnabled());
-        account.setWebEnabled(dto.isWebEnabled());
+
+        if (dto.getUsernames() != null) {
+            if (account.getUsernames() == null) {
+                account.setUsernames(new ArrayList<>());
+            }
+            
+            // Map existing usernames by ID
+            java.util.Map<Long, Username> existingUsernames = account.getUsernames().stream()
+                .filter(u -> u.getId() != null)
+                .collect(Collectors.toMap(Username::getId, u -> u));
+                
+            account.getUsernames().clear();
+            
+            for (UsernameDto uDto : dto.getUsernames()) {
+                Username u;
+                if (uDto.getId() != null && existingUsernames.containsKey(uDto.getId())) {
+                    u = existingUsernames.get(uDto.getId());
+                } else {
+                    u = new Username();
+                    u.setAccount(account);
+                }
+                
+                u.setUsername(uDto.getUsername());
+                u.setWhitelistedIps(uDto.getWhitelistedIps());
+                u.setEnforceIpWhitelist(uDto.isEnforceIpWhitelist());
+                u.setSmppEnabled(uDto.isSmppEnabled());
+                u.setApiEnabled(uDto.isApiEnabled());
+                u.setWebEnabled(uDto.isWebEnabled());
+                u.setBanned(uDto.isBanned());
+                
+                account.getUsernames().add(u);
+            }
+        }
     }
 
     private AccountDto mapToDto(Account account) {
@@ -66,11 +97,27 @@ public class AccountService {
         dto.setAddress(account.getAddress());
         dto.setEmail(account.getEmail());
         dto.setContactPerson(account.getContactPerson());
-        dto.setWhitelistedIps(account.getWhitelistedIps());
-        dto.setEnforceIpWhitelist(account.isEnforceIpWhitelist());
-        dto.setSmppEnabled(account.isSmppEnabled());
-        dto.setApiEnabled(account.isApiEnabled());
-        dto.setWebEnabled(account.isWebEnabled());
+        
+        if (account.getUsernames() != null) {
+            dto.setUsernames(account.getUsernames().stream().map(u -> {
+                UsernameDto uDto = new UsernameDto();
+                uDto.setId(u.getId());
+                uDto.setUsername(u.getUsername());
+                uDto.setAccountId(account.getId());
+                uDto.setWhitelistedIps(u.getWhitelistedIps());
+                uDto.setEnforceIpWhitelist(u.isEnforceIpWhitelist());
+                uDto.setSmppEnabled(u.isSmppEnabled());
+                uDto.setApiEnabled(u.isApiEnabled());
+                uDto.setWebEnabled(u.isWebEnabled());
+                uDto.setBanned(u.isBanned());
+                uDto.setCreatedAt(u.getCreatedAt());
+                uDto.setUpdatedAt(u.getUpdatedAt());
+                return uDto;
+            }).collect(Collectors.toList()));
+        } else {
+            dto.setUsernames(new ArrayList<>());
+        }
+        
         dto.setCreatedAt(account.getCreatedAt());
         dto.setUpdatedAt(account.getUpdatedAt());
         return dto;

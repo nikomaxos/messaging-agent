@@ -67,7 +67,7 @@ export interface SmppClient {
   password?: string
   active: boolean
   priority?: number
-  accountId?: number
+  usernameId?: number
   createdAt: string
   activeSessions?: SmppSession[]
 }

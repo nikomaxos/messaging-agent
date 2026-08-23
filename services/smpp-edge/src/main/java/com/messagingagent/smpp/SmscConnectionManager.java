@@ -270,23 +270,9 @@ public class SmscConnectionManager {
                 try {
                     redis.opsForValue().set("smsc:supplier:status:" + supplier.getId(), info.boundAt().toString(), java.time.Duration.ofSeconds(15));
                 } catch (Exception ignored) {}
-                Integer lifetimeMin = supplier.getMaxSessionLifetime();
-                if (lifetimeMin != null && lifetimeMin > 0) {
-                    long sessionAge = java.time.Duration.between(info.boundAt(), Instant.now()).toMillis();
-                    long maxLifetimeMs = lifetimeMin * 60000L;
-                    if (sessionAge >= maxLifetimeMs) {
-                        log.warn("Session for SMSC [{}] reached max lifetime ({} minutes). Forcing rebind.", supplier.getName(), lifetimeMin);
-                        CompletableFuture.runAsync(() -> {
-                            try {
-                                session.unbind(5000);
-                                session.destroy();
-                            } catch (Exception ignored) {}
-                            activeSessions.remove(supplier.getId());
-                            disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
-                        });
-                        continue;
-                    }
-                }
+                // Removed aggressive unbind based on maxSessionLifetime to avoid dropping valid connections.
+                // We now rely solely on the EnquireLink heartbeat below to detect and clean up ghost connections.
+
 
                 try {
                     long interval = supplier.getEnquireLinkInterval() > 0 ? supplier.getEnquireLinkInterval() : 15000;

@@ -44,24 +44,9 @@ public class Account {
     @Column(name = "contact_person", length = 100)
     private String contactPerson;
 
-    @Column(name = "whitelisted_ips", columnDefinition = "TEXT")
-    private String whitelistedIps; // Comma separated
-
-    @Column(name = "enforce_ip_whitelist", nullable = false)
-    @Builder.Default
-    private boolean enforceIpWhitelist = false;
-
-    @Column(name = "smpp_enabled", nullable = false)
-    @Builder.Default
-    private boolean smppEnabled = true;
-
-    @Column(name = "api_enabled", nullable = false)
-    @Builder.Default
-    private boolean apiEnabled = false;
-
-    @Column(name = "web_enabled", nullable = false)
-    @Builder.Default
-    private boolean webEnabled = false;
+    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference
+    private List<Username> usernames;
 
     @CreationTimestamp
     private Instant createdAt;

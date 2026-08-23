@@ -28,6 +28,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/RoutingMode.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/NotificationAlertRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/AiMemoryRepository.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/UsernameRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/security/JwtService.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/RoutingRateLimitController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/RuleAction.java
@@ -63,6 +64,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/DeviceLog.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/AiMemory.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/CountryPrefixRepository.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/UsernameDto.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/BillingController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/service/RedisConfigSyncService.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/service/DeadLetterService.java
@@ -82,6 +84,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/TestingController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/DeviceGroup.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/Account.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/Username.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/PushSubscriptionRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/NotificationChannel.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/SmppServerAdminController.java

@@ -8,10 +8,12 @@ com/messagingagent/model/AiChatSession.class
 com/messagingagent/dto/RoutingRuleDto.class
 com/messagingagent/repository/DeviceGroupRepository.class
 com/messagingagent/model/AiMemory$AiMemoryBuilder.class
+com/messagingagent/model/Username.class
 com/messagingagent/model/PushSubscription$PushSubscriptionBuilder.class
 com/messagingagent/service/SystemLogService.class
 com/messagingagent/model/SmppRoutingDestination$SmppRoutingDestinationBuilder.class
 com/messagingagent/admin/MessageLogController.class
+com/messagingagent/dto/UsernameDto.class
 com/messagingagent/model/AiAgentConfig$AiAgentConfigBuilder.class
 com/messagingagent/dto/SmppRoutingDto$CountryPrefixDto$CountryPrefixDtoBuilder.class
 com/messagingagent/repository/AppUserRepository.class
@@ -52,6 +54,7 @@ com/messagingagent/admin/MessageLogController$ResubmitRequest.class
 com/messagingagent/controller/SmppServerAdminController.class
 com/messagingagent/dto/AccountDto.class
 com/messagingagent/model/AiAgentConfig.class
+com/messagingagent/repository/UsernameRepository.class
 com/messagingagent/model/NotificationAlert$NotificationAlertBuilder.class
 com/messagingagent/model/MessageLog$Status.class
 com/messagingagent/controller/SmppRoutingController.class
@@ -118,6 +121,7 @@ com/messagingagent/dto/SmppRoutingDto.class
 com/messagingagent/model/DeviceGroup.class
 com/messagingagent/model/NotificationConfig$NotificationConfigBuilder.class
 com/messagingagent/model/NotificationConfig.class
+com/messagingagent/model/Username$UsernameBuilder.class
 com/messagingagent/model/MessageLog$MessageLogBuilder.class
 com/messagingagent/job/BillingSyncJob.class
 com/messagingagent/repository/AuditLogRepository.class

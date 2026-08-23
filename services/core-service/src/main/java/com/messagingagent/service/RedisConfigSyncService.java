@@ -10,6 +10,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -34,6 +35,7 @@ public class RedisConfigSyncService {
      * Performs a full DB-to-Redis sync of all critical configuration when the application starts.
      */
     @EventListener(ApplicationReadyEvent.class)
+    @Transactional(readOnly = true)
     public void syncAllConfigsOnStartup() {
         log.info("Starting initial synchronization of configuration to Redis...");
         
@@ -60,8 +62,11 @@ public class RedisConfigSyncService {
         redis.opsForValue().set("config:client:" + client.getSystemId() + ":password", client.getPassword());
         redis.opsForValue().set("config:client:" + client.getSystemId() + ":priority", String.valueOf(client.getPriority()));
         
-        if (client.getAccount() != null) {
-            redis.opsForValue().set("client_to_account:" + client.getSystemId(), client.getAccount().getId().toString());
+        if (client.getUsername() != null) {
+            redis.opsForValue().set("config:client:" + client.getSystemId() + ":banned", String.valueOf(client.getUsername().isBanned()));
+            if (client.getUsername().getAccount() != null) {
+                redis.opsForValue().set("client_to_account:" + client.getSystemId(), client.getUsername().getAccount().getId().toString());
+            }
         }
         
         log.debug("Synced SMPP Client config to Redis: {}", client.getSystemId());
@@ -70,6 +75,7 @@ public class RedisConfigSyncService {
     public void deleteClient(String systemId) {
         redis.delete("config:client:" + systemId + ":password");
         redis.delete("config:client:" + systemId + ":priority");
+        redis.delete("config:client:" + systemId + ":banned");
         redis.delete("client_to_account:" + systemId);
         log.debug("Deleted SMPP Client config from Redis: {}", systemId);
     }

@@ -28,7 +28,15 @@ import java.util.*;
 @Slf4j
 public class AiChatService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = createRestTemplate();
+
+    private RestTemplate createRestTemplate() {
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(10000);
+        return new RestTemplate(factory);
+    }
+
     private final String coreServiceUrl = System.getenv().getOrDefault("CORE_SERVICE_URL", "http://core-service:8080");
     private final ObjectMapper objectMapper;
     private final AiMemoryRepository memoryRepository;

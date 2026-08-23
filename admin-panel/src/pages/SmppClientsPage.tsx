@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmppClients, createSmppClient, updateSmppClient, deleteSmppClient, disconnectSmppClient } from '../api/client'
 import api from '../api/client'
 import { SmppClient } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Unplug, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Unplug, RefreshCw } from 'lucide-react'
+import { SmppClientFormFields } from '../components/SmppClientFormFields'
 import { format } from 'date-fns'
 import { ConfirmModal } from '../components/ConfirmModal'
 
@@ -11,9 +12,12 @@ export default function SmppClientsPage() {
   const qc = useQueryClient()
   const { data: clients = [], isFetching, refetch, dataUpdatedAt } = useQuery({ queryKey: ['smppClients'], queryFn: getSmppClients, refetchInterval: 5000 })
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: async () => (await api.get('/accounts')).data })
+  
+  const allUsernames = React.useMemo(() => {
+    return accounts.flatMap((a: any) => (a.usernames || []).map((u: any) => ({ ...u, accountName: a.name })))
+  }, [accounts]);
 
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<Partial<SmppClient>>({})
   const [isCreating, setIsCreating] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
@@ -43,26 +47,70 @@ export default function SmppClientsPage() {
   const startCreate = () => {
     setIsCreating(true)
     setEditingId(null)
-    setFormData({ name: '', systemId: '', password: '', active: true, accountId: undefined })
+    setFormData({ name: '', systemId: '', password: '', active: true, usernameId: undefined })
   }
 
   // Start edit
   const startEdit = (c: SmppClient) => {
     setIsCreating(false)
     setEditingId(c.id)
-    setShowPassword(false)
     setFormData({ ...c, password: '' }) // Blank password field initially
   }
 
   // Save changes
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isCreating) {
-      if (!formData.name || !formData.systemId || !formData.password) {
-        alert('Name, System ID, and Password are required')
+      const accountId = (formData as any).accountId;
+      if (!formData.name || !formData.systemId || !formData.password || !accountId) {
+        alert('Name, System ID, Password, and Link to Account are required')
         return
       }
-      createMut.mutate(formData as any)
+      
+      try {
+        // 1. Fetch account
+        const accRes = await api.get(`/accounts`);
+        const account = accRes.data.find((a: any) => a.id === accountId);
+        if (!account) throw new Error('Account not found');
+
+        // 2. Append new username matching systemId
+        const newUsername = {
+            username: formData.systemId,
+            smppEnabled: true,
+            apiEnabled: false,
+            webEnabled: false,
+            enforceIpWhitelist: false
+        };
+        const updatedUsernames = [...account.usernames, newUsername];
+
+        const payload = {
+          name: account.name,
+          type: account.type,
+          companyName: account.companyName,
+          vatNumber: account.vatNumber,
+          address: account.address,
+          email: account.email,
+          contactPerson: account.contactPerson,
+          usernames: updatedUsernames
+        };
+
+        // 3. Save account
+        const saveRes = await api.put(`/accounts/${accountId}`, payload);
+        const savedAccount = saveRes.data;
+
+        // 4. Find the newly created username ID
+        const savedUsername = savedAccount.usernames.find((u: any) => u.username === formData.systemId);
+        if (!savedUsername) throw new Error('Failed to create username');
+
+        // 5. Create SMPP client
+        createMut.mutate({ ...formData, usernameId: savedUsername.id } as any);
+      } catch (err: any) {
+        alert('Failed to save account or create client: ' + (err.response?.data?.message || err.message));
+      }
     } else if (editingId) {
+      if (!formData.name || !formData.systemId || !formData.usernameId) {
+        alert('Name, System ID, and Linked Username are required')
+        return
+      }
       const payload = { ...formData }
       if (!payload.password) delete payload.password // Don't send empty password if unchanged
       updateMut.mutate({ id: editingId, ...payload } as SmppClient)
@@ -135,34 +183,14 @@ export default function SmppClientsPage() {
           <tbody className="divide-y divide-white/[0.05]">
             {isCreating && (
               <tr className="bg-brand-900/10">
-                <td className="px-5 py-3">
-                  <input autoFocus className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
-                    value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Client Name" />
-                </td>
-                <td className="px-5 py-3">
-                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
-                    value={formData.accountId || ''} onChange={e => setFormData({ ...formData, accountId: parseInt(e.target.value) || undefined })}>
-                    <option value="">-- No Account --</option>
-                    {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </td>
-                <td className="px-5 py-3">
-                  <input className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
-                    value={formData.systemId || ''} onChange={e => setFormData({ ...formData, systemId: e.target.value })} placeholder="username" />
-                </td>
-                <td className="px-5 py-3">
-                  <input className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm"
-                    value={formData.password || ''} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="secret" />
-                </td>
-                <td className="px-5 py-3">
-                  <input type="checkbox" checked={formData.active !== false} onChange={e => setFormData({ ...formData, active: e.target.checked })} /> Active
-                </td>
-                <td className="px-5 py-3">
-                  <select className="w-full bg-[#12121f] border border-white/10 rounded px-2 py-1 text-white text-sm" value={formData.priority || 2} onChange={e => setFormData({ ...formData, priority: parseInt(e.target.value) })}>
-                    <option value={1}>1 (OTP)</option>
-                    <option value={2}>2 (Marketing)</option>
-                  </select>
-                </td>
+                <SmppClientFormFields 
+                    formData={formData} 
+                    setFormData={setFormData} 
+                    layout="horizontal-td" 
+                    allUsernames={allUsernames}
+                    accounts={accounts}
+                    isCreating={true}
+                />
                 <td className="px-5 py-3 text-slate-500">—</td>
                 <td className="px-5 py-3 text-slate-500">—</td>
                 <td className="px-5 py-3 text-slate-500">—</td>
@@ -177,66 +205,43 @@ export default function SmppClientsPage() {
               const isEd = editingId === c.id
               return (
                 <tr key={c.id} className="hover:bg-white/[0.02] transition">
-                  <td className="px-5 py-3">
-                    {isEd ? <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" autoFocus value={formData.name || ''} onChange={(e: any) => setFormData({ ...formData, name: e.target.value })} />
-                          : <span className="font-medium text-white">{c.name}</span>}
-                  </td>
-                  <td className="px-5 py-3 text-sm">
-                    {isEd ? (
-                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm"
-                        value={formData.accountId || ''} onChange={(e: any) => setFormData({ ...formData, accountId: parseInt(e.target.value) || undefined })}>
-                        <option value="">-- No Account --</option>
-                        {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                      </select>
-                    ) : (
-                      c.accountId ? <span className="text-blue-400 font-medium">{accounts.find((a:any) => a.id === c.accountId)?.name || `Account #${c.accountId}`}</span> : <span className="text-slate-500 text-xs">Unlinked</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 font-mono text-xs">
-                    {isEd ? <input className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" value={formData.systemId || ''} onChange={(e: any) => setFormData({ ...formData, systemId: e.target.value })} />
-                          : c.systemId}
-                  </td>
-                  <td className="px-5 py-3 font-mono text-xs text-slate-500">
-                    {isEd ? (
-                      <div className="relative flex items-center">
-                        <input 
-                          type={showPassword ? "text" : "password"}
-                          className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 pr-8 text-white text-sm" 
-                          value={formData.password || ''} 
-                          onChange={(e: any) => setFormData({ ...formData, password: e.target.value })} 
-                          placeholder={showPassword ? clients.find((cl: SmppClient) => cl.id === editingId)?.password : "(unchanged)"} 
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2 text-slate-400 hover:text-white transition"
-                        >
-                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                      </div>
-                    ) : '••••••••'}
-                  </td>
-                  <td className="px-5 py-3">
-                    {isEd ? (
-                      <input type="checkbox" checked={formData.active} onChange={(e: any) => setFormData({ ...formData, active: e.target.checked })} />
-                    ) : (
-                      c.active 
-                        ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">Active</span>
-                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Inactive</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    {isEd ? (
-                      <select className="w-full bg-[#12121f] border border-brand-500/50 rounded px-2 py-1 text-white text-sm" value={formData.priority || 2} onChange={(e: any) => setFormData({ ...formData, priority: parseInt(e.target.value) })}>
-                        <option value={1}>1 (OTP)</option>
-                        <option value={2}>2 (Marketing)</option>
-                      </select>
-                    ) : (
-                      c.priority === 1 
-                        ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">OTP (P1)</span>
-                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Marketing (P2)</span>
-                    )}
-                  </td>
+                  {isEd ? (
+                    <SmppClientFormFields 
+                        formData={formData} 
+                        setFormData={setFormData} 
+                        layout="horizontal-td" 
+                        allUsernames={allUsernames}
+                        originalPasswordPlaceholder={clients.find((cl: SmppClient) => cl.id === editingId)?.password || "(unchanged)"}
+                    />
+                  ) : (
+                    <>
+                      <td className="px-5 py-3">
+                        <span className="font-medium text-white">{c.name}</span>
+                      </td>
+                      <td className="px-5 py-3 text-sm">
+                        {c.usernameId ? (
+                          <span className="text-blue-400 font-medium">
+                            {(() => {
+                              const match = allUsernames.find((u:any) => u.id === c.usernameId);
+                              return match ? `${match.accountName} / ${match.username}` : `Username #${c.usernameId}`;
+                            })()}
+                          </span>
+                        ) : <span className="text-slate-500 text-xs text-red-400">Missing Username</span>}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-xs">{c.systemId}</td>
+                      <td className="px-5 py-3 font-mono text-xs text-slate-500">••••••••</td>
+                      <td className="px-5 py-3">
+                        {c.active 
+                          ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">Active</span>
+                          : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Inactive</span>}
+                      </td>
+                      <td className="px-5 py-3">
+                        {c.priority === 1 
+                          ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">OTP (P1)</span>
+                          : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">Marketing (P2)</span>}
+                      </td>
+                    </>
+                  )}
                   <td className="px-5 py-3 text-xs text-slate-400">
                     {c.activeSessions && c.activeSessions.length > 0 ? (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

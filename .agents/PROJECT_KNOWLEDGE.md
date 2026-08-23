@@ -9,18 +9,23 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 - **Core Service (`ma-core-service`)**:
   - A Java Spring Boot application (Port 18080).
   - Handles UI CRUD operations, Admin APIs (including Traffic Analytics, DLQ, Throughput, Reports, System Logs, Audit Logs, and **Billing Tariffs**), and pushes active configuration/metadata to Redis.
-  - Manages the single source of truth for `account` (master entity for customers and suppliers), `account_billing`, and `tariff_plan` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds to prevent data loss.
+  - Manages the single source of truth for `account` (master entity for customers/suppliers, holds billing data), `username` (production attributes like SMPP/API access, IP whitelists, parent to SmppClients), `account_billing`, and `tariff_plan` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds to prevent data loss.
 - **Routing Engine (`ma-routing-engine`)**:
   - A Java Spring Boot application (Port 18081).
   - 100% Event-Driven. Consumes inbound SMS from Kafka, performs O(1) Redis lookups for rate limiting and routing, and dispatches to outbound queues.
-  - Features a **Real-Time Rating Engine** (`RatingEngine.java`) that executes atomic Lua scripts (`EVAL`) directly in Redis to deduct `PREPAID` balances (`balance:acc:{accountId}`) before messages are queued, dropping messages instantly on insufficient funds. The `accountId` is resolved via a Redis mapping `client_to_account:{systemId}`.
+  - Features a **Real-Time Rating Engine** (`RatingEngine.java`) that executes atomic Lua scripts (`EVAL`) directly in Redis to deduct `PREPAID` balances (`balance:acc:{accountId}`) before messages are queued, dropping messages instantly on insufficient funds. The `accountId` is resolved via a Redis mapping `client_to_account:{systemId}` (which maps the SmppClient's linked Username back to its parent Account).
 - **SMPP Edge Node (`ma-smpp-edge`)**:
   - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
+  - **Connection Optimization**: SMSC Supplier connections rely exclusively on `EnquireLink` heartbeats to detect and sever ghost connections. Hard lifetime cutoffs (`maxSessionLifetime`) are disabled to avoid unnecessarily dropping healthy sessions.
+- **AI Service (`ma-ai-service`)**:
+  - A Java Spring Boot application providing an LLM-powered context-aware assistant.
+  - Features real-time system metrics ingestion (calling `/api/system/health` on the Core Service) to give the LLM real-world platform context.
 - **Android Client (`android-app`)**:
   - Handles WebSocket connections back to the server and OTA (Over-The-Air) updates.
 - **Admin Panel (`admin-panel`)**:
   - A Vite + React + Tailwind CSS dashboard providing UI for device management, logs, and DevOps operations.
+  - **Component Architecture**: Uses shared components to ensure consistency across the UI. For instance, `SmppClientFormFields.tsx` acts as the single source of truth for SMPP client attributes. It is used both in the SMPP Clients management page and in the dynamic "Account Creation" flow (which pauses to collect SMPP credentials for `smppEnabled` usernames before finalizing account creation).
   
 ## 2. Advanced Routing & Rules Engine
 
@@ -31,6 +36,10 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 - **Fake DLR Billing Concept**:
   - When a rule triggers a `FAKE_DLR` action (e.g. `DELIVRD`), the backend (`SmsInboundConsumer`) intercepts the message, emulates the DLR, and persists the specified fake status to the database (`isEmulated = true`).
   - **Billing Impact:** The system's standard billing logic charges customers based on the final status (i.e. `DELIVRD`). By intentionally faking a `DELIVRD` status, the platform successfully charges the customer the selling price for blocked or dropped traffic, monetizing spam filtering.
+
+## 2.5 Security & User Bans
+- **Ban Functionality**: A `Username` can be globally banned. This status is synced to Redis via `RedisConfigSyncService` (`config:client:{systemId}:banned`). 
+- **Effect of Ban**: The `SmppServerService` reads this flag and instantly drops incoming `BIND` requests or drops active `SUBMIT_SM` traffic from banned users. Future API and Web Portal modules will also check this flag to deny authentication.
 
 ## 3. Advanced Queueing & Rate Limiting Architecture
 
