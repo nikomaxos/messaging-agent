@@ -9,7 +9,9 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
 - **Core Service (`ma-core-service`)**:
   - A Java Spring Boot application (Port 18080).
   - Handles UI CRUD operations, Admin APIs (including Traffic Analytics, DLQ, Throughput, Reports, System Logs, Audit Logs, and **Billing Tariffs**), and pushes active configuration/metadata to Redis.
-  - Manages the single source of truth for `account` (master entity for customers/suppliers, holds billing data), `username` (production attributes like SMPP/API access, IP whitelists, parent to SmppClients), `account_billing`, and `tariff_plan` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds to prevent data loss.
+  - Manages the single source of truth for `account`, `username`, `account_billing`, `tariff_plan`, and routing entities like `country` and `network` in PostgreSQL. Uses `BillingSyncJob` to continuously synchronize real-time balances from Redis back to PostgreSQL every 30 seconds.
+  - **Routing Metadata & Prefix Protection**: The system maintains a global registry of routing prefixes. When syncing prefixes from external sources (via `prefix-updater`), a strict **"Global Prefix Protection"** rule is enforced: an incoming prefix is injected into the database ONLY if it does not already exist anywhere in the system. This guarantees that manual prefix relocations (e.g., due to number portability) are never overwritten by automated syncs.
+  - **Country Regulations**: The `Country` entity tracks regulatory attributes such as `quietHoursStart`, `quietHoursEnd`, and `hasDndList`, which are strictly preserved during database merges.
 - **Routing Engine (`ma-routing-engine`)**:
   - A Java Spring Boot application (Port 18081).
   - 100% Event-Driven. Consumes inbound SMS from Kafka, performs O(1) Redis lookups for rate limiting and routing, and dispatches to outbound queues.
