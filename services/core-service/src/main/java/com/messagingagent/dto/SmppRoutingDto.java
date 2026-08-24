@@ -21,7 +21,7 @@ public class SmppRoutingDto {
     private String smppClientName;
     private String smppClientSystemId;
     
-    private CountryPrefixDto countryPrefix;
+    private NetworkDto network;
     
     private boolean isDefault;
     private String routingMode;
@@ -50,14 +50,11 @@ public class SmppRoutingDto {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class CountryPrefixDto {
+    public static class NetworkDto {
         private Long id;
+        private String name;
         private String countryName;
-        private String prefix;
-        private String networkName;
-        private String mcc;
-        private String mnc;
-        private String iso;
+        private String isoCode;
     }
 
     @Data
@@ -98,15 +95,12 @@ public class SmppRoutingDto {
                 .smppClientId(routing.getSmppClient().getId())
                 .smppClientName(routing.getSmppClient().getName())
                 .smppClientSystemId(routing.getSmppClient().getSystemId())
-                .countryPrefix(routing.getCountryPrefix() != null ? 
-                    CountryPrefixDto.builder()
-                        .id(routing.getCountryPrefix().getId())
-                        .countryName(routing.getCountryPrefix().getCountryName())
-                        .prefix(routing.getCountryPrefix().getPrefix())
-                        .networkName(routing.getCountryPrefix().getNetworkName())
-                        .mcc(routing.getCountryPrefix().getMcc())
-                        .mnc(routing.getCountryPrefix().getMnc())
-                        .iso(routing.getCountryPrefix().getIso())
+                .network(routing.getNetwork() != null ? 
+                    NetworkDto.builder()
+                        .id(routing.getNetwork().getId())
+                        .name(routing.getNetwork().getName())
+                        .countryName(routing.getNetwork().getCountry().getName())
+                        .isoCode(routing.getNetwork().getCountry().getIsoCode())
                         .build() : null)
                 .isDefault(routing.isDefault())
                 .routingMode(routing.getRoutingMode() != null ? routing.getRoutingMode().name() : "WEBSOCKET")

@@ -11,13 +11,14 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/MessageLog.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/service/BillingService.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/TrafficAnalyticsController.java
-/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/CountryPrefix.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/NetworkRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/SmppRoutingDestination.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/SmscSupplierController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/SmscSupplierDto.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/SmppClientDto.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/RoutingRateLimitRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/AccountController.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/CountryRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/SmppSessionDto.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/RoutingRuleController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/admin/SystemHealthController.java
@@ -40,6 +41,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/AccountBillingDto.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/TariffPlanRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SystemLogRepository.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/OperatingStatus.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/kafka/SmsOutboundDlrConsumer.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/DeviceRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/DeviceLogRepository.java
@@ -63,7 +65,6 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SmppClientRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/DeviceLog.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/AiMemory.java
-/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/CountryPrefixRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/UsernameDto.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/BillingController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/service/RedisConfigSyncService.java
@@ -72,6 +73,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/admin/SystemLogController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/RoutingRule.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/AiChatMessageRepository.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/Network.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/admin/MessageLogController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SimCardRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/AppUser.java
@@ -80,6 +82,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/CountryPrefixController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/ThroughputController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/DeviceGroupRepository.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/Country.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/SmppRoutingController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/TestingController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/DeviceGroup.java
@@ -100,6 +103,7 @@
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/TariffPlan.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/SmppServerSettingsRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/DeadLetterMessage.java
+/home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/controller/UserController.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/model/SmscSupplier.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/repository/MessageLogRepository.java
 /home/nick/Development/messaging-agent/services/core-service/src/main/java/com/messagingagent/dto/RuleConditionDto.java

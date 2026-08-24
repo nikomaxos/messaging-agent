@@ -99,6 +99,9 @@ export const createCountryPrefix  = (d: any) => api.post('/routing/prefixes', d)
 export const updateCountryPrefix  = (id: string, d: any) => api.put(`/routing/prefixes/${id}`, d).then((r: any) => r.data)
 export const deleteCountryPrefix  = (id: string) => api.delete(`/routing/prefixes/${id}`).then((r: any) => r.data)
 export const syncCountryPrefixes  = () => api.post('/prefixes/sync').then((r: any) => r.data)
+export const resolvePrefix        = (number: string) => api.get('/routing/prefixes/resolve', { params: { number } }).then((r: any) => r.data)
+export const updateCountry        = (id: number, d: any) => api.put(`/routing/prefixes/country/${id}`, d).then((r: any) => r.data)
+export const updateNetwork        = (id: number, d: any) => api.put(`/routing/prefixes/network/${id}`, d).then((r: any) => r.data)
 
 // ── Testing Module ────────────────────────────────────────────────────────
 export const sendTestMessage = (d: any) => api.post('/testing/send', d).then((r: any) => r.data)

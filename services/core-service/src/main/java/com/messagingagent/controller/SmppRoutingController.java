@@ -8,7 +8,7 @@ import com.messagingagent.repository.DeviceGroupRepository;
 import com.messagingagent.repository.SmppClientRepository;
 import com.messagingagent.repository.SmppRoutingRepository;
 import com.messagingagent.repository.SmscSupplierRepository;
-import com.messagingagent.repository.CountryPrefixRepository;
+import com.messagingagent.repository.NetworkRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +25,7 @@ public class SmppRoutingController {
     private final SmppClientRepository smppClientRepository;
     private final DeviceGroupRepository deviceGroupRepository;
     private final SmscSupplierRepository smscSupplierRepository;
-    private final CountryPrefixRepository countryPrefixRepository;
+    private final NetworkRepository networkRepository;
 
     @GetMapping
     public List<SmppRoutingDto> getAll() {
@@ -74,10 +74,10 @@ public class SmppRoutingController {
             routing.setFallbackSmsc(null);
         }
 
-        if (payload.getCountryPrefix() != null && payload.getCountryPrefix().getId() != null) {
-            countryPrefixRepository.findById(payload.getCountryPrefix().getId()).ifPresent(routing::setCountryPrefix);
+        if (payload.getNetwork() != null && payload.getNetwork().getId() != null) {
+            networkRepository.findById(payload.getNetwork().getId()).ifPresent(routing::setNetwork);
         } else {
-            routing.setCountryPrefix(null);
+            routing.setNetwork(null);
         }
 
         if (payload.getDestinations() != null) {

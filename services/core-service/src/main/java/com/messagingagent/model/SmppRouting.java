@@ -54,8 +54,8 @@ public class SmppRouting {
     private String fallbackErrorCodes;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "country_prefix_id")
-    private CountryPrefix countryPrefix;
+    @JoinColumn(name = "network_id")
+    private Network network;
 
     @Column(name = "resend_trigger", length = 20)
     private String resendTrigger; // e.g. "RCS_FAILED", "FAILED"

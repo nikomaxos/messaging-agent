@@ -35,6 +35,10 @@ public class RoutingRule {
     @Column(nullable = false)
     private boolean isActive;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean enableRoutingPerCountryPrefix = false;
+
     @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonIgnoreProperties("rule")
     @Builder.Default

@@ -1,7 +1,9 @@
 package com.messagingagent.controller;
 
-import com.messagingagent.model.CountryPrefix;
-import com.messagingagent.repository.CountryPrefixRepository;
+import com.messagingagent.model.Country;
+import com.messagingagent.repository.CountryRepository;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,7 @@ import java.util.HashMap;
 public class TestingController {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final CountryPrefixRepository prefixRepository;
+    private final CountryRepository countryRepository;
     private final ObjectMapper objectMapper;
     private final Random random = new Random();
 
@@ -119,18 +121,34 @@ public class TestingController {
             return ResponseEntity.badRequest().body("{\"error\":\"Invalid amount. Max 100,000\"}");
         }
 
-        List<CountryPrefix> prefixes = prefixRepository.findByCountryNameIgnoreCase(request.getCountryName());
-        if (prefixes.isEmpty()) {
-            return ResponseEntity.badRequest().body("{\"error\":\"No active prefixes found for country: " + request.getCountryName() + "\"}");
+        var countryOpt = countryRepository.findByName(request.getCountryName());
+        if (countryOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"error\":\"No active country found with name: " + request.getCountryName() + "\"}");
         }
+        Country country = countryOpt.get();
+        String regionCode = country.getIsoCode();
+        if (regionCode == null || regionCode.isEmpty()) {
+            regionCode = "US"; // fallback
+        }
+        PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
 
         boolean simulateDelivery = "SIMULATE_DELIVERY".equals(request.getSimulationMode());
 
 
 
         for (int i = 0; i < request.getAmount(); i++) {
-            CountryPrefix randomPrefix = prefixes.get(random.nextInt(prefixes.size()));
-            String dummyNumber = randomPrefix.getPrefix() + generateRandomDigits(10 - randomPrefix.getPrefix().length());
+            PhoneNumber exampleNumber = phoneUtil.getExampleNumber(regionCode);
+            String dummyNumber = "1234567890";
+            if (exampleNumber != null) {
+                String fullNumber = String.valueOf(exampleNumber.getCountryCode()) + exampleNumber.getNationalNumber();
+                dummyNumber = fullNumber.substring(0, Math.max(1, fullNumber.length() - 4)) + generateRandomDigits(4);
+            } else {
+                dummyNumber = generateRandomDigits(10);
+            }
+            // prepend plus if you want, but for routing usually E.164 is sent with or without plus
+            if (!dummyNumber.startsWith("+")) {
+                dummyNumber = "+" + dummyNumber;
+            }
             
             Map<String, Object> event = new HashMap<>();
             event.put("systemId", request.getClientSystemId() != null && !request.getClientSystemId().isEmpty() ? request.getClientSystemId() : "STRESS_TEST");

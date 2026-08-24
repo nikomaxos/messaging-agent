@@ -1,7 +1,7 @@
 {
   "name": "messaging-agent-admin",
   "private": true,
-  "version": "2.4.46",
+  "version": "2.4.47",
   "type": "module",
   "scripts": {
     "dev": "vite",
