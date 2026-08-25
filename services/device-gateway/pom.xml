@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.messagingagent</groupId>
     <artifactId>device-gateway</artifactId>
-    <version>2.4.47</version>
+    <version>2.4.48</version>
     <name>device-gateway</name>
     <description>Device Gateway for Messaging Agent (ADB, WebSockets)</description>
     <properties>
