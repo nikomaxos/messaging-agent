@@ -154,7 +154,7 @@ export default function DeviceMapPage() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <MapPin size={22} className="text-teal-400" /> Device Map
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">
+          <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">
             {devicesWithCoords.length} devices with GPS • {devicesWithoutCoords.length} without GPS
           </p>
         </div>
@@ -165,7 +165,7 @@ export default function DeviceMapPage() {
           <select
             value={selectedGroupId}
             onChange={(e) => setSelectedGroupId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-            className="bg-slate-800 border-slate-700 text-sm rounded-md px-3 py-1.5 min-w-[150px] outline-none focus:ring-1 focus:ring-teal-500"
+            className="bg-slate-50 dark:bg-slate-800 border-slate-700 text-sm rounded-md px-3 py-1.5 min-w-[150px] outline-none focus:ring-1 focus:ring-teal-500"
           >
             <option value="ALL">All Groups</option>
             {groups?.map((g: any) => (
@@ -188,7 +188,7 @@ export default function DeviceMapPage() {
       {/* Map */}
       <div className="flex-1 rounded-lg overflow-hidden border border-slate-300 dark:border-white/10 min-h-[400px]" ref={mapRef}>
         {devicesWithCoords.length === 0 && (
-          <div className="flex items-center justify-center h-full bg-slate-900/50">
+          <div className="flex items-center justify-center h-full bg-white dark:bg-slate-900/50">
             <div className="text-center">
               <MapPin size={32} className="text-slate-700 mx-auto mb-2" />
               <div className="text-slate-600 text-sm">No devices reporting GPS coordinates</div>

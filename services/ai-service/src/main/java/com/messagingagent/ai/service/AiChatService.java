@@ -42,7 +42,7 @@ public class AiChatService {
     private final AiMemoryRepository memoryRepository;
     private final AiToolService aiToolService;
 
-    private static final int MAX_TOOL_RECURSION = 5;
+    private static final int MAX_TOOL_RECURSION = 10;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
@@ -57,7 +57,7 @@ public class AiChatService {
 
     private String handleToolLoop(AiAgentConfig config, List<Map<String, String>> history, int iteration) throws Exception {
         if (iteration >= MAX_TOOL_RECURSION) {
-            return "Internal Error: Max tool execution recursion limit reached.";
+            return "Internal Error: Max tool execution recursion limit reached. The agent got stuck in a loop. Last reply: \n" + history.get(history.size()-1).get("content");
         }
 
         String reply = chatInternal(config, history);
@@ -81,7 +81,7 @@ public class AiChatService {
                     log.info("🤖 AI requested tool execution: {} on {}", action, path);
                     toolResult = aiToolService.executeTool(action, path, content);
                 } catch (Exception e) {
-                    toolResult = "Error parsing tool JSON: " + e.getMessage();
+                    toolResult = "Error parsing tool JSON: " + e.getMessage() + "\nCRITICAL HINT: Your JSON is invalid. If you are using edit_file, you MUST escape all newlines as \\n and double quotes as \\\". Do NOT use raw newlines inside the JSON string value!";
                 }
 
                 // Remove the tool_call block from the assistant's reply so we can persist clean history if needed
@@ -115,6 +115,8 @@ public class AiChatService {
     private String getRealModelName(String modelName) {
         if (modelName.contains("gpt-4.5")) return "gpt-4o";
         if (modelName.contains("chatgpt-4o-latest")) return "gpt-4o";
+        if (modelName.equals("gemini-2.5-pro")) return "gemini-3.1-pro-preview";
+        if (modelName.equals("gemini-2.5-flash")) return "gemini-3.7-flash";
         return modelName;
     }
 
@@ -156,7 +158,18 @@ public class AiChatService {
             throw new RuntimeException("Gemini API error: " + errorMsg);
         }
 
-        return root.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText("");
+        JsonNode candidate = root.path("candidates").path(0);
+        if (candidate.isMissingNode()) {
+            throw new RuntimeException("Gemini API error: No candidates returned.");
+        }
+        
+        JsonNode content = candidate.path("content");
+        if (content.isMissingNode() || content.isNull()) {
+            String finishReason = candidate.path("finishReason").asText("UNKNOWN");
+            throw new RuntimeException("Gemini blocked the response. Finish reason: " + finishReason);
+        }
+
+        return content.path("parts").path(0).path("text").asText("");
     }
 
     // ── Claude ─────────────────────────────────────────────────────────────
@@ -283,6 +296,7 @@ public class AiChatService {
                     - SMSC Connections: CloudHopper SMPP 3.4 library
                     - Mobile Devices: Android phones running a custom APK that receives commands via WebSocket/STOMP
                     - Admin Panel: React (Vite) served via Nginx
+                    - SMSC Suppliers / Outbound Connections: Downstream/Upstream SMPP connections to aggregators/providers (e.g. Melrose Marketing) bound as TRANSCEIVER/TRANSMITTER/RECEIVER for routing SMS traffic.
                     
                     LOCAL FILE CAPABILITIES:
                     You have full access to view, edit, and delete files on the target machine under the codebase directory `/repo`. 
@@ -295,7 +309,9 @@ public class AiChatService {
                       "path": "/repo/docker-compose.yml"
                     }
                     ```
+                    ```
                     Available actions: `view_file` (requires `path`), `edit_file` (requires `path` and `content`), `delete_file` (requires `path`), `list_dir` (requires `path`).
+                    CRITICAL: The `tool_call` block MUST contain strictly valid JSON. When using `edit_file`, you must properly escape all newlines (`\\n`) and quotes (`\\"`) in the `content` string. Do NOT write raw multi-line strings in JSON!
                     Once you output a `tool_call`, STOP WRITING. The system will automatically execute it and reply back to you with the tool's output. You can then analyze the output and execute another tool, or formulate your final response to the user.
                     
                     Answer questions about the system accurately. If metrics look concerning, proactively warn the user.
@@ -312,7 +328,7 @@ public class AiChatService {
     private String post(String url, String jsonBody, Map<String, String> headers) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(180))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8));
 
         headers.forEach(builder::header);

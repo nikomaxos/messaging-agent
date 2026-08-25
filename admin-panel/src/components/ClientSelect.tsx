@@ -63,7 +63,7 @@ export function ClientSelect({ clients, value, onChange, placeholder = "Search b
           }}
           onFocus={() => setIsOpen(true)}
         />
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700 dark:text-slate-500" />
       </div>
       
       {isOpen && (
@@ -82,7 +82,7 @@ export function ClientSelect({ clients, value, onChange, placeholder = "Search b
                 }}
               >
                 <span>{c.name}</span>
-                <span className="font-mono text-xs text-slate-500">{c.systemId}</span>
+                <span className="font-mono text-xs text-slate-700 dark:text-slate-500">{c.systemId}</span>
               </div>
             ))
           )}

@@ -63,7 +63,7 @@ export default function DeviceLogsPage() {
       {/* Filters Toolbar */}
       <div className="glass p-4 flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Device</label>
+          <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-500 uppercase mb-1">Device</label>
           <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.deviceId} onChange={e => setFilters({ ...filters, deviceId: e.target.value })}>
             <option value="">All Devices</option>
@@ -71,7 +71,7 @@ export default function DeviceLogsPage() {
           </select>
         </div>
         <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Log Level</label>
+          <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-500 uppercase mb-1">Log Level</label>
           <select className="w-full bg-white dark:bg-[#12121f] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/5 rounded px-2 py-1.5"
                   value={filters.level} onChange={e => setFilters({ ...filters, level: e.target.value })}>
             <option value="">All Levels</option>
@@ -84,7 +84,7 @@ export default function DeviceLogsPage() {
           <button onClick={applyFilters} className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white px-4 rounded text-sm py-1.5 font-medium transition flex items-center gap-2">
             <Search size={14} /> Search
           </button>
-          <button onClick={clearFilters} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 rounded text-sm font-medium transition flex justify-center items-center" title="Clear Filters">
+          <button onClick={clearFilters} className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 rounded text-sm font-medium transition flex justify-center items-center" title="Clear Filters">
             <X size={14} />
           </button>
         </div>
@@ -105,11 +105,11 @@ export default function DeviceLogsPage() {
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-700 dark:text-slate-500">Loading…</td></tr>
               )}
               {logs.map(l => (
                 <tr key={l.id} className="hover:bg-white/[0.02] transition">
-                  <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs font-mono text-slate-700 dark:text-slate-500 whitespace-nowrap">
                     {format(new Date(l.createdAt), 'MMM d, HH:mm:ss')}
                     <div className="text-[10px] text-slate-600 space-y-1 mt-0.5">
                        {formatDistanceToNow(new Date(l.createdAt), { addSuffix: true })}
@@ -120,20 +120,20 @@ export default function DeviceLogsPage() {
                       {l.level}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-300">
+                  <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
                     <div className="flex items-center gap-2">
-                      <Smartphone size={14} className="text-slate-500" />
+                      <Smartphone size={14} className="text-slate-700 dark:text-slate-500" />
                       {l.device?.name || 'Unknown'}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-200">{l.event}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 max-w-[400px] truncate" title={l.detail}>
+                  <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-500 max-w-[400px] truncate" title={l.detail}>
                     {l.detail ?? '—'}
                   </td>
                 </tr>
               ))}
               {!isLoading && logs.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">No device logs found</td></tr>
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-700 dark:text-slate-500">No device logs found</td></tr>
               )}
             </tbody>
           </table>

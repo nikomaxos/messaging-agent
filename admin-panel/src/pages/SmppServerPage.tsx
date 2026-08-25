@@ -65,7 +65,7 @@ export default function SmppServerPage() {
         <button
           onClick={() => restartMut.mutate()}
           disabled={restartMut.isPending}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+          className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
         >
           <RefreshCw size={16} className={restartMut.isPending ? "animate-spin" : ""} />
           Restart SMPP
@@ -77,7 +77,7 @@ export default function SmppServerPage() {
       ) : (
         <div className="space-y-8">
           {/* Metrics Dashboard */}
-          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-lg">
@@ -92,14 +92,14 @@ export default function SmppServerPage() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="flex items-center gap-2 text-sm text-slate-300 hover:text-slate-900 dark:text-white transition"
+                  className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:text-white transition"
                 >
-                  {autoRefresh ? <ToggleRight className="text-brand-500" size={24} /> : <ToggleLeft className="text-slate-500" size={24} />}
+                  {autoRefresh ? <ToggleRight className="text-brand-500" size={24} /> : <ToggleLeft className="text-slate-700 dark:text-slate-500" size={24} />}
                   <span>Auto Refresh</span>
                 </button>
                 <button
                   onClick={() => refetchMetrics()}
-                  className="p-2 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 rounded-lg text-slate-300 transition"
+                  className="p-2 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-200 dark:bg-white/10 rounded-lg text-slate-700 dark:text-slate-300 transition"
                   title="Manual Refresh"
                 >
                   <RefreshCw size={16} className={isFetchingMetrics ? "animate-spin" : ""} />
@@ -162,7 +162,7 @@ export default function SmppServerPage() {
 
           {/* Settings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
-          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-brand-500/10 text-brand-400 rounded-lg">
                 <Server size={20} />
@@ -205,7 +205,7 @@ export default function SmppServerPage() {
             </dl>
           </div>
 
-          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col">
+          <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl p-6 shadow-sm flex flex-col">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg">
                 <Activity size={20} />
@@ -223,7 +223,7 @@ export default function SmppServerPage() {
                   onChange={(e: any) => setFormData({ ...formData, maxConnections: parseInt(e.target.value) || 50 })}
                   className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
-                <p className="text-xs text-slate-500 mt-1">Maximum allowed active SMPP binds across all users.</p>
+                <p className="text-xs text-slate-700 dark:text-slate-500 mt-1">Maximum allowed active SMPP binds across all users.</p>
               </div>
               <div className="pt-2">
                 <dt className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2 mb-1">
@@ -236,7 +236,7 @@ export default function SmppServerPage() {
                   onChange={(e: any) => setFormData({ ...formData, enquireLinkTimeout: parseInt(e.target.value) || 30000 })}
                   className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white font-mono text-sm"
                 />
-                <p className="text-xs text-slate-500 mt-1">Maximum wait time for an enquire_link_resp before dropping.</p>
+                <p className="text-xs text-slate-700 dark:text-slate-500 mt-1">Maximum wait time for an enquire_link_resp before dropping.</p>
               </div>
             </dl>
             <div className="mt-8 pt-6 border-t border-slate-300 dark:border-white/5 flex justify-end">

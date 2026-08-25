@@ -58,6 +58,7 @@ export interface SmppSession {
   sessionId: string;
   bindType: string;
   uptimeSeconds: number;
+  ipAddress?: string;
 }
 
 export interface SmppClient {

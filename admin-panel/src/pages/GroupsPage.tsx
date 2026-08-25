@@ -61,7 +61,7 @@ export default function GroupsPage() {
       {/* Form */}
       {mode !== 'view' && (
         <div className="glass p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-300">{mode === 'create' ? 'New' : 'Edit'} Group</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{mode === 'create' ? 'New' : 'Edit'} Group</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Group Name *</label>
@@ -85,7 +85,7 @@ export default function GroupsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
               <input type="checkbox" checked={form.active}
                 onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                 className="accent-brand-600 w-4 h-4" />
@@ -121,7 +121,7 @@ export default function GroupsPage() {
                     {g.active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td className="px-4 text-slate-500 text-xs">{new Date(g.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 text-slate-700 dark:text-slate-500 text-xs">{new Date(g.createdAt).toLocaleDateString()}</td>
                 <td className="px-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button className="btn-secondary !px-2 !py-1" onClick={() => openEdit(g)}>
@@ -136,7 +136,7 @@ export default function GroupsPage() {
               </tr>
             ))}
             {groups.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No groups yet</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-700 dark:text-slate-500">No groups yet</td></tr>
             )}
           </tbody>
         </table>

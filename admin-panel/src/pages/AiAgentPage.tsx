@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAiAgentConfig, updateAiAgentConfig, testAiAgent, chatWithAiAgent, getAiChatHistory, getAiSessions, createAiSession, deleteAiSession, getAiMemories, deleteAiMemory, clearAllAiMemories } from '../api/client'
-import { Bot, Save, Zap, Key, Eye, EyeOff, Send, Settings, MessageSquare, Loader2, Trash2, AlertCircle, Database, X, Plus } from 'lucide-react'
+import { Bot, Save, Zap, Key, Eye, EyeOff, Send, Settings, MessageSquare, Loader2, Trash2, AlertCircle, Database, X, Plus, Paperclip, FileText } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const PROVIDERS = [
-  { value: 'GEMINI', label: 'Google Gemini', models: ['gemini-2.0-flash', 'gemini-3.7-flash', 'gemini-3.1-pro-high', 'gemini-2.5-pro', 'gemini-2.5-flash'] },
-  { value: 'CLAUDE', label: 'Anthropic Claude', models: ['claude-mythos-6', 'claude-opus-4.6-thinking', 'claude-3-opus-20240229', 'claude-3-5-sonnet-20241022', 'claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'mythos'] },
-  { value: 'OPENAI', label: 'OpenAI', models: ['gpt-4o', 'gpt-4.5-preview', 'o1-preview', 'o3-mini', 'gpt-4o-mini', 'chatgpt-4o-latest'] },
+  { value: 'GEMINI', label: 'Google Gemini', models: ['gemini-3.7-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'] },
+  { value: 'CLAUDE', label: 'Anthropic Claude', models: ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-mythos-5', 'claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022'] },
+  { value: 'OPENAI', label: 'OpenAI', models: ['gpt-4o', 'gpt-4.5-preview', 'o1-preview', 'o3-mini', 'gpt-4o-mini'] },
 ]
 
 interface ChatMessage {
@@ -52,8 +53,10 @@ export default function AiAgentPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isThinking, setIsThinking] = useState(false)
+  const [attachedFile, setAttachedFile] = useState<{name: string, content: string} | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['ai-config'],
@@ -139,12 +142,18 @@ export default function AiAgentPage() {
 
   const sendMessage = async () => {
     const text = input.trim()
-    if (!text || isThinking) return
+    if ((!text && !attachedFile) || isThinking) return
 
-    const userMsg: ChatMessage = { role: 'user', content: text, timestamp: new Date() }
+    let finalContent = text
+    if (attachedFile) {
+      finalContent = `[Attached File: ${attachedFile.name}]\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${text}`
+    }
+
+    const userMsg: ChatMessage = { role: 'user', content: finalContent, timestamp: new Date() }
     const updatedMessages = [...messages, userMsg]
     setMessages(updatedMessages)
     setInput('')
+    setAttachedFile(null)
     setIsThinking(true)
 
     if (inputRef.current) inputRef.current.style.height = '44px'
@@ -159,15 +168,16 @@ export default function AiAgentPage() {
           content: `⚠️ **Error:** ${data.error}`,
           timestamp: new Date()
         }])
+      } else {
         setMessages([...updatedMessages, {
           role: 'assistant',
           content: data.reply,
           timestamp: new Date()
         }])
-        
-        // Refresh sessions to get updated title
-        getAiSessions().then(setSessions)
       }
+      
+      // Refresh sessions to get updated title (in case it's a new chat)
+      getAiSessions().then(setSessions)
     } catch (err: any) {
       setMessages([...updatedMessages, {
         role: 'assistant',
@@ -194,7 +204,39 @@ export default function AiAgentPage() {
     ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
   }
 
-  if (isLoading || !form) return <div className="p-6 text-slate-500">Loading AI agent config…</div>
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+      try {
+        const data = await file.arrayBuffer()
+        const workbook = XLSX.read(data, { type: 'array' })
+        
+        let allContent = ''
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName]
+          const csv = XLSX.utils.sheet_to_csv(worksheet)
+          allContent += `--- Sheet: ${sheetName} ---\n${csv}\n\n`
+        })
+        
+        setAttachedFile({ name: file.name, content: allContent })
+      } catch (err) {
+        console.error("Failed to parse Excel file:", err)
+        alert("Failed to read Excel file. Please ensure it is a valid format.")
+      }
+    } else {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const content = event.target?.result as string
+        setAttachedFile({ name: file.name, content })
+      }
+      reader.readAsText(file)
+    }
+    e.target.value = '' // reset input
+  }
+
+  if (isLoading || !form) return <div className="p-6 text-slate-700 dark:text-slate-500">Loading AI agent config…</div>
 
   const isConfigured = config?.enabled && config?.apiKey
 
@@ -207,10 +249,10 @@ export default function AiAgentPage() {
             <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Bot size={22} className="text-brand-400" /> AI Agent
             </h1>
-            <p className="text-slate-500 text-xs mt-0.5">
+            <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">
               {isConfigured
                 ? <span className="text-emerald-400">● Connected to {config.provider} / {config.modelName}</span>
-                : <span className="text-amber-400">● Not configured — go to Settings</span>}
+                : <span className="text-amber-600 dark:text-amber-400">● Not configured — go to Settings</span>}
             </p>
           </div>
           <div className="flex gap-1">
@@ -238,7 +280,7 @@ export default function AiAgentPage() {
               </button>
             )}
             <button
-              className="px-2 py-1.5 rounded text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 hover:text-slate-900 dark:text-white transition flex items-center"
+              className="px-2 py-1.5 rounded text-slate-700 dark:text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 hover:text-slate-900 dark:text-white transition flex items-center"
               title="Close Page"
               onClick={() => window.history.back()}
             >
@@ -253,8 +295,8 @@ export default function AiAgentPage() {
         <div className="flex-1 flex min-h-0">
           
           {/* Chat Sidebar */}
-          <div className="w-56 shrink-0 bg-black/20 border-r border-slate-300 dark:border-white/5 flex flex-col p-3 overflow-y-auto hidden md:flex">
-             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-1 mt-1">Previous Chats</div>
+          <div className="w-56 shrink-0 bg-slate-100 dark:bg-black/20 border-r border-slate-300 dark:border-white/5 flex flex-col p-3 overflow-y-auto hidden md:flex">
+             <div className="text-xs font-semibold text-slate-700 dark:text-slate-500 uppercase tracking-wider mb-3 px-1 mt-1">Previous Chats</div>
              <div className="flex-1 space-y-1">
                {sessions.map(s => (
                  <div key={s.id} className="group relative flex items-center">
@@ -265,7 +307,7 @@ export default function AiAgentPage() {
                      {s.title}
                    </button>
                    <button
-                     className={`absolute right-1 p-1.5 rounded-md text-slate-500 hover:bg-red-500/20 hover:text-red-400 transition opacity-0 group-hover:opacity-100 ${activeSessionId === s.id ? 'opacity-100' : ''}`}
+                     className={`absolute right-1 p-1.5 rounded-md text-slate-700 dark:text-slate-500 hover:bg-red-500/20 hover:text-red-400 transition opacity-0 group-hover:opacity-100 ${activeSessionId === s.id ? 'opacity-100' : ''}`}
                      onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id) }}
                      title="Delete this chat">
                      <Trash2 size={12} />
@@ -285,7 +327,7 @@ export default function AiAgentPage() {
                     <Bot size={28} className="text-brand-400" />
                   </div>
                   <h2 className="text-slate-900 dark:text-white font-semibold mb-2">Platform AI Assistant</h2>
-                  <p className="text-slate-500 text-sm mb-6">
+                  <p className="text-slate-700 dark:text-slate-500 text-sm mb-6">
                     I have access to your platform's real-time metrics — health status, device fleet, message pipeline, and SMSC connections. Ask me anything.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -303,7 +345,7 @@ export default function AiAgentPage() {
                     ))}
                   </div>
                   {!isConfigured && (
-                    <div className="mt-6 p-3 rounded-lg bg-amber-900/10 border border-amber-500/20 text-amber-400 text-xs flex items-center gap-2">
+                    <div className="mt-6 p-3 rounded-lg bg-amber-900/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2">
                       <AlertCircle size={14} />
                       Configure an AI provider in Settings before chatting.
                     </div>
@@ -327,7 +369,7 @@ export default function AiAgentPage() {
                   {msg.role === 'user' ? (
                     <div className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap">{msg.content}</div>
                   ) : (
-                    <div className="text-sm text-slate-300 leading-relaxed ai-response"
+                    <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed ai-response"
                       dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
                   )}
                   <div className="text-[9px] text-slate-600 mt-1 text-right">
@@ -344,7 +386,7 @@ export default function AiAgentPage() {
                   <Bot size={14} className="text-brand-400" />
                 </div>
                 <div className="bg-white/[0.03] border border-slate-300 dark:border-white/5 rounded-2xl rounded-tl-sm px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-500">
                     <Loader2 size={14} className="animate-spin text-brand-400" />
                     Analyzing system metrics…
                   </div>
@@ -356,12 +398,24 @@ export default function AiAgentPage() {
           </div>
 
           {/* Input area */}
-          <div className="shrink-0 px-6 pb-4 pt-2 border-t border-slate-300 dark:border-white/5">
+          <div className="shrink-0 px-6 pb-4 pt-2 border-t border-slate-300 dark:border-white/5 flex flex-col gap-2">
+            {attachedFile && (
+              <div className="flex items-center justify-between bg-brand-500/10 border border-brand-500/20 rounded-lg px-3 py-2 text-xs text-brand-400 max-w-sm">
+                <div className="flex items-center gap-2">
+                  <FileText size={14} />
+                  <span className="font-medium truncate max-w-[200px]">{attachedFile.name}</span>
+                  <span className="text-brand-500/60">({Math.round(attachedFile.content.length / 1024)} KB)</span>
+                </div>
+                <button onClick={() => setAttachedFile(null)} className="p-1 hover:bg-brand-500/20 rounded-md transition text-brand-400">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
             <div className="flex gap-2 items-end">
               <div className="flex-1 relative">
                 <textarea
                   ref={inputRef}
-                  className="w-full bg-white/[0.04] border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white resize-none focus:outline-none focus:border-brand-500/40 placeholder:text-slate-600 transition"
+                  className="w-full bg-white/[0.04] border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 pl-10 pr-12 text-sm text-slate-900 dark:text-white resize-none focus:outline-none focus:border-brand-500/40 placeholder:text-slate-600 transition"
                   style={{ height: '44px', maxHeight: '120px' }}
                   placeholder={isConfigured ? 'Ask about system health, devices, delivery rates…' : 'Configure AI provider in Settings first…'}
                   value={input}
@@ -370,13 +424,22 @@ export default function AiAgentPage() {
                   disabled={!isConfigured || isThinking || !activeSessionId}
                 />
                 <button
+                  className="absolute left-2 bottom-2 p-1.5 rounded-lg text-slate-700 dark:text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 transition"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!isConfigured || isThinking || !activeSessionId}
+                  title="Upload Text Report or Excel (CSV, JSON, Logs, TXT, XLSX)"
+                >
+                  <Paperclip size={16} />
+                </button>
+                <input type="file" className="hidden" ref={fileInputRef} accept=".txt,.csv,.json,.log,.md,.xlsx,.xls" onChange={handleFileUpload} />
+                <button
                   className={`absolute right-2 bottom-2 p-1.5 rounded-lg transition ${
-                    input.trim() && isConfigured && !isThinking && activeSessionId
+                    (input.trim() || attachedFile) && isConfigured && !isThinking && activeSessionId
                       ? 'bg-brand-600 text-slate-900 dark:text-white hover:bg-brand-500'
                       : 'text-slate-700 cursor-not-allowed'
                   }`}
                   onClick={sendMessage}
-                  disabled={!input.trim() || !isConfigured || isThinking || !activeSessionId}>
+                  disabled={(!input.trim() && !attachedFile) || !isConfigured || isThinking || !activeSessionId}>
                   <Send size={16} />
                 </button>
               </div>
@@ -399,18 +462,18 @@ export default function AiAgentPage() {
               <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-slate-300 dark:border-white/5">
                 <div>
                   <div className="text-sm font-medium text-slate-900 dark:text-white">AI Agent</div>
-                  <div className="text-[10px] text-slate-500">Enable AI-powered system analysis and recommendations</div>
+                  <div className="text-[10px] text-slate-700 dark:text-slate-500">Enable AI-powered system analysis and recommendations</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" checked={form.enabled}
                     onChange={e => setForm({ ...form, enabled: e.target.checked })} />
-                  <div className="w-11 h-6 bg-slate-700 peer-checked:bg-brand-600 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                  <div className="w-11 h-6 bg-slate-100 dark:bg-slate-700 peer-checked:bg-brand-600 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
                 </label>
               </div>
 
               {/* Provider */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">AI Provider</label>
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-500 uppercase mb-1">AI Provider</label>
                 <div className="grid grid-cols-3 gap-2">
                   {PROVIDERS.map(p => (
                     <button key={p.value}
@@ -424,8 +487,8 @@ export default function AiAgentPage() {
 
               {/* Model */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Model</label>
-                <select className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2"
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-500 uppercase mb-1">Model</label>
+                <select className="w-full bg-white dark:bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2"
                   value={form.modelName} onChange={e => setForm({ ...form, modelName: e.target.value })}>
                   {(PROVIDERS.find(p => p.value === form.provider) ?? PROVIDERS[0]).models.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
@@ -433,17 +496,17 @@ export default function AiAgentPage() {
 
               {/* API Key */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">API Key</label>
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-500 uppercase mb-1">API Key</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
                       type={showKey ? 'text' : 'password'}
-                      className="w-full bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2 pr-10 font-mono"
+                      className="w-full bg-white dark:bg-[#0d0d18] text-sm text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded px-3 py-2 pr-10 font-mono"
                       placeholder={config?.apiKey ? '••••••••••••••• (key is set)' : 'Enter API key…'}
                       value={form.apiKey}
                       onChange={e => setForm({ ...form, apiKey: e.target.value })}
                     />
-                    <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 dark:text-white transition"
+                    <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-700 dark:text-slate-500 hover:text-slate-900 dark:text-white transition"
                       onClick={() => setShowKey(!showKey)} type="button">
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -473,7 +536,7 @@ export default function AiAgentPage() {
               {testResult && (
                 <div className={`p-3 rounded border text-sm ${testResult.status === 'OK' ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400' : 'bg-red-900/20 border-red-500/20 text-red-400'}`}>
                   <strong>{testResult.status}:</strong> {testResult.message}
-                  {testResult.provider && <span className="text-slate-500 ml-2">({testResult.provider} / {testResult.model})</span>}
+                  {testResult.provider && <span className="text-slate-700 dark:text-slate-500 ml-2">({testResult.provider} / {testResult.model})</span>}
                 </div>
               )}
 
@@ -500,7 +563,7 @@ export default function AiAgentPage() {
                   <li>SMSC supplier connection status</li>
                   <li>Infrastructure component health (Postgres, Redis, Kafka)</li>
                 </ul>
-                <p className="text-slate-500">When enabled, the agent can diagnose issues, suggest fixes, and provide system maintenance recommendations.</p>
+                <p className="text-slate-700 dark:text-slate-500">When enabled, the agent can diagnose issues, suggest fixes, and provide system maintenance recommendations.</p>
               </div>
             </div>
           </div>
@@ -516,7 +579,7 @@ export default function AiAgentPage() {
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Database size={20} className="text-brand-400" /> AI Long-Term Memory
                 </h2>
-                <p className="text-slate-500 text-sm">Key insights autonomously extracted from your conversations.</p>
+                <p className="text-slate-700 dark:text-slate-500 text-sm">Key insights autonomously extracted from your conversations.</p>
               </div>
               {memories.length > 0 && (
                 <button
@@ -531,7 +594,7 @@ export default function AiAgentPage() {
             </div>
 
             {memories.length === 0 ? (
-              <div className="text-center py-20 text-slate-500 border border-dashed border-slate-300 dark:border-white/10 rounded-xl">
+              <div className="text-center py-20 text-slate-700 dark:text-slate-500 border border-dashed border-slate-300 dark:border-white/10 rounded-xl">
                 <Database size={32} className="mx-auto mb-3 opacity-20" />
                 <p>No memories yet. Have a meaningful conversation with the AI to extract insights!</p>
               </div>
@@ -548,7 +611,7 @@ export default function AiAgentPage() {
                       <Trash2 size={16} />
                     </button>
                     <h3 className="text-brand-400 font-bold text-base pr-8 mb-2">{mem.topic}</h3>
-                    <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{mem.keyPoints}</div>
+                    <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{mem.keyPoints}</div>
                     <div className="text-[10px] text-slate-600 mt-4">Stored: {new Date(mem.createdAt).toLocaleString()}</div>
                   </div>
                 ))}

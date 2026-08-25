@@ -30,7 +30,7 @@ export default function ReportsPage() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <FileText size={22} className="text-sky-400" /> Reports
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">Daily platform performance reports (auto-generated at 06:00 UTC).</p>
+          <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">Daily platform performance reports (auto-generated at 06:00 UTC).</p>
         </div>
         <button
           className="bg-brand-600 hover:bg-brand-500 text-slate-900 dark:text-white rounded px-4 py-2 text-xs font-medium flex items-center gap-2 disabled:opacity-40 transition"
@@ -44,8 +44,8 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Report List */}
         <div className="glass p-4 space-y-2 lg:col-span-1">
-          <h2 className="text-xs font-bold text-slate-500 uppercase">History</h2>
-          {isLoading ? <div className="text-slate-500 text-xs">Loading…</div> : (
+          <h2 className="text-xs font-bold text-slate-700 dark:text-slate-500 uppercase">History</h2>
+          {isLoading ? <div className="text-slate-700 dark:text-slate-500 text-xs">Loading…</div> : (
             <div className="space-y-1">
               {reports.map((r: any) => (
                 <button key={r.id}
@@ -73,33 +73,33 @@ export default function ReportsPage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase">Total Messages</div>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase">Total Messages</div>
                     <div className="text-xl font-bold text-slate-900 dark:text-white">{d.totalMessages?.toLocaleString() ?? '—'}</div>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1"><TrendingUp size={10} /> Delivery Rate</div>
-                    <div className={`text-xl font-bold ${(d.deliveryRate ?? 0) > 90 ? 'text-emerald-400' : (d.deliveryRate ?? 0) > 70 ? 'text-amber-400' : 'text-red-400'}`}>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase flex items-center gap-1"><TrendingUp size={10} /> Delivery Rate</div>
+                    <div className={`text-xl font-bold ${(d.deliveryRate ?? 0) > 90 ? 'text-emerald-400' : (d.deliveryRate ?? 0) > 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-400'}`}>
                       {d.deliveryRate ?? '—'}%
                     </div>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase">Delivered</div>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase">Delivered</div>
                     <div className="text-xl font-bold text-emerald-400">{d.delivered?.toLocaleString() ?? '—'}</div>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1"><AlertTriangle size={10} /> Failed</div>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase flex items-center gap-1"><AlertTriangle size={10} /> Failed</div>
                     <div className="text-xl font-bold text-red-400">{d.failed?.toLocaleString() ?? '—'}</div>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase">Queued</div>
-                    <div className="text-xl font-bold text-amber-400">{d.queued?.toLocaleString() ?? '—'}</div>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase">Queued</div>
+                    <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{d.queued?.toLocaleString() ?? '—'}</div>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1"><Users size={10} /> Devices Online</div>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase flex items-center gap-1"><Users size={10} /> Devices Online</div>
                     <div className="text-xl font-bold text-slate-900 dark:text-white">{d.onlineDevices ?? '—'} / {d.totalDevices ?? '—'}</div>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-3 border border-slate-300 dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 uppercase">Devices Offline</div>
+                    <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase">Devices Offline</div>
                     <div className="text-xl font-bold text-red-400">{d.offlineDevices ?? '—'}</div>
                   </div>
                 </div>

@@ -150,13 +150,13 @@ export default function SystemLogsPage() {
             <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
               {wsConnected
                 ? <><Wifi size={12} className="text-emerald-400" /> WebSocket is connected</>
-                : <><WifiOff size={12} className="text-amber-400" /> WebSocket reconnecting…</>}
+                : <><WifiOff size={12} className="text-amber-600 dark:text-amber-400" /> WebSocket reconnecting…</>}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
-                autoUpdate ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                autoUpdate ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
               }`}
               onClick={() => setAutoUpdate(!autoUpdate)}
             >
@@ -174,14 +174,14 @@ export default function SystemLogsPage() {
 
         {/* Filters Bar */}
         <div className="glass p-3 flex flex-wrap items-center gap-4 text-sm">
-          <div className="flex items-center gap-2 text-slate-300">
-            <Filter size={14} className="text-slate-500" /> Filters:
+          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+            <Filter size={14} className="text-slate-700 dark:text-slate-500" /> Filters:
           </div>
           
           <div className="flex items-center gap-2">
-            <label className="text-slate-500">Level</label>
+            <label className="text-slate-700 dark:text-slate-500">Level</label>
             <select
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-indigo-500"
+              className="bg-white dark:bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-indigo-500"
               value={levelFilter}
               onChange={e => setLevelFilter(e.target.value)}
             >
@@ -193,20 +193,20 @@ export default function SystemLogsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-slate-500">From</label>
+            <label className="text-slate-700 dark:text-slate-500">From</label>
             <input
               type="datetime-local"
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-indigo-500"
+              className="bg-white dark:bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-indigo-500"
               value={fromTime}
               onChange={e => setFromTime(e.target.value)}
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-slate-500">To</label>
+            <label className="text-slate-700 dark:text-slate-500">To</label>
             <input
               type="datetime-local"
-              className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-indigo-500"
+              className="bg-white dark:bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 outline-none focus:border-indigo-500"
               value={toTime}
               onChange={e => setToTime(e.target.value)}
             />
@@ -220,7 +220,7 @@ export default function SystemLogsPage() {
 
       <div className="glass overflow-hidden">
         {connEvents.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 flex flex-col items-center justify-center min-h-[400px]">
+          <div className="p-8 text-center text-slate-700 dark:text-slate-500 flex flex-col items-center justify-center min-h-[400px]">
             <Activity size={32} className="text-slate-700 mb-4" />
             No logs found matching your criteria.
           </div>
@@ -239,7 +239,7 @@ export default function SystemLogsPage() {
               <tbody>
                 {connEvents.map(e => (
                   <tr key={e.id} className="border-t border-slate-800/50 hover:bg-white/[0.02] transition">
-                    <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs font-mono text-slate-700 dark:text-slate-500 whitespace-nowrap">
                       {format(e.time, 'MMM d, HH:mm:ss')}
                       <div className="text-[10px] text-slate-600">{formatDistanceToNow(e.time, { addSuffix: true })}</div>
                     </td>
@@ -249,8 +249,8 @@ export default function SystemLogsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-200 font-medium">{e.device}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{e.event}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[400px] truncate" title={e.detail}>
+                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{e.event}</td>
+                    <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-500 max-w-[400px] truncate" title={e.detail}>
                       {e.detail ?? '—'}
                     </td>
                   </tr>

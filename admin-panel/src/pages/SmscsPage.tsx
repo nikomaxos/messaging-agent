@@ -102,7 +102,7 @@ export default function SmscsPage() {
         </div>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 cursor-pointer bg-slate-100 dark:bg-[#1a1a2e] px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10">
-            <span className="text-xs text-slate-300 font-medium">Auto Refresh</span>
+            <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">Auto Refresh</span>
             <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${autoRefresh ? 'bg-brand-500' : 'bg-slate-600'}`}>
               <input type="checkbox" className="sr-only" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${autoRefresh ? 'translate-x-4' : 'translate-x-1'}`} />
@@ -127,9 +127,9 @@ export default function SmscsPage() {
         </div>
       </div>
 
-      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-white/[0.05]">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.05]">
             <tr>
               <th className="px-5 py-4 font-medium">Name</th>
               <th className="px-5 py-4 font-medium">Account</th>
@@ -150,10 +150,10 @@ export default function SmscsPage() {
               <tr key={s.id} className="hover:bg-white/[0.02] transition">
                 <td className="px-5 py-3 text-slate-900 dark:text-white">
                   <div className="font-medium">{s.name}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">{s.systemId} ({s.bindType})</div>
+                  <div className="text-[10px] text-slate-700 dark:text-slate-500 mt-1">{s.systemId} ({s.bindType})</div>
                 </td>
                 <td className="px-5 py-3 text-sm">
-                  {s.accountId ? <span className="text-blue-400 font-medium">{accounts.find((a:any) => a.id === s.accountId)?.name || `Account #${s.accountId}`}</span> : <span className="text-slate-500 text-xs">Unlinked</span>}
+                  {s.accountId ? <span className="text-blue-400 font-medium">{accounts.find((a:any) => a.id === s.accountId)?.name || `Account #${s.accountId}`}</span> : <span className="text-slate-700 dark:text-slate-500 text-xs">Unlinked</span>}
                 </td>
                 <td className="px-5 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{s.host}:{s.port}</td>
                 <td className="px-5 py-3">
@@ -164,12 +164,12 @@ export default function SmscsPage() {
                         : s.active 
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Attempting...</span>
                           : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Unbound</span>}
-                      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-white/5">
+                      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-white/5">
                         {s.maxBinds}{s.bindType === 'TRANSCEIVER' ? 'TRX' : s.bindType === 'TRANSMITTER' ? 'TX' : s.bindType === 'RECEIVER' ? 'RX' : 'UNK'}
                       </span>
                     </div>
                     {wrapper.uptimeSeconds != null && (
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-[10px] text-slate-700 dark:text-slate-500">
                         Up: {Math.floor(wrapper.uptimeSeconds / 3600)}h {Math.floor((wrapper.uptimeSeconds % 3600) / 60)}m
                       </span>
                     )}
@@ -206,14 +206,14 @@ export default function SmscsPage() {
             )})}
             
             {!isFetching && suppliers.length === 0 && (
-              <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-500">No upstream suppliers configured.</td></tr>
+              <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-700 dark:text-slate-500">No upstream suppliers configured.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 flex justify-between items-center bg-white dark:bg-[#12121f]">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -243,16 +243,16 @@ export default function SmscsPage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20"
                       checked={formData.active} onChange={e => setFormData({ ...formData, active: e.target.checked })} />
-                    <span className="text-sm text-slate-300">Active Connection</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-300">Active Connection</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer group relative">
                     <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20"
                       checked={formData.bypassDuplicateFilter || false} onChange={e => setFormData({ ...formData, bypassDuplicateFilter: e.target.checked })} />
-                    <span className="text-sm text-slate-300 flex items-center gap-1">
+                    <span className="text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1">
                       Bypass Duplicate Filters
-                      <HelpCircle size={14} className="text-slate-500" />
+                      <HelpCircle size={14} className="text-slate-700 dark:text-slate-500" />
                     </span>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-xs text-slate-300 rounded shadow-xl border border-slate-300 dark:border-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-50 dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 rounded shadow-xl border border-slate-300 dark:border-white/10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
                       Adds a random tlv parameter, to bypass loop detection systems from suppliers SMSCs
                     </div>
                   </label>
@@ -318,7 +318,7 @@ export default function SmscsPage() {
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Throughput (msg/s)</label>
                   <input type="number" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono"
                     value={formData.throughput || 0} onChange={e => setFormData({ ...formData, throughput: parseInt(e.target.value) || 0 })} />
-                  <p className="text-[10px] text-slate-500 mt-1">0 = Unlimited</p>
+                  <p className="text-[10px] text-slate-700 dark:text-slate-500 mt-1">0 = Unlimited</p>
                 </div>
               </div>
 
@@ -358,7 +358,7 @@ export default function SmscsPage() {
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Max Session Lifetime (minutes)</label>
                   <input type="number" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono"
                      value={formData.maxSessionLifetime ?? 5} onChange={e => setFormData({ ...formData, maxSessionLifetime: parseInt(e.target.value) || 0 })} />
-                  <p className="text-[10px] text-slate-500 mt-1">0 = Unlimited. Unbinds and reconnects periodically to verify upstream authentication.</p>
+                  <p className="text-[10px] text-slate-700 dark:text-slate-500 mt-1">0 = Unlimited. Unbinds and reconnects periodically to verify upstream authentication.</p>
                 </div>
               </div>
             </div>

@@ -21,6 +21,7 @@ export default function SmppClientsPage() {
   const [formData, setFormData] = useState<Partial<SmppClient>>({})
   const [isCreating, setIsCreating] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
+  const [selectedClientForModal, setSelectedClientForModal] = useState<SmppClient | null>(null)
 
   const createMut = useMutation({
     mutationFn: createSmppClient,
@@ -138,7 +139,7 @@ export default function SmppClientsPage() {
           <p className="text-slate-600 dark:text-slate-400 text-sm">Manage customers connecting via SMPP</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-500">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             Auto-refresh every 5s
             {dataUpdatedAt > 0 && (
@@ -148,7 +149,7 @@ export default function SmppClientsPage() {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-900 dark:text-white px-3 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:text-white px-3 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
             title="Refresh now"
           >
             <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
@@ -164,9 +165,9 @@ export default function SmppClientsPage() {
         </div>
       </div>
 
-      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-white/[0.05]">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.05]">
             <tr>
               <th className="px-5 py-4 font-medium">Name</th>
               <th className="px-5 py-4 font-medium">Account</th>
@@ -191,12 +192,12 @@ export default function SmppClientsPage() {
                     accounts={accounts}
                     isCreating={true}
                 />
-                <td className="px-5 py-3 text-slate-500">—</td>
-                <td className="px-5 py-3 text-slate-500">—</td>
-                <td className="px-5 py-3 text-slate-500">—</td>
+                <td className="px-5 py-3 text-slate-700 dark:text-slate-500">—</td>
+                <td className="px-5 py-3 text-slate-700 dark:text-slate-500">—</td>
+                <td className="px-5 py-3 text-slate-700 dark:text-slate-500">—</td>
                 <td className="px-5 py-3 flex items-center justify-end gap-2">
                   <button onClick={handleSave} className="p-1.5 text-green-400 hover:bg-green-400/10 rounded transition" title="Save"><Check size={16} /></button>
-                  <button onClick={handleCancel} className="p-1.5 text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
+                  <button onClick={handleCancel} className="p-1.5 text-slate-700 dark:text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
                 </td>
               </tr>
             )}
@@ -226,10 +227,10 @@ export default function SmppClientsPage() {
                               return match ? `${match.accountName} / ${match.username}` : `Username #${c.usernameId}`;
                             })()}
                           </span>
-                        ) : <span className="text-slate-500 text-xs text-red-400">Missing Username</span>}
+                        ) : <span className="text-slate-700 dark:text-slate-500 text-xs text-red-400">Missing Username</span>}
                       </td>
                       <td className="px-5 py-3 font-mono text-xs">{c.systemId}</td>
-                      <td className="px-5 py-3 font-mono text-xs text-slate-500">••••••••</td>
+                      <td className="px-5 py-3 font-mono text-xs text-slate-700 dark:text-slate-500">••••••••</td>
                       <td className="px-5 py-3">
                         {c.active 
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">Active</span>
@@ -254,17 +255,23 @@ export default function SmppClientsPage() {
                   </td>
                   <td className="px-5 py-3 text-xs text-slate-600 dark:text-slate-400 font-mono">
                     {c.activeSessions && c.activeSessions.length > 0 ? (
-                      (() => {
-                        const tx = c.activeSessions.filter(s => s.bindType.includes('TRANSMITTER')).length
-                        const rx = c.activeSessions.filter(s => s.bindType.includes('RECEIVER')).length
-                        const trx = c.activeSessions.filter(s => s.bindType.includes('TRANSCEIVER')).length
-                        return `TX:${tx} RX:${rx} TRX:${trx}`
-                      })()
+                      <button
+                        onClick={() => setSelectedClientForModal(c)}
+                        className="hover:text-brand-500 hover:underline transition"
+                        title="View connection details"
+                      >
+                        {(() => {
+                          const tx = c.activeSessions.filter(s => s.bindType.includes('TRANSMITTER')).length
+                          const rx = c.activeSessions.filter(s => s.bindType.includes('RECEIVER')).length
+                          const trx = c.activeSessions.filter(s => s.bindType.includes('TRANSCEIVER')).length
+                          return `TX:${tx} RX:${rx} TRX:${trx}`
+                        })()}
+                      </button>
                     ) : (
-                      <span className="text-slate-500">—</span>
+                      <span className="text-slate-700 dark:text-slate-500">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-xs font-medium text-slate-300">
+                  <td className="px-5 py-3 text-xs font-medium text-slate-700 dark:text-slate-300">
                     {c.activeSessions && c.activeSessions.length > 0 ? (
                       (() => {
                         const uptimeSec = Math.max(...c.activeSessions.map(s => s.uptimeSeconds));
@@ -274,7 +281,7 @@ export default function SmppClientsPage() {
                         return displayUptime;
                       })()
                     ) : (
-                      <span className="text-slate-500">—</span>
+                      <span className="text-slate-700 dark:text-slate-500">—</span>
                     )}
                   </td>
                   <td className="px-5 py-3">
@@ -295,7 +302,7 @@ export default function SmppClientsPage() {
                               <Unplug size={14} /> Kick
                             </button>
                           ) : (
-                            <button disabled className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-500 bg-slate-500/10 rounded cursor-not-allowed" title="No active connections">
+                            <button disabled className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-500 bg-slate-500/10 rounded cursor-not-allowed" title="No active connections">
                               <Unplug size={14} /> Kick
                             </button>
                           )}
@@ -314,11 +321,81 @@ export default function SmppClientsPage() {
             })}
             
             {!isFetching && clients.length === 0 && !isCreating && (
-              <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-500">No smpp clients defined yet.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-700 dark:text-slate-500">No smpp clients defined yet.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      
+      {selectedClientForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-white/10">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Active Connections</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {selectedClientForModal.name} (System ID: {selectedClientForModal.systemId})
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedClientForModal(null)}
+                className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 overflow-auto flex-1">
+              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                <thead className="bg-slate-50 dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/5">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Session ID</th>
+                    <th className="px-4 py-3 font-medium">Bind Type</th>
+                    <th className="px-4 py-3 font-medium">IP Address</th>
+                    <th className="px-4 py-3 font-medium text-right">Uptime</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {selectedClientForModal.activeSessions?.map(s => {
+                    const m = Math.floor(s.uptimeSeconds / 60);
+                    const h = Math.floor(m / 60);
+                    const displayUptime = h > 0 ? `${h}h ${m % 60}m` : (m > 0 ? `${m}m` : `${s.uptimeSeconds}s`);
+                    
+                    return (
+                      <tr key={s.sessionId} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-mono text-xs">{s.sessionId}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+                            {s.bindType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-brand-600 dark:text-brand-400">
+                          {s.ipAddress || 'Unknown'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs font-medium">
+                          {displayUptime}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {(!selectedClientForModal.activeSessions || selectedClientForModal.activeSessions.length === 0) && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500">No active connections found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-slate-200 dark:border-white/10 flex justify-end">
+              <button
+                onClick={() => setSelectedClientForModal(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-sm font-medium rounded-lg transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

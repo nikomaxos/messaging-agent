@@ -14,7 +14,7 @@ function TpsCard({ label, value, icon, color }: {
       </div>
       <div>
         <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{value}</div>
-        <div className="text-[11px] text-slate-500">{label}</div>
+        <div className="text-[11px] text-slate-700 dark:text-slate-500">{label}</div>
       </div>
     </div>
   )
@@ -226,7 +226,7 @@ export default function ThroughputPage() {
         <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <BarChart3 size={22} className="text-orange-400" /> Throughput
         </h1>
-        <p className="text-slate-500 text-xs mt-0.5">
+        <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">
           Live transactions per second and message volume breakdown.
         </p>
       </div>
@@ -278,7 +278,7 @@ export default function ThroughputPage() {
         </div>
       </div>
 
-      {isLoading ? <div className="text-slate-500 text-sm">Loading…</div> : (
+      {isLoading ? <div className="text-slate-700 dark:text-slate-500 text-sm">Loading…</div> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* SMSC Throughput */}
           <div className="glass p-5 space-y-3">

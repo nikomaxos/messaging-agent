@@ -238,7 +238,7 @@ export default function DeployPage() {
               <button
                 onClick={fetchDeployInfo}
                 disabled={isFetchingInfo || isDeploying}
-                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded-lg text-sm transition disabled:opacity-50"
+                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-white/10 rounded-lg text-sm transition disabled:opacity-50"
               >
                 {isFetchingInfo ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                 Fetch Target Info
@@ -331,7 +331,7 @@ export default function DeployPage() {
                         className={`flex gap-3 p-3 rounded-lg border transition-all duration-500 h-[72px] shrink-0 ${
                           isActive ? 'bg-brand-500/10 border-brand-500/30' :
                           isCompleted ? 'bg-emerald-500/5 border-emerald-500/10 opacity-70' :
-                          'bg-white/[0.02] border-white/[0.05] opacity-40'
+                          'bg-white/[0.02] border-slate-200 dark:border-white/[0.05] opacity-40'
                         }`}
                       >
                         <div className="flex-shrink-0 mt-0.5">
@@ -353,7 +353,7 @@ export default function DeployPage() {
                           <div className={`text-sm font-semibold truncate ${isActive ? 'text-brand-300' : isCompleted ? 'text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`}>
                             {s.title}
                           </div>
-                          <div className={`text-xs mt-1 truncate ${isActive ? 'text-brand-200/70' : isCompleted ? 'text-emerald-400/50' : 'text-slate-500'}`}>
+                          <div className={`text-xs mt-1 truncate ${isActive ? 'text-brand-200/70' : isCompleted ? 'text-emerald-400/50' : 'text-slate-700 dark:text-slate-500'}`}>
                             {s.desc}
                           </div>
                         </div>
@@ -372,7 +372,7 @@ export default function DeployPage() {
                         <div className="font-bold">⚠️ VM Updates Recommended:</div>
                         <button 
                           onClick={triggerUpgrade}
-                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/50 rounded transition flex items-center gap-1"
+                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-400 border border-amber-500/50 rounded transition flex items-center gap-1"
                         >
                           <RefreshCw size={12} /> Upgrade Nodes
                         </button>
@@ -400,10 +400,10 @@ export default function DeployPage() {
         </div>
 
         {/* Live Terminal Column */}
-        <div className="lg:col-span-2 flex flex-col h-[700px] rounded-xl border border-white/[0.07] bg-[#0a0a0f] overflow-hidden shadow-2xl relative">
-          <div className="flex items-center justify-between px-4 py-3 bg-white/[0.02] border-b border-white/[0.05]">
-            <div className="flex items-center gap-2 text-slate-300 text-sm font-mono">
-              <Terminal size={16} className="text-slate-500" />
+        <div className="lg:col-span-2 flex flex-col h-[700px] rounded-xl border border-white/[0.07] bg-white dark:bg-[#0a0a0f] overflow-hidden shadow-2xl relative">
+          <div className="flex items-center justify-between px-4 py-3 bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.05]">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-sm font-mono">
+              <Terminal size={16} className="text-slate-700 dark:text-slate-500" />
               deployment_console.log [ssh-agent]
             </div>
             <div className="flex items-center gap-4">
@@ -426,7 +426,7 @@ export default function DeployPage() {
             </div>
           </div>
           
-          <div className="flex-1 p-4 overflow-y-auto font-mono text-sm leading-relaxed text-slate-300 space-y-1">
+          <div className="flex-1 p-4 overflow-y-auto font-mono text-sm leading-relaxed text-slate-700 dark:text-slate-300 space-y-1">
             {logs.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-3">
                 <Terminal size={48} className="opacity-20" />

@@ -1,8 +1,10 @@
 package com.messagingagent.admin;
 
 import com.messagingagent.model.MessageLog;
+import com.messagingagent.model.SmscSupplier;
 import com.messagingagent.repository.DeviceRepository;
 import com.messagingagent.repository.MessageLogRepository;
+import com.messagingagent.repository.SmscSupplierRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +31,7 @@ public class SystemHealthController {
 
     private final DeviceRepository deviceRepository;
     private final MessageLogRepository messageLogRepository;
+    private final SmscSupplierRepository smscSupplierRepository;
 
     @GetMapping("/health")
     public Map<String, Object> getSystemHealth() {
@@ -111,6 +114,27 @@ public class SystemHealthController {
             pipeline.put("error", e.getMessage());
         }
         health.put("pipeline", pipeline);
+
+        // ── SMSC Suppliers ───────────────────────────────────────────────────
+        List<Map<String, Object>> smscSuppliers = new ArrayList<>();
+        try {
+            for (SmscSupplier supplier : smscSupplierRepository.findAll()) {
+                Map<String, Object> sup = new LinkedHashMap<>();
+                sup.put("name", supplier.getName());
+                sup.put("systemId", supplier.getSystemId());
+                sup.put("bindType", supplier.getBindType());
+                sup.put("status", supplier.isActive() ? "ONLINE" : "OFFLINE");
+                sup.put("host", supplier.getHost());
+                sup.put("port", supplier.getPort());
+                sup.put("activeSessions", supplier.isActive() ? supplier.getMaxBinds() : 0);
+                smscSuppliers.add(sup);
+            }
+        } catch (Exception e) {
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("error", e.getMessage());
+            smscSuppliers.add(err);
+        }
+        health.put("smscSuppliers", smscSuppliers);
 
         health.put("timestamp", Instant.now().toString());
         return health;

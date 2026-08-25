@@ -27,12 +27,12 @@ export default function AuditLogPage() {
         <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Shield size={22} className="text-violet-400" /> Audit Log
         </h1>
-        <p className="text-slate-500 text-xs mt-0.5">All admin actions are automatically logged.</p>
+        <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">All admin actions are automatically logged.</p>
       </div>
 
       {/* Filters */}
       <div className="flex gap-2 items-center">
-        <Filter size={14} className="text-slate-500" />
+        <Filter size={14} className="text-slate-700 dark:text-slate-500" />
         <input
           className="bg-white/[0.04] border border-slate-300 dark:border-white/10 rounded px-3 py-1.5 text-xs text-slate-900 dark:text-white w-40 placeholder:text-slate-600"
           placeholder="Filter by username…"
@@ -51,12 +51,12 @@ export default function AuditLogPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-slate-500 text-sm">Loading…</div>
+        <div className="text-slate-700 dark:text-slate-500 text-sm">Loading…</div>
       ) : (
         <div className="glass overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
+              <tr className="text-[10px] uppercase text-slate-700 dark:text-slate-500 border-b border-slate-300 dark:border-white/5">
                 <th className="px-4 py-2 text-left">Time</th>
                 <th className="px-4 py-2 text-left">User</th>
                 <th className="px-4 py-2 text-left">Action</th>
@@ -68,7 +68,7 @@ export default function AuditLogPage() {
             <tbody>
               {items.map((a: any) => (
                 <tr key={a.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                  <td className="px-4 py-2 text-slate-500 text-xs whitespace-nowrap">
+                  <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs whitespace-nowrap">
                     {new Date(a.createdAt).toLocaleString()}
                   </td>
                   <td className="px-4 py-2 text-slate-900 dark:text-white text-xs">{a.username}</td>
@@ -80,7 +80,7 @@ export default function AuditLogPage() {
                   <td className="px-4 py-2 text-slate-600 dark:text-slate-400 text-xs">
                     {a.entityType}{a.entityId ? ` #${a.entityId}` : ''}
                   </td>
-                  <td className="px-4 py-2 text-slate-500 text-xs max-w-[300px] truncate">{a.details}</td>
+                  <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs max-w-[300px] truncate">{a.details}</td>
                   <td className="px-4 py-2 text-slate-600 text-xs font-mono">{a.ipAddress}</td>
                 </tr>
               ))}
@@ -96,7 +96,7 @@ export default function AuditLogPage() {
         <div className="flex justify-center gap-2 pt-2">
           <button className="px-3 py-1 rounded text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5 disabled:opacity-30"
             disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span className="text-xs text-slate-500 py-1">Page {page + 1} of {totalPages}</span>
+          <span className="text-xs text-slate-700 dark:text-slate-500 py-1">Page {page + 1} of {totalPages}</span>
           <button className="px-3 py-1 rounded text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5 disabled:opacity-30"
             disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>

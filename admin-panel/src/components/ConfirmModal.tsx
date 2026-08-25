@@ -16,7 +16,7 @@ export function ConfirmModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm">
       <div className="glass p-6 w-full max-w-sm rounded-xl shadow-2xl border border-slate-700/50">
         <div className="flex items-start gap-4">
           <div className="p-3 bg-red-500/10 rounded-full text-red-400">

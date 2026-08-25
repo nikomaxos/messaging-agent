@@ -105,7 +105,7 @@ export function SmppClientFormFields({
                     <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20"
                         checked={formData.active !== false} 
                         onChange={e => setFormData({ ...formData, active: e.target.checked })} /> 
-                    {isTd ? ' Active' : <span className="text-sm text-slate-300">Active Connection</span>}
+                    {isTd ? ' Active' : <span className="text-sm text-slate-700 dark:text-slate-300">Active Connection</span>}
                 </label>
             ), isTd)}
 

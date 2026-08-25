@@ -15,7 +15,7 @@ function statusPill(status: Device['status']) {
 }
 
 function BatteryIcon({ pct }: { pct?: number }) {
-  if (pct == null) return <span className="text-slate-500">—</span>
+  if (pct == null) return <span className="text-slate-700 dark:text-slate-500">—</span>
   const color = pct > 50 ? 'text-emerald-400' : pct > 20 ? 'text-yellow-400' : 'text-red-400'
   return <span className={`flex items-center gap-1 ${color}`}><Battery size={14} />{pct}%</span>
 }
@@ -26,12 +26,12 @@ function DeviceCard({ d }: { d: Device }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={`w-7 h-7 rounded-lg flex items-center justify-center
-            ${d.status === 'ONLINE' ? 'bg-emerald-900/50' : 'bg-slate-800'}`}>
+            ${d.status === 'ONLINE' ? 'bg-emerald-900/50' : 'bg-slate-50 dark:bg-slate-800'}`}>
             <Smartphone size={14} className={d.status === 'ONLINE' ? 'text-emerald-400' : 'text-slate-500'} />
           </div>
           <div>
             <div className="text-sm font-medium text-slate-200">{d.name}</div>
-            <div className="text-[10px] text-slate-500">{d.hardwareId ?? 'No ID'}</div>
+            <div className="text-[10px] text-slate-700 dark:text-slate-500">{d.hardwareId ?? 'No ID'}</div>
           </div>
         </div>
         {statusPill(d.status)}
@@ -39,7 +39,7 @@ function DeviceCard({ d }: { d: Device }) {
 
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-2 text-xs">
-        <div className="flex flex-col items-center bg-slate-800/50 rounded-lg p-2">
+        <div className="flex flex-col items-center bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
           {d.isCharging ? (
             <BatteryCharging size={12} className="text-emerald-400 mb-1 animate-pulse" />
           ) : (
@@ -54,20 +54,20 @@ function DeviceCard({ d }: { d: Device }) {
           </span>
           <span className="text-slate-600 text-[9px]">Battery</span>
         </div>
-        <div className="flex flex-col items-center bg-slate-800/50 rounded-lg p-2">
+        <div className="flex flex-col items-center bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
           <Wifi size={12} className="text-slate-600 dark:text-slate-400 mb-1" />
-          <span className="text-slate-300">{d.wifiSignalDbm != null ? `${d.wifiSignalDbm} dBm` : '—'}</span>
+          <span className="text-slate-700 dark:text-slate-300">{d.wifiSignalDbm != null ? `${d.wifiSignalDbm} dBm` : '—'}</span>
           <span className="text-slate-600 text-[9px]">Wi-Fi</span>
         </div>
-        <div className="flex flex-col items-center bg-slate-800/50 rounded-lg p-2">
+        <div className="flex flex-col items-center bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
           <Signal size={12} className="text-slate-600 dark:text-slate-400 mb-1" />
-          <span className="text-slate-300">{d.gsmSignalDbm != null ? `${d.gsmSignalDbm} dBm` : '—'}</span>
+          <span className="text-slate-700 dark:text-slate-300">{d.gsmSignalDbm != null ? `${d.gsmSignalDbm} dBm` : '—'}</span>
           <span className="text-slate-600 text-[9px]">GSM</span>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-3 text-[10px] text-slate-500">
+      <div className="flex items-center justify-between mt-3 text-[10px] text-slate-700 dark:text-slate-500">
         <span className="flex items-center gap-1">
           {d.rcsCapable
             ? <><CheckCircle size={10} className="text-emerald-500" /> RCS ready</>
@@ -93,7 +93,7 @@ function StatCard({ label, value, icon, sub }: { label: string; value: number | 
         </div>
       </div>
       <div className="text-3xl font-bold text-slate-900 dark:text-white">{value}</div>
-      {sub && <div className="text-xs text-slate-500 mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-slate-700 dark:text-slate-500 mt-1">{sub}</div>}
     </div>
   )
 }
@@ -131,9 +131,9 @@ export default function DashboardPage() {
 
       {/* Device Grid */}
       <div>
-        <h2 className="text-sm font-semibold text-slate-300 mb-3">Device Pool</h2>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Device Pool</h2>
         {devices.length === 0 ? (
-          <div className="glass p-8 text-center text-slate-500">
+          <div className="glass p-8 text-center text-slate-700 dark:text-slate-500">
             No devices registered yet. Add devices in the <strong>Devices</strong> section.
           </div>
         ) : (

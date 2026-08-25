@@ -100,7 +100,7 @@ export default function MessageTraceView({ log }: MessageTraceViewProps) {
   }, [log]);
 
   return (
-    <div className="w-full h-[400px] border border-slate-700 rounded-lg overflow-hidden bg-slate-900">
+    <div className="w-full h-[400px] border border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900">
       <ReactFlow nodes={nodes} edges={edges} fitView>
         <Background />
         <Controls />

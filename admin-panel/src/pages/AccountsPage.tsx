@@ -248,10 +248,10 @@ export default function AccountsPage() {
 
       <div className="flex gap-6 flex-1 min-h-0">
         {/* Left Sidebar (Master) */}
-        <div className="w-1/3 max-w-sm bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f]">
+        <div className="w-1/3 max-w-sm bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl flex flex-col overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-slate-200 dark:border-white/[0.05] bg-white dark:bg-[#12121f]">
              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700 dark:text-slate-500" />
                 <input 
                    type="text" 
                    placeholder="Search accounts..." 
@@ -288,7 +288,7 @@ export default function AccountsPage() {
                 </button>
              ))}
              {filteredAccounts.length === 0 && (
-                <div className="p-4 text-center text-slate-500 text-sm">No accounts found.</div>
+                <div className="p-4 text-center text-slate-700 dark:text-slate-500 text-sm">No accounts found.</div>
              )}
           </div>
         </div>
@@ -298,8 +298,8 @@ export default function AccountsPage() {
            {selectedAccount ? (
               <>
                  {/* Top Frame: Account Details */}
-                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col shrink-0 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center">
+                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl flex flex-col shrink-0 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center">
                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                           <Building2 size={18} className="text-brand-400" />
                           Account Information
@@ -315,31 +315,31 @@ export default function AccountsPage() {
                     </div>
                     <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-6">
                        <div>
-                          <p className="text-xs font-medium text-slate-500 mb-1">Company Name</p>
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-500 mb-1">Company Name</p>
                           <p className="text-sm text-slate-900 dark:text-white font-medium">{selectedAccount.companyName || '-'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-medium text-slate-500 mb-1">VAT Number</p>
-                          <p className="text-sm text-slate-300 font-mono">{selectedAccount.vatNumber || '-'}</p>
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-500 mb-1">VAT Number</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 font-mono">{selectedAccount.vatNumber || '-'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-medium text-slate-500 mb-1">Email</p>
-                          <p className="text-sm text-slate-300">{selectedAccount.email || '-'}</p>
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-500 mb-1">Email</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300">{selectedAccount.email || '-'}</p>
                        </div>
                        <div className="col-span-2">
-                          <p className="text-xs font-medium text-slate-500 mb-1">Address</p>
-                          <p className="text-sm text-slate-300">{selectedAccount.address || '-'}</p>
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-500 mb-1">Address</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300">{selectedAccount.address || '-'}</p>
                        </div>
                        <div>
-                          <p className="text-xs font-medium text-slate-500 mb-1">Contact Person</p>
-                          <p className="text-sm text-slate-300">{selectedAccount.contactPerson || '-'}</p>
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-500 mb-1">Contact Person</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300">{selectedAccount.contactPerson || '-'}</p>
                        </div>
                     </div>
                  </div>
 
                  {/* Bottom Frame: Usernames */}
-                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
+                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                           <UserCircle size={18} className="text-brand-400" />
                           Usernames & Routing
@@ -353,8 +353,8 @@ export default function AccountsPage() {
                        </button>
                     </div>
                     <div className="overflow-y-auto flex-1 p-0">
-                       <table className="w-full text-left text-sm text-slate-300">
-                         <thead className="bg-white dark:bg-[#12121f]/50 text-slate-600 dark:text-slate-400 border-b border-white/[0.05] sticky top-0">
+                       <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                         <thead className="bg-white dark:bg-[#12121f]/50 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.05] sticky top-0">
                            <tr>
                              <th className="px-6 py-3 font-medium">Username</th>
                              <th className="px-6 py-3 font-medium">Channels</th>
@@ -368,16 +368,16 @@ export default function AccountsPage() {
                                <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{u.username}</td>
                                <td className="px-6 py-4">
                                   <div className="flex gap-2">
-                                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${u.smppEnabled ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-500'}`}>SMPP</span>
-                                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${u.apiEnabled ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>API</span>
-                                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${u.webEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>WEB</span>
+                                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${u.smppEnabled ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-500'}`}>SMPP</span>
+                                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${u.apiEnabled ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-500'}`}>API</span>
+                                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${u.webEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-500'}`}>WEB</span>
                                   </div>
                                </td>
                                <td className="px-6 py-4">
                                   <div className="flex flex-col gap-1">
                                     <span className="text-xs text-slate-600 dark:text-slate-400">IP Lock: {u.enforceIpWhitelist ? <span className="text-green-400">ON</span> : 'OFF'}</span>
                                     {u.banned && <span className="inline-block mt-1 px-2 py-0.5 bg-red-500/20 border border-red-500/50 text-red-500 text-[10px] uppercase font-bold rounded-sm w-fit">BANNED</span>}
-                                    {u.whitelistedIps && <span className="text-[10px] text-slate-500 font-mono truncate max-w-[150px]" title={u.whitelistedIps}>{u.whitelistedIps}</span>}
+                                    {u.whitelistedIps && <span className="text-[10px] text-slate-700 dark:text-slate-500 font-mono truncate max-w-[150px]" title={u.whitelistedIps}>{u.whitelistedIps}</span>}
                                   </div>
                                </td>
                                <td className="px-6 py-4 text-right">
@@ -387,7 +387,7 @@ export default function AccountsPage() {
                              </tr>
                            ))}
                            {selectedAccount.usernames.length === 0 && (
-                             <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500">No usernames configured yet.</td></tr>
+                             <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-700 dark:text-slate-500">No usernames configured yet.</td></tr>
                            )}
                          </tbody>
                        </table>
@@ -396,8 +396,8 @@ export default function AccountsPage() {
 
                  {/* Third Frame: SMSC Suppliers (Only for SUPPLIER or BILATERAL) */}
                  {(selectedAccount.type === 'SUPPLIER' || selectedAccount.type === 'BILATERAL') && (
-                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
+                 <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 dark:border-white/[0.05] bg-white dark:bg-[#12121f] flex justify-between items-center shrink-0">
                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                           <Server size={18} className="text-blue-400" />
                           SMSC Supplier Records
@@ -407,8 +407,8 @@ export default function AccountsPage() {
                        </Link>
                     </div>
                     <div className="overflow-y-auto flex-1 p-0">
-                       <table className="w-full text-left text-sm text-slate-300">
-                         <thead className="bg-white dark:bg-[#12121f]/50 text-slate-600 dark:text-slate-400 border-b border-white/[0.05] sticky top-0">
+                       <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                         <thead className="bg-white dark:bg-[#12121f]/50 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.05] sticky top-0">
                            <tr>
                              <th className="px-6 py-3 font-medium">Name</th>
                              <th className="px-6 py-3 font-medium">System ID</th>
@@ -436,7 +436,7 @@ export default function AccountsPage() {
                                             : <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">Unbound</span>}
                                      </div>
                                      {wrapper.uptimeSeconds != null && (
-                                       <span className="text-[10px] text-slate-500">
+                                       <span className="text-[10px] text-slate-700 dark:text-slate-500">
                                          Up: {Math.floor(wrapper.uptimeSeconds / 3600)}h {Math.floor((wrapper.uptimeSeconds % 3600) / 60)}m
                                        </span>
                                      )}
@@ -446,7 +446,7 @@ export default function AccountsPage() {
                                );
                              })}
                            {smscSuppliers.filter((w: any) => w.supplier.accountId === selectedAccount.id).length === 0 && (
-                             <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-500">No SMSC Suppliers configured for this account.</td></tr>
+                             <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-700 dark:text-slate-500">No SMSC Suppliers configured for this account.</td></tr>
                            )}
                          </tbody>
                        </table>
@@ -455,8 +455,8 @@ export default function AccountsPage() {
                  )}
               </>
            ) : (
-              <div className="flex-1 flex items-center justify-center bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl">
-                 <div className="text-center text-slate-500 flex flex-col items-center gap-3">
+              <div className="flex-1 flex items-center justify-center bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl">
+                 <div className="text-center text-slate-700 dark:text-slate-500 flex flex-col items-center gap-3">
                     <Building2 size={48} className="opacity-20" />
                     <p>Select an account from the sidebar<br/>to view details and routing configuration.</p>
                  </div>
@@ -467,7 +467,7 @@ export default function AccountsPage() {
 
       {/* Account Basic Info Modal */}
       {showAccountModal && editingAccountParams && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f]">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -524,7 +524,7 @@ export default function AccountsPage() {
 
       {/* Username Modal */}
       {showUsernameModal && editingUsername && (
-        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f]">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -546,7 +546,7 @@ export default function AccountsPage() {
                    <div className="grid grid-cols-2 gap-4">
                       <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-300 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
                         <input type="checkbox" checked={editingUsername.enforceIpWhitelist || false} onChange={e => setEditingUsername({...editingUsername, enforceIpWhitelist: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
-                        <span className="text-sm text-slate-300">Enforce IP Whitelist</span>
+                        <span className="text-sm text-slate-700 dark:text-slate-300">Enforce IP Whitelist</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-brand-500/30 bg-brand-500/5 hover:bg-brand-500/10 transition">
                         <input type="checkbox" checked={editingUsername.smppEnabled || false} onChange={e => setEditingUsername({...editingUsername, smppEnabled: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
@@ -554,11 +554,11 @@ export default function AccountsPage() {
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-300 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
                         <input type="checkbox" checked={editingUsername.apiEnabled || false} onChange={e => setEditingUsername({...editingUsername, apiEnabled: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
-                        <span className="text-sm text-slate-300">HTTP API Access</span>
+                        <span className="text-sm text-slate-700 dark:text-slate-300">HTTP API Access</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-slate-300 dark:border-white/5 hover:bg-slate-200/50 dark:bg-white/5 transition">
                         <input type="checkbox" checked={editingUsername.webEnabled || false} onChange={e => setEditingUsername({...editingUsername, webEnabled: e.target.checked})} className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20" />
-                        <span className="text-sm text-slate-300">Web Portal Access</span>
+                        <span className="text-sm text-slate-700 dark:text-slate-300">Web Portal Access</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition col-span-2 mt-2">
                         <input type="checkbox" checked={editingUsername.banned || false} onChange={e => setEditingUsername({...editingUsername, banned: e.target.checked})} className="form-checkbox text-red-500 rounded bg-white dark:bg-[#12121f] border-red-500/50" />
@@ -602,7 +602,7 @@ export default function AccountsPage() {
 
       {/* SMPP Configuration Modal (Dynamic flow for usernames) */}
       {showSmppModal && pendingSmppConfigs.length > 0 && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-brand-500/30 rounded-xl w-full max-w-md shadow-[0_0_50px_rgba(var(--brand-500),0.1)] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-slate-300 dark:border-white/5 bg-white dark:bg-[#12121f]">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">

@@ -131,7 +131,7 @@ public class SmppServerService {
             long uptime = Duration.between(info.getBoundAt(), Instant.now()).getSeconds();
             
             clientSessions.computeIfAbsent(systemId, k -> new java.util.HashMap<>())
-                          .put(info.getSessionId(), bindType + "|" + uptime);
+                          .put(info.getSessionId(), bindType + "|" + uptime + "|" + (info.getClientIp() != null ? info.getClientIp() : "Unknown"));
         });
         
         clientSessions.forEach((systemId, sessions) -> {
@@ -177,9 +177,23 @@ public class SmppServerService {
             if (priorityStr != null) {
                 try { priority = Integer.parseInt(priorityStr); } catch (Exception ignored) {}
             }
+            String clientIp = "Unknown";
+            try {
+                java.lang.reflect.Method m = session.getClass().getMethod("getChannel");
+                Object channel = m.invoke(session);
+                if (channel != null) {
+                    java.lang.reflect.Method rm = channel.getClass().getMethod("remoteAddress");
+                    Object remoteAddr = rm.invoke(channel);
+                    if (remoteAddr != null) {
+                        clientIp = remoteAddr.toString().replace("/", "");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Could not extract IP from session", e);
+            }
                                         
             session.serverReady(new MessageReceiverHandlerImpl(sessionId.toString(), systemId, priority, session));
-            sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now(), priority));
+            sessionRegistry.register(sessionId.toString(), new SmppSessionInfo(sessionId.toString(), session, Instant.now(), priority, clientIp));
             log.info("SMPP session created id={} systemId={} priority={}", sessionId, systemId, priority);
         }
 

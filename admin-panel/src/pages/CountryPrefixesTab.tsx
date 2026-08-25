@@ -67,11 +67,11 @@ export default function CountryPrefixesTab() {
   const getStatusIcon = (status: string) => {
     switch(status) {
       case 'ACTIVE': return <CheckCircle2 size={14} className="text-green-500" />
-      case 'INACTIVE': return <Activity size={14} className="text-slate-400" />
+      case 'INACTIVE': return <Activity size={14} className="text-slate-600 dark:text-slate-400" />
       case 'NOT_MNO_MVNO': return <Info size={14} className="text-blue-500" />
       case 'DEACTIVATED': return <XCircle size={14} className="text-red-500" />
       case 'MERGED': return <AlertTriangle size={14} className="text-orange-500" />
-      default: return <Activity size={14} className="text-slate-500" />
+      default: return <Activity size={14} className="text-slate-700 dark:text-slate-500" />
     }
   }
 
@@ -93,7 +93,7 @@ export default function CountryPrefixesTab() {
                 qc.invalidateQueries({ queryKey: ['countryPrefixes'] });
               }).catch((err: any) => alert("Error syncing prefixes: " + err.message));
             }
-          }} className="bg-slate-800 hover:bg-slate-700 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
+          }} className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition">
             <Database size={16} /> Sync Carrier Data
           </button>
         </div>
@@ -123,10 +123,10 @@ export default function CountryPrefixesTab() {
               <span className="text-red-500">{testResult.error}</span>
             ) : (
               <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-                <div className="text-slate-500">Valid: <span className={testResult.valid ? "text-green-500 font-bold" : "text-red-500 font-bold"}>{testResult.valid ? 'YES' : 'NO'}</span></div>
-                <div className="text-slate-500">Type: <span className="text-slate-900 dark:text-white font-medium">{testResult.numberType}</span></div>
-                <div className="text-slate-500">Region: <span className="text-slate-900 dark:text-white font-medium">{testResult.region} (+{testResult.countryCode})</span></div>
-                <div className="text-slate-500">Carrier: <span className="text-slate-900 dark:text-white font-medium">{testResult.carrier || 'Unknown'}</span></div>
+                <div className="text-slate-700 dark:text-slate-500">Valid: <span className={testResult.valid ? "text-green-500 font-bold" : "text-red-500 font-bold"}>{testResult.valid ? 'YES' : 'NO'}</span></div>
+                <div className="text-slate-700 dark:text-slate-500">Type: <span className="text-slate-900 dark:text-white font-medium">{testResult.numberType}</span></div>
+                <div className="text-slate-700 dark:text-slate-500">Region: <span className="text-slate-900 dark:text-white font-medium">{testResult.region} (+{testResult.countryCode})</span></div>
+                <div className="text-slate-700 dark:text-slate-500">Carrier: <span className="text-slate-900 dark:text-white font-medium">{testResult.carrier || 'Unknown'}</span></div>
               </div>
             )}
           </div>
@@ -137,7 +137,7 @@ export default function CountryPrefixesTab() {
       <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-300 dark:border-white/10 rounded-xl overflow-hidden shadow-sm flex flex-col">
         <div className="p-4 border-b border-slate-200 dark:border-white/5 flex gap-4 bg-slate-50 dark:bg-black/20">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
+            <Search className="absolute left-3 top-2.5 text-slate-600 dark:text-slate-400 w-4 h-4" />
             <input 
               type="text" 
               placeholder="Search country or network..." 
@@ -163,9 +163,9 @@ export default function CountryPrefixesTab() {
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/5">
               {isFetching && flattenedData.length === 0 ? (
-                <tr><td colSpan={7} className="p-8 text-center text-slate-500">Loading network data...</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-slate-700 dark:text-slate-500">Loading network data...</td></tr>
               ) : filteredData.length === 0 ? (
-                <tr><td colSpan={7} className="p-8 text-center text-slate-500">No networks found.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-slate-700 dark:text-slate-500">No networks found.</td></tr>
               ) : filteredData.map((row: any) => (
                 <tr key={row.rowId} className="hover:bg-white dark:hover:bg-white/[0.02] transition-colors">
                   
@@ -180,7 +180,7 @@ export default function CountryPrefixesTab() {
                             <span className="text-[10px] bg-slate-200 dark:bg-white/10 px-1 rounded">{row.countryIso || row.isoCode}</span>
                           </div>
                           
-                          <div className="text-xs text-slate-500 font-mono mb-2">MCC: {(row.countryMccs || row.mccs)?.join(', ') || '-'}</div>
+                          <div className="text-xs text-slate-700 dark:text-slate-500 font-mono mb-2">MCC: {(row.countryMccs || row.mccs)?.join(', ') || '-'}</div>
 
                           <div className="flex gap-2">
                             {row.countryQuietHoursStart && row.countryQuietHoursEnd && (
@@ -216,7 +216,7 @@ export default function CountryPrefixesTab() {
 
                   {/* Network Columns */}
                   {row.isCountryRow ? (
-                    <td colSpan={6} className="px-4 py-3 text-slate-400 italic">No networks mapped</td>
+                    <td colSpan={6} className="px-4 py-3 text-slate-600 dark:text-slate-400 italic">No networks mapped</td>
                   ) : (
                     <>
                       <td className="px-4 py-3 text-slate-800 dark:text-slate-200">{row.name}</td>
@@ -256,14 +256,14 @@ export default function CountryPrefixesTab() {
                         {editingNetworkId === row.id ? (
                           <input type="text" value={networkForm.notes || ''} onChange={e => setNetworkForm({...networkForm, notes: e.target.value})} className="w-full bg-white dark:bg-[#12121f] border rounded px-2 py-1 text-xs" placeholder="Admin notes..." />
                         ) : (
-                          <span className="text-xs text-slate-500 line-clamp-2">{row.notes || '-'}</span>
+                          <span className="text-xs text-slate-700 dark:text-slate-500 line-clamp-2">{row.notes || '-'}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {editingNetworkId === row.id ? (
                           <div className="flex justify-end gap-1">
                             <button onClick={() => updateNetworkMut.mutate({ id: row.id, data: { ...row, mncs: networkForm.mncs.split(',').map((s:string)=>s.trim()).filter(Boolean), prefixes: networkForm.prefixes.split(',').map((s:string)=>s.trim()).filter(Boolean), operatingStatus: networkForm.operatingStatus, notes: networkForm.notes } })} className="text-green-500 p-1.5 bg-green-500/10 hover:bg-green-500/20 rounded"><Save size={14}/></button>
-                            <button onClick={() => setEditingNetworkId(null)} className="text-slate-500 p-1.5 bg-slate-500/10 hover:bg-slate-500/20 rounded"><X size={14}/></button>
+                            <button onClick={() => setEditingNetworkId(null)} className="text-slate-700 dark:text-slate-500 p-1.5 bg-slate-500/10 hover:bg-slate-500/20 rounded"><X size={14}/></button>
                           </div>
                         ) : (
                           <button onClick={() => { 
@@ -290,13 +290,13 @@ export default function CountryPrefixesTab() {
 
       {/* Country Edit Modal */}
       {editingCountry && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#1a1a2e] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                 <Globe size={18} className="text-blue-500"/> Edit Country: {editingCountry.name}
               </h3>
-              <button onClick={() => setEditingCountry(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <button onClick={() => setEditingCountry(null)} className="text-slate-600 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-700 dark:text-slate-300">
                 <X size={20} />
               </button>
             </div>
@@ -358,7 +358,7 @@ export default function CountryPrefixesTab() {
             </div>
 
             <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex justify-end gap-3">
-              <button onClick={() => setEditingCountry(null)} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5 rounded-lg transition-colors">
+              <button onClick={() => setEditingCountry(null)} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-100 dark:bg-white/5 rounded-lg transition-colors">
                 Cancel
               </button>
               <button 

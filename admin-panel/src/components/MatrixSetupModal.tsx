@@ -25,7 +25,7 @@ export function MatrixSetupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm p-4">
       <div className="glass w-full max-w-lg rounded-xl shadow-2xl border border-brand-500/50 flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-4 border-b border-brand-500/20 bg-brand-500/10 rounded-t-xl">
           <div className="flex items-center gap-3">
@@ -43,7 +43,7 @@ export function MatrixSetupModal({
         </div>
         
         <div className="p-6 overflow-y-auto space-y-5 text-sm">
-          <p className="text-slate-300">
+          <p className="text-slate-700 dark:text-slate-300">
             Follow these steps to link this device's physical Google Messages app to the Matrix routing bridge.
           </p>
 
@@ -64,22 +64,22 @@ export function MatrixSetupModal({
               <div>
                 <h4 className="font-semibold text-slate-200">Log In / Register</h4>
                 <p className="text-slate-600 dark:text-slate-400 mt-1 mb-2">If this device has not been paired before, click <b>Register</b>. Otherwise, <b>Log in</b> with these exact credentials:</p>
-                <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden text-sm">
+                <div className="bg-white dark:bg-slate-900 border border-slate-700 rounded-lg overflow-hidden text-sm">
                   <div className="flex items-center justify-between p-2.5 border-b border-slate-700/50">
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-500 text-xs uppercase font-bold w-16">USER</span>
+                      <span className="text-slate-700 dark:text-slate-500 text-xs uppercase font-bold w-16">USER</span>
                       <code className="text-emerald-400 font-mono select-all">device_{device.id}</code>
                     </div>
-                    <button onClick={() => handleCopy(`device_${device.id}`)} className="text-slate-500 hover:text-slate-900 dark:text-white transition" title="Copy Username">
+                    <button onClick={() => handleCopy(`device_${device.id}`)} className="text-slate-700 dark:text-slate-500 hover:text-slate-900 dark:text-white transition" title="Copy Username">
                       {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                     </button>
                   </div>
                   <div className="flex items-center justify-between p-2.5">
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-500 text-xs uppercase font-bold w-16">PASS</span>
-                      <code className="text-amber-400 font-mono select-all">msgagent-device-{device.id}</code>
+                      <span className="text-slate-700 dark:text-slate-500 text-xs uppercase font-bold w-16">PASS</span>
+                      <code className="text-amber-600 dark:text-amber-400 font-mono select-all">msgagent-device-{device.id}</code>
                     </div>
-                    <button onClick={() => handleCopy(`msgagent-device-${device.id}`)} className="text-slate-500 hover:text-slate-900 dark:text-white transition" title="Copy Password">
+                    <button onClick={() => handleCopy(`msgagent-device-${device.id}`)} className="text-slate-700 dark:text-slate-500 hover:text-slate-900 dark:text-white transition" title="Copy Password">
                       <Copy size={14} />
                     </button>
                   </div>
@@ -92,7 +92,7 @@ export function MatrixSetupModal({
               <div>
                 <h4 className="font-semibold text-slate-200">Chat with the Bot</h4>
                 <p className="text-slate-600 dark:text-slate-400 mt-1">Start a new Direct Message in Element with the Mautrix Bridge Bot:</p>
-                <div className="bg-slate-900 border border-slate-700 rounded-lg p-2 mt-2 font-mono text-cyan-400 select-all">
+                <div className="bg-white dark:bg-slate-900 border border-slate-700 rounded-lg p-2 mt-2 font-mono text-cyan-400 select-all">
                   {botUserId}
                 </div>
               </div>
@@ -103,8 +103,8 @@ export function MatrixSetupModal({
               <div>
                 <h4 className="font-semibold text-slate-200">Generate QR Code</h4>
                 <p className="text-slate-600 dark:text-slate-400 mt-1">Send the following message to the bot to request a pairing QR Code:</p>
-                <div className="bg-slate-900 border border-slate-700 rounded-lg p-2 mt-2 flex items-center gap-2">
-                  <span className="text-slate-500">&gt;</span> <code className="text-amber-400">login</code>
+                <div className="bg-white dark:bg-slate-900 border border-slate-700 rounded-lg p-2 mt-2 flex items-center gap-2">
+                  <span className="text-slate-700 dark:text-slate-500">&gt;</span> <code className="text-amber-600 dark:text-amber-400">login</code>
                 </div>
               </div>
             </div>

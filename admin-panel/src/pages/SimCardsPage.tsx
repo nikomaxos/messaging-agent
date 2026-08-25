@@ -101,7 +101,7 @@ export default function SimCardsPage() {
             + Add SIM Manually
           </button>
           <button 
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 hover:text-slate-900 dark:text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-100 dark:bg-slate-700 hover:text-slate-900 dark:text-white transition-colors"
             onClick={() => qc.invalidateQueries({ queryKey: ['sim-cards'] })}
             disabled={isFetching}
           >
@@ -124,7 +124,7 @@ export default function SimCardsPage() {
           </thead>
           <tbody>
             {isCreating && (
-              <tr className="border-b-[3px] border-emerald-500/10 bg-[#0a0a14] shadow-inner">
+              <tr className="border-b-[3px] border-emerald-500/10 bg-white dark:bg-[#0a0a14] shadow-inner">
                 <td colSpan={6} className="p-4">
                   <div className="p-4 bg-emerald-900/10 rounded-xl border border-emerald-500/30 w-full relative grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
@@ -162,12 +162,12 @@ export default function SimCardsPage() {
             {sims.map((sim: SimCard) => (
               <Fragment key={sim.id}>
                 {editingId === sim.id ? (
-                  <tr className="border-b-[3px] border-indigo-500/10 bg-[#0a0a14] shadow-inner">
+                  <tr className="border-b-[3px] border-indigo-500/10 bg-white dark:bg-[#0a0a14] shadow-inner">
                     <td colSpan={6} className="p-4">
-                      <div className="p-4 bg-slate-800/60 rounded-xl border border-indigo-500/30 w-full relative grid grid-cols-1 md:grid-cols-5 gap-4">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-indigo-500/30 w-full relative grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
                           <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ICCID (Hardware ID)</label>
-                          <input className="inp w-full text-slate-500 cursor-not-allowed" readOnly value={sim.iccid} />
+                          <input className="inp w-full text-slate-700 dark:text-slate-500 cursor-not-allowed" readOnly value={sim.iccid} />
                         </div>
                         <div>
                           <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Phone Number</label>
@@ -193,13 +193,13 @@ export default function SimCardsPage() {
                     </td>
                   </tr>
                 ) : (
-                  <tr className="border-b border-slate-700/50 hover:bg-slate-800/20 transition-colors">
+                  <tr className="border-b border-slate-700/50 hover:bg-slate-50 dark:bg-slate-800/20 transition-colors">
                     <td className="px-4 py-3 font-mono text-sm text-slate-200">{sim.iccid}</td>
                     <td className="px-4 text-brand-400 font-medium">{sim.phoneNumber || '—'}</td>
                     <td className="px-4">
                       <div className="flex flex-col">
                         <span className="text-slate-200 text-xs">{sim.carrierName || 'Unknown Carrier'}</span>
-                        <span className="text-slate-500 font-mono text-[10px]">{sim.imsi ? `IMSI: ${sim.imsi}` : 'No IMSI'}</span>
+                        <span className="text-slate-700 dark:text-slate-500 font-mono text-[10px]">{sim.imsi ? `IMSI: ${sim.imsi}` : 'No IMSI'}</span>
                         <span className="text-slate-600 dark:text-slate-400 font-mono text-[10px]">{sim.imei ? `IMEI: ${sim.imei}` : ''}</span>
                       </div>
                     </td>
@@ -212,13 +212,13 @@ export default function SimCardsPage() {
                           {sim.device.name}
                         </span>
                       ) : (
-                        <span className="text-slate-500 italic text-xs">Unassigned</span>
+                        <span className="text-slate-700 dark:text-slate-500 italic text-xs">Unassigned</span>
                       )}
                     </td>
                     <td className="px-4">
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <select 
-                          className="bg-white dark:bg-[#12121f] text-xs text-slate-300 border border-slate-700 rounded px-2 py-1 max-w-[140px]"
+                          className="bg-white dark:bg-[#12121f] text-xs text-slate-700 dark:text-slate-300 border border-slate-700 rounded px-2 py-1 max-w-[140px]"
                           value={sim.device?.id || ''}
                           onChange={(e) => handleAssign(sim.id, e.target.value)}
                         >
@@ -237,7 +237,7 @@ export default function SimCardsPage() {
               </Fragment>
             ))}
             {sims.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No SIM cards discovered yet. Please connect an agent device with a SIM.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-700 dark:text-slate-500">No SIM cards discovered yet. Please connect an agent device with a SIM.</td></tr>
             )}
           </tbody>
         </table>

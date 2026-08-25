@@ -41,7 +41,7 @@ const GaugeRing = ({ value, label, color, icon: Icon, detail }: {
       </div>
       <div className="text-center">
         <div className="text-sm font-medium text-slate-900 dark:text-white">{label}</div>
-        {detail && <div className="text-[10px] text-slate-500 mt-0.5">{detail}</div>}
+        {detail && <div className="text-[10px] text-slate-700 dark:text-slate-500 mt-0.5">{detail}</div>}
       </div>
     </div>
   )
@@ -51,9 +51,9 @@ const MetricCard = ({ label, value, sub, color = 'text-slate-900 dark:text-white
   label: string, value: string | number, sub?: string, color?: string
 }) => (
   <div className="glass p-4">
-    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</div>
+    <div className="text-[10px] font-bold text-slate-700 dark:text-slate-500 uppercase tracking-wider mb-1">{label}</div>
     <div className={`text-2xl font-bold ${color}`}>{value}</div>
-    {sub && <div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+    {sub && <div className="text-xs text-slate-700 dark:text-slate-500 mt-0.5">{sub}</div>}
   </div>
 )
 
@@ -88,7 +88,7 @@ export default function InfraMonitoringPage() {
         </button>
       </div>
 
-      {isLoading && <div className="text-slate-500 text-center py-12">Loading system metrics…</div>}
+      {isLoading && <div className="text-slate-700 dark:text-slate-500 text-center py-12">Loading system metrics…</div>}
 
       {data && (
         <>
@@ -122,7 +122,7 @@ export default function InfraMonitoringPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-slate-200/50 dark:bg-white/5 rounded-lg p-3 text-center">
                 <div className="text-2xl font-bold text-slate-900 dark:text-white">{fleet.total ?? 0}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Total</div>
+                <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase font-bold">Total</div>
               </div>
               <div className="bg-emerald-500/10 rounded-lg p-3 text-center border border-emerald-500/20">
                 <div className="text-2xl font-bold text-emerald-400">{fleet.online ?? 0}</div>
@@ -130,10 +130,10 @@ export default function InfraMonitoringPage() {
               </div>
               <div className="bg-slate-500/10 rounded-lg p-3 text-center">
                 <div className="text-2xl font-bold text-slate-600 dark:text-slate-400">{fleet.offline ?? 0}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Offline</div>
+                <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase font-bold">Offline</div>
               </div>
               <div className="bg-amber-500/10 rounded-lg p-3 text-center border border-amber-500/20">
-                <div className="text-2xl font-bold text-amber-400">{fleet.busy ?? 0}</div>
+                <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{fleet.busy ?? 0}</div>
                 <div className="text-[10px] text-amber-600 uppercase font-bold">Busy</div>
               </div>
             </div>
@@ -147,10 +147,10 @@ export default function InfraMonitoringPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="bg-slate-500/10 rounded-lg p-3 text-center">
                 <div className="text-xl font-bold text-slate-900 dark:text-white">{pipeline.receivedLastHour ?? 0}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Received (1h)</div>
+                <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase font-bold">Received (1h)</div>
               </div>
               <div className="bg-amber-500/10 rounded-lg p-3 text-center">
-                <div className="text-xl font-bold text-amber-400">{pipeline.dispatchedLastHour ?? 0}</div>
+                <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{pipeline.dispatchedLastHour ?? 0}</div>
                 <div className="text-[10px] text-amber-600 uppercase font-bold">Dispatched (1h)</div>
               </div>
               <div className="bg-emerald-500/10 rounded-lg p-3 text-center border border-emerald-500/20">
@@ -163,11 +163,11 @@ export default function InfraMonitoringPage() {
               </div>
               <div className="bg-emerald-500/5 rounded-lg p-3 text-center">
                 <div className="text-xl font-bold text-emerald-300">{pipeline.deliveredToday ?? 0}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Delivered Today</div>
+                <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase font-bold">Delivered Today</div>
               </div>
               <div className="bg-red-500/5 rounded-lg p-3 text-center">
                 <div className="text-xl font-bold text-red-300">{pipeline.failedToday ?? 0}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold">Failed Today</div>
+                <div className="text-[10px] text-slate-700 dark:text-slate-500 uppercase font-bold">Failed Today</div>
               </div>
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function InfraMonitoringPage() {
           {disks.length > 1 && (
             <div className="glass p-5">
               <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                <HardDrive size={14} className="text-amber-400" /> Disk Partitions
+                <HardDrive size={14} className="text-amber-600 dark:text-amber-400" /> Disk Partitions
               </h2>
               <div className="space-y-2">
                 {disks.map((d: any, i: number) => {
@@ -188,7 +188,7 @@ export default function InfraMonitoringPage() {
                         <div className={`h-full rounded-full transition-all duration-500 ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-brand-500'}`}
                           style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-xs text-slate-500 w-32 text-right">
+                      <span className="text-xs text-slate-700 dark:text-slate-500 w-32 text-right">
                         {formatBytes(d.usedSpace)} / {formatBytes(d.totalSpace)}
                       </span>
                     </div>

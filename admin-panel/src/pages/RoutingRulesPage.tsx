@@ -215,7 +215,7 @@ export default function RoutingRulesPage() {
             <Settings className="w-6 h-6 text-blue-500" />
             Rules Engine
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-slate-700 dark:text-slate-500 dark:text-slate-400 mt-1">
             Build automations to route, rewrite, and block messages.
           </p>
         </div>
@@ -234,16 +234,16 @@ export default function RoutingRulesPage() {
               <div className={`w-3 h-3 rounded-full ${r.active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-400'}`}></div>
               <div>
                 <h3 className="font-semibold text-slate-800 dark:text-white">{r.name}</h3>
-                <p className="text-sm text-slate-500">{r.description || 'No description'} • Priority: {r.priority}</p>
+                <p className="text-sm text-slate-700 dark:text-slate-500">{r.description || 'No description'} • Priority: {r.priority}</p>
               </div>
             </div>
             
             <div className="flex gap-4 items-center">
-              <div className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+              <div className="text-xs text-slate-700 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
                 {r.conditions.length} Triggers
               </div>
               <ArrowRight className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-              <div className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+              <div className="text-xs text-slate-700 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
                 {r.actions.length} Actions
               </div>
               
@@ -259,21 +259,21 @@ export default function RoutingRulesPage() {
           </div>
         ))}
         {rules.length === 0 && (
-          <div className="text-center py-12 text-slate-500 bg-slate-100 dark:bg-[#1a1a2e]/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
+          <div className="text-center py-12 text-slate-700 dark:text-slate-500 bg-slate-100 dark:bg-[#1a1a2e]/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-600">
             No routing rules defined. Create one to get started.
           </div>
         )}
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-[#12121f]">
               <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                 <Settings className="w-5 h-5 text-blue-500" />
                 {editingId ? 'Edit Automation' : 'New Automation'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-slate-700 p-1">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-700 dark:text-slate-500 hover:text-slate-700 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -283,7 +283,7 @@ export default function RoutingRulesPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
-                  className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === tab ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-[#1a1a2e]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === tab ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-[#1a1a2e]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-700'}`}
                 >
                   {tab === 'BUILDER' ? 'Rule Builder' : tab === 'TESTER' ? 'Dry Run Tester' : 'Live Flowchart'}
                 </button>
@@ -366,7 +366,7 @@ export default function RoutingRulesPage() {
                         </div>
                       ))}
                       
-                      <button onClick={() => setConditions([...conditions, { field: 'MESSAGE_TEXT', operator: 'MATCHES_REGEX', value: '' }])} className="bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition w-fit">
+                      <button onClick={() => setConditions([...conditions, { field: 'MESSAGE_TEXT', operator: 'MATCHES_REGEX', value: '' }])} className="bg-orange-600 hover:bg-orange-500 text-slate-900 dark:text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition w-fit">
                         <Plus className="w-4 h-4" /> Add Trigger
                       </button>
                     </div>
@@ -375,7 +375,7 @@ export default function RoutingRulesPage() {
                       <p className="text-xs text-orange-700 dark:text-orange-500 mb-2 font-medium">Regex Snippets:</p>
                       <div className="flex flex-wrap gap-2">
                         {REGEX_SNIPPETS.map((snip, i) => (
-                          <button key={i} title={snip.desc} onClick={() => setConditions([...conditions, { field: 'MESSAGE_TEXT', operator: 'MATCHES_REGEX', value: snip.regex }])} className="text-xs bg-white dark:bg-[#1a1a2e] border border-slate-200 dark:border-slate-600 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-1 transition-colors">
+                          <button key={i} title={snip.desc} onClick={() => setConditions([...conditions, { field: 'MESSAGE_TEXT', operator: 'MATCHES_REGEX', value: snip.regex }])} className="text-xs bg-white dark:bg-[#1a1a2e] border border-slate-200 dark:border-slate-600 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-700 flex items-center gap-1 transition-colors">
                             <Code className="w-3 h-3 text-blue-500" /> {snip.name}
                           </button>
                         ))}
@@ -422,7 +422,7 @@ export default function RoutingRulesPage() {
                               <option value="UNKNOWN">UNKNOWN (Unknown)</option>
                             </select>
                           ) : a.actionType === 'DROP' ? (
-                            <div className="flex-1 p-2 text-sm text-slate-500 italic">No configuration needed. Message will be silently dropped.</div>
+                            <div className="flex-1 p-2 text-sm text-slate-700 dark:text-slate-500 italic">No configuration needed. Message will be silently dropped.</div>
                           ) : (
                             <input type="text" value={a.actionValue} onChange={e => {
                               const newActs = [...actions];
@@ -452,7 +452,7 @@ export default function RoutingRulesPage() {
                     <h3 className="font-semibold text-lg flex items-center gap-2">
                       <Play className="w-5 h-5 text-blue-500" /> Send Dummy Payload
                     </h3>
-                    <p className="text-sm text-slate-500">Test how the active rules in the system will evaluate this message. Save your rule first to include it.</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-500">Test how the active rules in the system will evaluate this message. Save your rule first to include it.</p>
                     
                     <div>
                       <label className="block text-sm font-medium mb-1">Client System ID</label>
@@ -471,19 +471,19 @@ export default function RoutingRulesPage() {
                       <textarea value={testPayload.messageText} onChange={e => setTestPayload({...testPayload, messageText: e.target.value})} className="w-full bg-slate-50 dark:bg-[#12121f] border rounded-lg p-2 h-24" />
                     </div>
 
-                    <button onClick={handleTest} className="w-full bg-slate-800 dark:bg-slate-100 text-slate-900 dark:text-white dark:text-slate-900 py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors">
+                    <button onClick={handleTest} className="w-full bg-slate-50 dark:bg-slate-800 dark:bg-slate-100 text-slate-900 dark:text-white dark:text-slate-900 py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-slate-100 dark:bg-slate-700 transition-colors">
                       <Play className="w-4 h-4" /> Execute Dry Run
                     </button>
                   </div>
                   
-                  <div className="flex-1 bg-slate-900 rounded-xl p-4 text-emerald-400 font-mono text-sm overflow-y-auto">
+                  <div className="flex-1 bg-white dark:bg-slate-900 rounded-xl p-4 text-emerald-400 font-mono text-sm overflow-y-auto">
                     <h4 className="text-slate-900 dark:text-white mb-2 pb-2 border-b border-slate-700">Execution Result:</h4>
                     {testResult ? (
                       <pre className="whitespace-pre-wrap">
                         {JSON.stringify(testResult, null, 2)}
                       </pre>
                     ) : (
-                      <span className="text-slate-500">No result yet. Run the test to see output.</span>
+                      <span className="text-slate-700 dark:text-slate-500">No result yet. Run the test to see output.</span>
                     )}
                   </div>
                 </div>
@@ -506,7 +506,7 @@ export default function RoutingRulesPage() {
             </div>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 bg-white dark:bg-[#1a1a2e]">
-              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-700 rounded-lg transition-colors">
                 Cancel
               </button>
               <button onClick={handleSave} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-slate-900 dark:text-white font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-blue-500/30 transition-all">

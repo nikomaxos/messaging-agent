@@ -95,7 +95,7 @@ export default function PushSubscriptionPrompt() {
     }
 
     return (
-        <div className="fixed bottom-4 right-4 bg-slate-800 border border-slate-700 p-4 rounded-lg shadow-xl z-[9999] animate-in slide-in-from-bottom flex flex-col gap-3 w-80">
+        <div className="fixed bottom-4 right-4 bg-slate-50 dark:bg-slate-800 border border-slate-700 p-4 rounded-lg shadow-xl z-[9999] animate-in slide-in-from-bottom flex flex-col gap-3 w-80">
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded bg-brand-600/20 text-brand-400 flex flex-shrink-0 items-center justify-center">
                     <Bell size={20} />
@@ -110,7 +110,7 @@ export default function PushSubscriptionPrompt() {
             <div className="flex items-center justify-end gap-2 mt-1">
                 <button 
                     onClick={handleDismiss}
-                    className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-200 transition bg-slate-800/50 hover:bg-slate-700/50 rounded"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-200 transition bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:bg-slate-700/50 rounded"
                 >
                     Not Now
                 </button>

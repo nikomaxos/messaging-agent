@@ -3,13 +3,13 @@ import { Download, ShieldCheck } from 'lucide-react'
 
 export default function GuardianDownloadPage() {
   return (
-    <div className="min-h-screen bg-slate-900 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-800/50 backdrop-blur-xl border border-slate-700 p-8 rounded-3xl shadow-2xl text-center transform transition-all hover:scale-[1.02] duration-300">
+    <div className="min-h-screen bg-white dark:bg-slate-900 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full bg-slate-50 dark:bg-slate-800/50 backdrop-blur-xl border border-slate-700 p-8 rounded-3xl shadow-2xl text-center transform transition-all hover:scale-[1.02] duration-300">
         <div className="bg-indigo-500/20 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-indigo-500/30">
           <ShieldCheck className="w-12 h-12 text-indigo-400" />
         </div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">Messaging Guardian</h1>
-        <p className="text-slate-300 mb-8 leading-relaxed">
+        <p className="text-slate-700 dark:text-slate-300 mb-8 leading-relaxed">
           Download and install the Guardian app to securely auto-configure your device and keep the Messaging Agent updated.
         </p>
         

@@ -32,17 +32,17 @@ export default function DeadLetterPage() {
         <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Skull size={22} className="text-red-400" /> Dead-Letter Queue
         </h1>
-        <p className="text-slate-500 text-xs mt-0.5">
+        <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">
           Messages that failed delivery permanently. Retry or discard them.
         </p>
       </div>
 
       {isLoading ? (
-        <div className="text-slate-500 text-sm">Loading…</div>
+        <div className="text-slate-700 dark:text-slate-500 text-sm">Loading…</div>
       ) : items.length === 0 ? (
         <div className="glass p-10 text-center">
           <AlertTriangle size={32} className="text-slate-600 mx-auto mb-3" />
-          <div className="text-slate-500 text-sm">No dead-letter messages</div>
+          <div className="text-slate-700 dark:text-slate-500 text-sm">No dead-letter messages</div>
           <div className="text-slate-700 text-xs mt-1">Failed messages will appear here after 10 minutes</div>
         </div>
       ) : (
@@ -50,7 +50,7 @@ export default function DeadLetterPage() {
           <div className="glass overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-700 dark:text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">ID</th>
                   <th className="px-4 py-2 text-left">From → To</th>
                   <th className="px-4 py-2 text-left">Message</th>
@@ -68,7 +68,7 @@ export default function DeadLetterPage() {
                     </td>
                     <td className="px-4 py-2 text-slate-600 dark:text-slate-400 text-xs max-w-[200px] truncate">{m.messageText}</td>
                     <td className="px-4 py-2 text-red-400/80 text-xs max-w-[200px] truncate">{m.failureReason || '—'}</td>
-                    <td className="px-4 py-2 text-slate-500 text-xs">
+                    <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs">
                       {new Date(m.createdAt).toLocaleString()}
                     </td>
                     <td className="px-4 py-2 text-right">
@@ -99,7 +99,7 @@ export default function DeadLetterPage() {
                 className="px-3 py-1 rounded text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5 disabled:opacity-30"
                 disabled={page === 0}
                 onClick={() => setPage(p => p - 1)}>← Prev</button>
-              <span className="text-xs text-slate-500 py-1">Page {page + 1} of {totalPages}</span>
+              <span className="text-xs text-slate-700 dark:text-slate-500 py-1">Page {page + 1} of {totalPages}</span>
               <button
                 className="px-3 py-1 rounded text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white bg-slate-200/50 dark:bg-white/5 disabled:opacity-30"
                 disabled={page >= totalPages - 1}

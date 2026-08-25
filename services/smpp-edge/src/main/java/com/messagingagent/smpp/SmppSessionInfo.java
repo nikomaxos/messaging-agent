@@ -15,4 +15,5 @@ public class SmppSessionInfo {
     private SmppServerSession session;
     private Instant boundAt;
     private Integer priority;
+    private String clientIp;
 }

@@ -54,7 +54,7 @@ export default function UsersPage() {
 
       {showForm && (
         <div className="glass p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-300">{editing ? 'Edit' : 'New'} User</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{editing ? 'Edit' : 'New'} User</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Username</label>
@@ -110,7 +110,7 @@ export default function UsersPage() {
                 </td>
                 <td className="px-4">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    u.role === 'ADMIN' ? 'bg-brand-900/40 text-brand-400' : 'bg-slate-800 text-slate-600 dark:text-slate-400'
+                    u.role === 'ADMIN' ? 'bg-brand-900/40 text-brand-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                   }`}>
                     {u.role === 'ADMIN' ? <ShieldCheck size={10} /> : <ShieldOff size={10} />}
                     {u.role}
@@ -154,7 +154,7 @@ export default function UsersPage() {
                       </div>
                     ) : (
                       <>
-                        <button className="btn-secondary !px-2 !py-1 text-amber-400" title="Reset Password" onClick={() => setPwResetId(u.id)}>
+                        <button className="btn-secondary !px-2 !py-1 text-amber-600 dark:text-amber-400" title="Reset Password" onClick={() => setPwResetId(u.id)}>
                           <KeyRound size={13} />
                         </button>
                         <button className="btn-secondary !px-2 !py-1 text-brand-400" title="Edit" onClick={() => openEdit(u)}>
@@ -174,7 +174,7 @@ export default function UsersPage() {
               </tr>
             ))}
             {users.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No users found</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-700 dark:text-slate-500">No users found</td></tr>
             )}
           </tbody>
         </table>
@@ -182,7 +182,7 @@ export default function UsersPage() {
 
       {/* Confirm Dialog */}
       {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 dark:bg-black/50">
           <div className="glass p-6 max-w-sm space-y-4">
             <h3 className="text-slate-900 dark:text-white font-semibold">{confirmAction.title}</h3>
             <p className="text-slate-600 dark:text-slate-400 text-sm">{confirmAction.message}</p>

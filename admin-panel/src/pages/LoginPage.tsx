@@ -26,7 +26,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f0f1a] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#0f0f1a] px-4">
       {/* Glow bg */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-brand-600/20 rounded-full blur-3xl" />

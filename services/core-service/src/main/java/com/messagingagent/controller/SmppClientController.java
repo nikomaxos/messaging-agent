@@ -38,7 +38,8 @@ public class SmppClientController {
                 String[] parts = value.split("\\|");
                 String bindType = parts.length > 0 ? parts[0] : "UNKNOWN";
                 long uptime = parts.length > 1 ? Long.parseLong(parts[1]) : 0;
-                activeSessions.add(new SmppSessionDto(sessionId, bindType, uptime));
+                String clientIp = parts.length > 2 ? parts[2] : "Unknown";
+                activeSessions.add(new SmppSessionDto(sessionId, bindType, uptime, clientIp));
             }
             return SmppClientDto.fromEntity(client, activeSessions);
         }).collect(Collectors.toList());

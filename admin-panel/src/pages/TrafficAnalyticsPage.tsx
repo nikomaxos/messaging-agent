@@ -74,7 +74,7 @@ export default function TrafficAnalyticsPage() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <PieChart size={22} className="text-brand-400" /> Traffic Analytics
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">BI reporting, spam detection & AIT analysis</p>
+          <p className="text-slate-700 dark:text-slate-500 text-xs mt-0.5">BI reporting, spam detection & AIT analysis</p>
         </div>
         <div className="flex gap-1">
           {WINDOWS.map(w => (
@@ -94,7 +94,7 @@ export default function TrafficAnalyticsPage() {
           return (
             <button key={t.id}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition border-b-2 -mb-[1px]
-                ${tab === t.id ? `${t.color} border-current` : 'text-slate-500 border-transparent hover:text-slate-300'}`}
+                ${tab === t.id ? `${t.color} border-current` : 'text-slate-700 dark:text-slate-500 border-transparent hover:text-slate-700 dark:text-slate-300'}`}
               onClick={() => setTab(t.id)}>
               <Icon size={14} />
               {t.label}
@@ -109,7 +109,7 @@ export default function TrafficAnalyticsPage() {
           senderLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-700 dark:text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Total</th>
                   <th className="px-4 py-2 text-right">Delivered</th>
@@ -131,8 +131,8 @@ export default function TrafficAnalyticsPage() {
                       <RateBadge rate={s.deliveryRate} />
                     </td>
                     <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{s.uniqueDestinations}</td>
-                    <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(s.firstSeen)}</td>
-                    <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(s.lastSeen)}</td>
+                    <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs">{formatTime(s.firstSeen)}</td>
+                    <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs">{formatTime(s.lastSeen)}</td>
                   </tr>
                 ))}
                 {(senderData ?? []).length === 0 && <EmptyRow cols={8} />}
@@ -145,7 +145,7 @@ export default function TrafficAnalyticsPage() {
           contentLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-700 dark:text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Message Content</th>
                   <th className="px-4 py-2 text-right">Count</th>
                   <th className="px-4 py-2 text-right">Unique Dests</th>
@@ -157,14 +157,14 @@ export default function TrafficAnalyticsPage() {
               <tbody>
                 {(contentData ?? []).map((c: any, i: number) => (
                   <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                    <td className="px-4 py-2 text-slate-300 text-xs max-w-[400px]">
+                    <td className="px-4 py-2 text-slate-700 dark:text-slate-300 text-xs max-w-[400px]">
                       <div className="truncate" title={c.fullContent}>{c.content}</div>
                     </td>
                     <td className="px-4 py-2 text-right text-slate-900 dark:text-white text-xs font-bold">{c.total?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{c.uniqueDestinations}</td>
                     <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400 text-xs">{c.uniqueSenders}</td>
-                    <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(c.firstSeen)}</td>
-                    <td className="px-4 py-2 text-slate-500 text-xs">{formatTime(c.lastSeen)}</td>
+                    <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs">{formatTime(c.firstSeen)}</td>
+                    <td className="px-4 py-2 text-slate-700 dark:text-slate-500 text-xs">{formatTime(c.lastSeen)}</td>
                   </tr>
                 ))}
                 {(contentData ?? []).length === 0 && <EmptyRow cols={6} />}
@@ -177,7 +177,7 @@ export default function TrafficAnalyticsPage() {
           spamLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-700 dark:text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Score</th>
                   <th className="px-4 py-2 text-left">Reasons</th>
@@ -217,7 +217,7 @@ export default function TrafficAnalyticsPage() {
           aitLoading ? <Loading /> : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-500 border-b border-slate-300 dark:border-white/5">
+                <tr className="text-[10px] uppercase text-slate-700 dark:text-slate-500 border-b border-slate-300 dark:border-white/5">
                   <th className="px-4 py-2 text-left">Sender ID</th>
                   <th className="px-4 py-2 text-right">Score</th>
                   <th className="px-4 py-2 text-left">Reasons</th>
@@ -265,7 +265,7 @@ function RateBadge({ rate }: { rate: number }) {
 }
 
 function Loading() {
-  return <div className="px-4 py-8 text-center text-slate-500 text-sm">Loading analytics…</div>
+  return <div className="px-4 py-8 text-center text-slate-700 dark:text-slate-500 text-sm">Loading analytics…</div>
 }
 
 function EmptyRow({ cols }: { cols: number }) {

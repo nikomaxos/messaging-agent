@@ -105,9 +105,9 @@ export default function RoutingRateLimitsPage() {
         </button>
       </div>
 
-      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-white/[0.05]">
+      <div className="bg-slate-100 dark:bg-[#1a1a2e] border border-slate-200 dark:border-white/[0.05] rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+          <thead className="bg-white dark:bg-[#12121f] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/[0.05]">
             <tr>
               <th className="px-5 py-4 font-medium">Customer (System ID)</th>
               <th className="px-5 py-4 font-medium">Country</th>
@@ -158,7 +158,7 @@ export default function RoutingRateLimitsPage() {
                 </td>
                 <td className="px-5 py-3 flex items-center justify-end gap-2">
                   <button onClick={handleSave} className="p-1.5 text-green-400 hover:bg-green-400/10 rounded transition" title="Save"><Check size={16} /></button>
-                  <button onClick={handleCancel} className="p-1.5 text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
+                  <button onClick={handleCancel} className="p-1.5 text-slate-700 dark:text-slate-500 hover:bg-slate-200/50 dark:bg-white/5 rounded transition" title="Cancel"><X size={16} /></button>
                 </td>
               </tr>
             )}
@@ -175,7 +175,7 @@ export default function RoutingRateLimitsPage() {
                         {clients.map((c: SmppClient) => <option key={c.systemId} value={c.systemId}>{c.systemId}</option>)}
                       </select>
                     ) : (
-                      l.customerProfileId === 'ALL' ? <span className="text-slate-500">ALL</span> : <span className="text-slate-900 dark:text-white">{l.customerProfileId}</span>
+                      l.customerProfileId === 'ALL' ? <span className="text-slate-700 dark:text-slate-500">ALL</span> : <span className="text-slate-900 dark:text-white">{l.customerProfileId}</span>
                     )}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
@@ -189,7 +189,7 @@ export default function RoutingRateLimitsPage() {
                         })}
                       </select>
                     ) : (
-                      l.countryCode === 'ALL' ? <span className="text-slate-500">ALL</span> : l.countryCode
+                      l.countryCode === 'ALL' ? <span className="text-slate-700 dark:text-slate-500">ALL</span> : l.countryCode
                     )}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
@@ -200,7 +200,7 @@ export default function RoutingRateLimitsPage() {
                         {networksForCountry.map((net: any) => <option key={net} value={net}>{net}</option>)}
                       </select>
                     ) : (
-                      l.networkId === 'ALL' ? <span className="text-slate-500">ALL</span> : l.networkId
+                      l.networkId === 'ALL' ? <span className="text-slate-700 dark:text-slate-500">ALL</span> : l.networkId
                     )}
                   </td>
                   <td className="px-5 py-3 font-mono text-xs">
@@ -247,7 +247,7 @@ export default function RoutingRateLimitsPage() {
             })}
             
             {!isFetching && limits.length === 0 && !isCreating && (
-              <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-500">No custom rate limits configured. System defaults to 10 TPS.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-700 dark:text-slate-500">No custom rate limits configured. System defaults to 10 TPS.</td></tr>
             )}
           </tbody>
         </table>

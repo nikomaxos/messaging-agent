@@ -11,4 +11,5 @@ public class SmppSessionDto {
     private String sessionId;
     private String bindType;
     private long uptimeSeconds;
+    private String ipAddress;
 }

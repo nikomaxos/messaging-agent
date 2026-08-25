@@ -140,7 +140,7 @@ export default function BillingPage() {
         </div>
         <button 
           onClick={fetchData} 
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition"
+          className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 border border-slate-700 rounded-lg transition"
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           Refresh
@@ -155,11 +155,11 @@ export default function BillingPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-slate-800/50 p-1 rounded-xl">
+      <div className="flex space-x-1 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl">
         <button
           onClick={() => setActiveTab('accounts')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition ${
-            activeTab === 'accounts' ? 'bg-indigo-500 text-slate-900 dark:text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-800'
+            activeTab === 'accounts' ? 'bg-indigo-500 text-slate-900 dark:text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-50 dark:bg-slate-800'
           }`}
         >
           <CreditCard size={18} />
@@ -168,7 +168,7 @@ export default function BillingPage() {
         <button
           onClick={() => setActiveTab('tariffs')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition ${
-            activeTab === 'tariffs' ? 'bg-indigo-500 text-slate-900 dark:text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-800'
+            activeTab === 'tariffs' ? 'bg-indigo-500 text-slate-900 dark:text-white shadow' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-50 dark:bg-slate-800'
           }`}
         >
           <DollarSign size={18} />
@@ -178,10 +178,10 @@ export default function BillingPage() {
 
       {/* Accounts Tab */}
       {activeTab === 'accounts' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+        <div className="bg-white dark:bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-800/50 border-b border-slate-700/50">
+              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-700/50">
                 <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Account</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Billing Type</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Tariff Plan</th>
@@ -191,13 +191,13 @@ export default function BillingPage() {
             </thead>
             <tbody className="divide-y divide-slate-800/50">
               {accounts.map(acc => (
-                <tr key={acc.accountId} className="hover:bg-slate-800/20 transition group">
+                <tr key={acc.accountId} className="hover:bg-slate-50 dark:bg-slate-800/20 transition group">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">Account #{acc.accountId}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <select 
                       value={acc.billingType || 'POSTPAID'} 
                       onChange={(e) => handleUpdateAccount(acc.accountId, e.target.value, acc.tariffPlanId)}
-                      className="bg-slate-800 border border-slate-700 text-slate-900 dark:text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-700 text-slate-900 dark:text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="PREPAID">Prepaid</option>
                       <option value="POSTPAID">Postpaid</option>
@@ -207,7 +207,7 @@ export default function BillingPage() {
                     <select 
                       value={acc.tariffPlanId || ''} 
                       onChange={(e) => handleUpdateAccount(acc.accountId, acc.billingType, e.target.value ? Number(e.target.value) : null)}
-                      className="bg-slate-800 border border-slate-700 text-slate-900 dark:text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-700 text-slate-900 dark:text-white text-xs rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="">No Plan (Free)</option>
                       {plans.map(p => (
@@ -229,7 +229,7 @@ export default function BillingPage() {
                 </tr>
               ))}
               {accounts.length === 0 && !loading && (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No client accounts found.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-700 dark:text-slate-500">No client accounts found.</td></tr>
               )}
             </tbody>
           </table>
@@ -240,14 +240,14 @@ export default function BillingPage() {
       {activeTab === 'tariffs' && (
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-1 space-y-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl p-4">
               <h3 className="font-semibold mb-4 text-sm uppercase text-slate-600 dark:text-slate-400 tracking-wider">Plans</h3>
               <ul className="space-y-2">
                 {plans.map(p => (
                   <li key={p.id}>
                     <button 
                       onClick={() => setSelectedPlanId(p.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition ${selectedPlanId === p.id ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'hover:bg-slate-800 text-slate-300 border border-transparent'}`}
+                      className={`w-full text-left px-3 py-2 rounded-lg transition ${selectedPlanId === p.id ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'hover:bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-transparent'}`}
                     >
                       {p.name} ({p.currency})
                     </button>
@@ -262,10 +262,10 @@ export default function BillingPage() {
                     value={newPlanName}
                     onChange={e => setNewPlanName(e.target.value)}
                     placeholder="New Plan Name" 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
                     required
                   />
-                  <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-slate-900 dark:text-white font-medium py-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-2 text-sm">
+                  <button type="submit" className="w-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-medium py-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-2 text-sm">
                     <Plus size={16} /> Create Plan
                   </button>
                 </form>
@@ -274,20 +274,20 @@ export default function BillingPage() {
           </div>
           
           <div className="col-span-2">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-              <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
+            <div className="bg-white dark:bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+              <div className="px-6 py-4 border-b border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex justify-between items-center">
                 <h3 className="font-semibold text-slate-900 dark:text-white">
                   Rates for {plans.find(p => p.id === selectedPlanId)?.name || 'Selected Plan'}
                 </h3>
               </div>
-              <div className="p-4 bg-slate-800/10">
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/10">
                 <form onSubmit={handleAddRate} className="flex gap-3">
                   <input 
                     type="text" 
                     value={newRatePrefix}
                     onChange={e => setNewRatePrefix(e.target.value)}
                     placeholder="Prefix (e.g. +44 or *)" 
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
                     required
                   />
                   <input 
@@ -296,7 +296,7 @@ export default function BillingPage() {
                     value={newRateAmount}
                     onChange={e => setNewRateAmount(e.target.value)}
                     placeholder="Rate (e.g. 0.025)" 
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
                     required
                   />
                   <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg font-medium transition text-sm">
@@ -306,7 +306,7 @@ export default function BillingPage() {
               </div>
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-800/50 border-y border-slate-700/50">
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-700/50">
                     <th className="px-6 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Prefix</th>
                     <th className="px-6 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right">Rate</th>
                     <th className="px-6 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider text-right"></th>
@@ -314,7 +314,7 @@ export default function BillingPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {rates.map(rate => (
-                    <tr key={rate.id} className="hover:bg-slate-800/20 transition group">
+                    <tr key={rate.id} className="hover:bg-slate-50 dark:bg-slate-800/20 transition group">
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono">{rate.prefix}</td>
                       <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-right text-emerald-400">€{Number(rate.rate).toFixed(5)}</td>
                       <td className="px-6 py-3 whitespace-nowrap text-right text-sm">
@@ -323,7 +323,7 @@ export default function BillingPage() {
                     </tr>
                   ))}
                   {rates.length === 0 && (
-                    <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">No rates defined for this plan.</td></tr>
+                    <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-700 dark:text-slate-500">No rates defined for this plan.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -334,9 +334,9 @@ export default function BillingPage() {
 
       {/* Top-Up Modal */}
       {showTopUpModal && topUpClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-50 dark:bg-slate-800/50">
               <h3 className="font-semibold text-lg">Top-Up Account</h3>
               <p className="text-slate-600 dark:text-slate-400 text-sm">Add funds for Account #{topUpClient.accountId}</p>
             </div>
@@ -352,7 +352,7 @@ export default function BillingPage() {
                   step="0.01"
                   value={topUpAmount}
                   onChange={e => setTopUpAmount(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-lg font-mono focus:ring-2 focus:ring-emerald-500 outline-none transition"
                   required
                   autoFocus
                 />
@@ -364,14 +364,14 @@ export default function BillingPage() {
                   value={topUpDesc}
                   onChange={e => setTopUpDesc(e.target.value)}
                   placeholder="e.g. Wire Transfer Ref 123"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800 mt-6">
                 <button 
                   type="button" 
                   onClick={() => setShowTopUpModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-slate-900 dark:text-white transition"
+                  className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:text-white transition"
                 >
                   Cancel
                 </button>
