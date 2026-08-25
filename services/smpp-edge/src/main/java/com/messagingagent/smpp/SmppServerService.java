@@ -88,6 +88,26 @@ public class SmppServerService {
 
         smppServer = new DefaultSmppServer(config, new SmppServerHandlerImpl(),
                 Executors.newCachedThreadPool());
+                
+        try {
+            java.lang.reflect.Field bootstrapField = DefaultSmppServer.class.getDeclaredField("serverBootstrap");
+            bootstrapField.setAccessible(true);
+            org.jboss.netty.bootstrap.ServerBootstrap bootstrap = (org.jboss.netty.bootstrap.ServerBootstrap) bootstrapField.get(smppServer);
+            
+            org.jboss.netty.channel.ChannelPipelineFactory originalFactory = bootstrap.getPipelineFactory();
+            bootstrap.setPipelineFactory(new org.jboss.netty.channel.ChannelPipelineFactory() {
+                @Override
+                public org.jboss.netty.channel.ChannelPipeline getPipeline() throws Exception {
+                    org.jboss.netty.channel.ChannelPipeline pipeline = originalFactory.getPipeline();
+                    pipeline.addFirst("proxyProtocol", new ProxyProtocolDecoder());
+                    return pipeline;
+                }
+            });
+            log.info("Injected ProxyProtocolDecoder into Netty pipeline");
+        } catch (Exception e) {
+            log.error("Failed to inject ProxyProtocolDecoder", e);
+        }
+
         try {
             smppServer.start();
             uptimeStartedAt = Instant.now();
@@ -180,12 +200,13 @@ public class SmppServerService {
             String clientIp = "Unknown";
             try {
                 java.lang.reflect.Method m = session.getClass().getMethod("getChannel");
-                Object channel = m.invoke(session);
-                if (channel != null) {
-                    java.lang.reflect.Method rm = channel.getClass().getMethod("remoteAddress");
-                    Object remoteAddr = rm.invoke(channel);
-                    if (remoteAddr != null) {
-                        clientIp = remoteAddr.toString().replace("/", "");
+                Object channelObj = m.invoke(session);
+                if (channelObj != null && channelObj instanceof org.jboss.netty.channel.Channel) {
+                    org.jboss.netty.channel.Channel channel = (org.jboss.netty.channel.Channel) channelObj;
+                    if (channel.getAttachment() instanceof String) {
+                        clientIp = (String) channel.getAttachment();
+                    } else if (channel.getRemoteAddress() != null) {
+                        clientIp = channel.getRemoteAddress().toString().replace("/", "");
                     }
                 }
             } catch (Exception e) {

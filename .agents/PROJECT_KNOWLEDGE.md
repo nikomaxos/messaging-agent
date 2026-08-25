@@ -20,6 +20,7 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
   - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
   - **Connection Optimization**: SMSC Supplier connections rely exclusively on `EnquireLink` heartbeats to detect and sever ghost connections. Hard lifetime cutoffs (`maxSessionLifetime`) are disabled to avoid unnecessarily dropping healthy sessions.
+  - **Active Connection State Tracking**: Extracts and syncs real-time connection state to Redis (e.g. `smpp_client_binds:...`), formatting as `bindType|uptimeSeconds|ipAddress`. Remote IP extraction is achieved via reflection on the Cloudhopper `SmppSession` Netty channel.
 - **AI Service (`ma-ai-service`)**:
   - A Java Spring Boot application providing an LLM-powered context-aware assistant.
   - Features real-time system metrics ingestion (calling `/api/system/health` on the Core Service) to give the LLM real-world platform context.
@@ -204,3 +205,10 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 - **Triggering**: Deployments are initiated via a standard `POST /api/deploy/trigger` request.
 - **Monitoring**: The frontend (`DeployPage.tsx`) connects to `GET /api/deploy/stream` via EventSource on mount. This instantly syncs the UI with the active background deployment (fetching full log history and progress). This means agents can trigger deployments server-side, and the user will see the live progress in their browser, even if they refresh or navigate away.
 - **BUILD DIRECTIVE**: When running long commands like `mvn clean package`, always run them in batch mode (`-B`) and monitor for hangs. If a build process hangs, restart it or troubleshoot the blockage. Report status periodically if it runs in the background.
+
+## 11. SMPP PROXY Protocol (SSL Termination)
+
+- **Source IP Visibility**: To support SSL termination through an external TCP proxy (like Nginx `stream` or a custom Node.js proxy) without losing the original client's IP, `ma-smpp-edge` supports **PROXY Protocol v1**.
+- **Implementation**: A custom Netty 3 `ProxyProtocolDecoder` is injected dynamically (via Reflection) into the `DefaultSmppServer` pipeline during startup (`SmppServerService.java`). 
+- **Behavior**: If a connection starts with `PROXY TCP4 ...`, the decoder extracts the real IP, stores it as a Netty `Channel` attachment, and passes it to the Cloudhopper session. If the connection is a direct SMPP bind (without the proxy header), the decoder safely ignores the traffic and allows it to proceed natively.
+- **Proxy Configuration**: Any proxy sitting in front of `ma-smpp-edge` (e.g. Melrose custom Node proxy or Nginx) must explicitly send the PROXY protocol header (`PROXY TCP4 <src> <dst> <sport> <dport>\r\n`) upon connection establishment if it wants the backend to log the true client IP.
