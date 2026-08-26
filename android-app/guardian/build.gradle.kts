@@ -11,8 +11,8 @@ android {
         applicationId = "com.messagingagent.guardian"
         minSdk = 26
         targetSdk = 34
-        versionCode = 115
-        versionName = "2.4.49"
+        versionCode = 116
+        versionName = "2.4.50"
 
     }
 

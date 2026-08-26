@@ -243,7 +243,7 @@ app.post('/api/deploy/trigger', async (req, res) => {
       git remote set-url origin git@github.com:nikomaxos/messaging-agent.git && \\
       git add . && \\
       (git commit -m "Auto-Deploy: Version \$NEXT_VERSION (APK Build)" || true) && \\
-      GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main && \\
+      GIT_SSH_COMMAND="ssh -i /app/.ssh_host/id_rsa -o StrictHostKeyChecking=no" git push origin main && \\
       cd /repo/android-app && \\
       echo "--- Step 2: Building Android APKs using Docker ---" && \\
       echo "[STEP_DEF] 2|Build APKs|Compiling code inside alpine-android container" && \\
@@ -289,7 +289,7 @@ app.post('/api/deploy/trigger', async (req, res) => {
         ./bump-version.sh \$NEXT_VERSION &&
         git add . &&
         (git commit -m "Auto-Deploy: Version \$NEXT_VERSION - Pushed from Admin Panel" || true) &&
-        GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main
+        GIT_SSH_COMMAND="ssh -i /app/.ssh_host/id_rsa -o StrictHostKeyChecking=no" git push origin main
       `;
       await execPromise(gitCmds, { cwd: '/repo' });
       appendLog('Successfully pushed local changes.');

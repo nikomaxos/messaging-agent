@@ -213,6 +213,14 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 - **Monitoring**: The frontend (`DeployPage.tsx`) connects to `GET /api/deploy/stream` via EventSource on mount. This instantly syncs the UI with the active background deployment (fetching full log history and progress). This means agents can trigger deployments server-side, and the user will see the live progress in their browser, even if they refresh or navigate away.
 - **BUILD DIRECTIVE**: When running long commands like `mvn clean package`, always run them in batch mode (`-B`) and monitor for hangs. If a build process hangs, restart it or troubleshoot the blockage. Report status periodically if it runs in the background.
 
+### 3. Deploy Agent & Shell Execution Issues
+- **Symptom 1 (Syntax Error in shell):** `ash: syntax error: unexpected "("` when executing inline scripts (like `NEXT_PATCH=\$((\$V_PATCH + 1))`).
+  - **Root Cause**: When building the command inside a Node.js template literal (\` \`), writing `\\$` evaluates to a literal string starting with `\`, which prevents the shell from substituting the variable. E.g., `awk` sees `print \$4`, causing it to crash and leaving variables empty.
+  - **Fix**: Use `\$` inside the JS template string. This properly escapes the JS interpolation and sends a pure `$` to the shell, allowing `awk '{print $4}'` or shell arithmetic to execute correctly.
+- **Symptom 2 (Git Push Fails):** `git@github.com: Permission denied (publickey)` when the deploy-agent container tries to push to Github.
+  - **Root Cause**: The docker-compose mounts the host's `~/.ssh` to `/app/.ssh_host:ro` instead of `/root/.ssh`. When `git push` runs, it uses the container's root user which has no SSH key, so it fails.
+  - **Fix**: Explicitly tell SSH which identity file to use during the push by setting the environment variable in the command: `GIT_SSH_COMMAND="ssh -i /app/.ssh_host/id_rsa -o StrictHostKeyChecking=no" git push origin main`.
+
 ## 11. SMPP PROXY Protocol (SSL Termination)
 
 - **Source IP Visibility**: To support SSL termination through an external TCP proxy (like Nginx `stream` or a custom Node.js proxy) without losing the original client's IP, `ma-smpp-edge` supports **PROXY Protocol v1**.
