@@ -11,7 +11,7 @@ interface DeployStep {
 export default function DeployPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [isDeploying, setIsDeploying] = useState(false)
-  const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | 'upgrade' | null>(null)
+  const [activeEnv, setActiveEnv] = useState<'production' | 'rollback_prod' | 'upgrade' | 'build_apk' | null>(null)
   
   const [currentStep, setCurrentStep] = useState(0)
   const [totalSteps, setTotalSteps] = useState(9)
@@ -20,14 +20,25 @@ export default function DeployPage() {
   const [containerErrors, setContainerErrors] = useState<string[]>([])
   
   const [targetIp, setTargetIp] = useState('10.10.10.193')
+  const [prodToken, setProdToken] = useState('')
   
   const [prodVersion, setProdVersion] = useState<string>('Unknown')
   const [rollbackTarget, setRollbackTarget] = useState<string>('Unknown Version')
   const [isFetchingInfo, setIsFetchingInfo] = useState(false)
+  const [hasSavedToken, setHasSavedToken] = useState(false)
 
   const isProductionEnv = typeof window !== 'undefined' && window.location.hostname === 'messaging-agent.globalnetservices.net'
 
   const logsEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/deploy/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.hasProdToken) setHasSavedToken(true);
+      })
+      .catch(() => {});
+  }, [])
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -132,15 +143,20 @@ export default function DeployPage() {
     }
   }
 
-  const triggerDeploy = async (env: 'production' | 'rollback_prod') => {
+  const triggerDeploy = async (env: 'production' | 'rollback_prod' | 'build_apk') => {
     if (isDeploying) return
-    if (!targetIp) {
+    if (!targetIp && env !== 'build_apk') {
       alert("Please fill in Target IP before deploying.")
+      return
+    }
+    if (env === 'build_apk' && !prodToken && !hasSavedToken) {
+      alert("Please provide the Production API Token to push the APK.")
       return
     }
 
     const isRollback = env === 'rollback_prod'
-    if (!confirm(`Are you sure you want to ${isRollback ? 'ROLLBACK' : 'DEPLOY'} messaging-agent on ${targetIp}?`)) return
+    const isBuild = env === 'build_apk'
+    if (!confirm(`Are you sure you want to ${isRollback ? 'ROLLBACK' : isBuild ? 'BUILD & RELEASE APK' : 'DEPLOY'} messaging-agent ${!isBuild ? 'on ' + targetIp : ''}?`)) return
     
     setLogs([])
     setCurrentStep(0)
@@ -152,7 +168,7 @@ export default function DeployPage() {
       const res = await fetch('/api/deploy/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: targetIp, username: 'ubuntu', password: '', env })
+        body: JSON.stringify({ ip: targetIp || 'localhost', username: 'ubuntu', password: '', env, prodToken })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -234,6 +250,21 @@ export default function DeployPage() {
                   className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50"
                 />
               </div>
+
+              <div className="pt-2 border-t border-slate-200 dark:border-white/10">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                  <div className="flex items-center gap-1"><Key size={12}/> Production API Token</div>
+                  {hasSavedToken && <span className="text-[10px] text-emerald-400/80">Saved ✓</span>}
+                </label>
+                <input 
+                  type="password" 
+                  value={prodToken} 
+                  onChange={e => setProdToken(e.target.value)}
+                  disabled={isDeploying}
+                  placeholder={hasSavedToken ? "Token is saved (type to overwrite)..." : "JWT token for APK push..."}
+                  className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition disabled:opacity-50 placeholder:text-slate-400 dark:placeholder:text-slate-500/50"
+                />
+              </div>
               
               <button
                 onClick={fetchDeployInfo}
@@ -258,14 +289,25 @@ export default function DeployPage() {
             </p>
             
             {!isProductionEnv && (
-              <button
-                onClick={() => triggerDeploy('production')}
-                disabled={isDeploying}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-slate-900 dark:text-white border border-brand-500/50 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(var(--brand-500),0.3)]"
-              >
-                {isDeploying && activeEnv === 'production' ? <RefreshCw className="animate-spin" size={18} /> : <PlayCircle size={18} />}
-                Deploy to Target
-              </button>
+              <>
+                <button
+                  onClick={() => triggerDeploy('production')}
+                  disabled={isDeploying}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-slate-900 dark:text-white border border-brand-500/50 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(var(--brand-500),0.3)]"
+                >
+                  {isDeploying && activeEnv === 'production' ? <RefreshCw className="animate-spin" size={18} /> : <PlayCircle size={18} />}
+                  Deploy to Target
+                </button>
+                
+                <button
+                  onClick={() => triggerDeploy('build_apk')}
+                  disabled={isDeploying}
+                  className="w-full mt-4 flex items-center justify-center gap-2 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-slate-900 dark:text-white border border-purple-500/50 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                >
+                  {isDeploying && activeEnv === 'build_apk' ? <RefreshCw className="animate-spin" size={18} /> : <Rocket size={18} />}
+                  Build & Release APK to Prod
+                </button>
+              </>
             )}
 
             <div className={!isProductionEnv ? "mt-4 pt-4 border-t border-white/[0.05]" : ""}>

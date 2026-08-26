@@ -26,6 +26,8 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
   - Features real-time system metrics ingestion (calling `/api/system/health` on the Core Service) to give the LLM real-world platform context.
 - **Android Client (`android-app`)**:
   - Handles WebSocket connections back to the server and OTA (Over-The-Air) updates.
+  - **RCS Anti-Spam & Auto-Heal**: The `:bot` process (`BotService`) continuously monitors `bugle_db` for Delivery Receipts (DLRs). If it detects a "Fake Offline" block (where the Google Jibe server rate-limits capability lookups, causing Google Messages to force an SMS fallback or fail with status 8/9), it triggers a **DLR-Safe Auto-Heal**. The auto-heal waits up to 15s for pending DLRs to drain, then safely clears `Carrier Services` (to drop the corrupted capability cache) and restarts the app to re-verify with Jibe.
+  - **SMS Layer 1 Bypass**: The AOSP `SmsUsageMonitor` rate limits (30 SMS / 30 mins) are globally disabled (`sms_outgoing_check_max_count 999999`) on boot and re-enforced every 30 seconds via the `keepalive.sh` script to serve as a safety net during temporary SMS fallbacks.
 - **Admin Panel (`admin-panel`)**:
   - A Vite + React + Tailwind CSS dashboard providing UI for device management, logs, and DevOps operations.
   - **Component Architecture**: Uses shared components to ensure consistency across the UI. For instance, `SmppClientFormFields.tsx` acts as the single source of truth for SMPP client attributes. It is used both in the SMPP Clients management page and in the dynamic "Account Creation" flow (which pauses to collect SMPP credentials for `smppEnabled` usernames before finalizing account creation).
@@ -75,6 +77,10 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
    - **Domain:** `messaging-agent.globalnetservices.net`
    - **Target:** Production K3s Cluster (`10.10.10.193` - `10.10.10.195`).
    - **Proxy:** Edge routing through HAProxy on the Proxmox Host, passing through to K3s Traefik.
+4. **SMPP Edge Routing (Live Proxy)**:
+   - **Domain:** `smpp.globalnetservices.net`
+   - **Proxy Target:** All TCP traffic (ports 2775/2776) and HTTP (port 8085 for UI/API) routed via HAProxy to a dedicated Node.js proxy VM at **`10.10.10.105`**.
+   - **Management:** The live SMPP proxy targets can be managed via the REST API at `http://10.10.10.105:8085/api/config` or `http://10.10.10.105:8085/api/target`. Note: The local proxy copy in `~/Development/smpp-proxy/` on the DevBox is just a copy, not the active proxy serving external traffic.
 
 
 ## 4. Deployment Dashboard, CI/CD, and Disaster Recovery
@@ -101,6 +107,7 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
   - **On every new prompt**: You MUST actively consult the knowledge vaults (`PROJECT_KNOWLEDGE.md` and `.agents/knowledge/artifacts/*`) to guarantee you are operating with the latest context and rules.
   - **On every final reply**: Before concluding your response or task, the Architect persona MUST evaluate if the actions just performed (even quick patches, bug fixes, or minor architectural tweaks) require an update to the vaults.
   - You MUST write the updated knowledge into the vaults immediately. This ensures the vaults are ALWAYS perfectly synchronized with reality. No matter what happens or how small the patch, you always perform this continuous read/write cycle.
+- **Mandatory Container Rebuilds (CRITICAL)**: Whenever you modify source code, configuration files (e.g. `nginx.conf`), Dockerfiles, or dependencies (`package.json`, `pom.xml`) for a containerized service (such as `admin-panel`, `deploy-agent`, `core-service`, etc.), you MUST explicitly rebuild and restart that container in the Staging environment (e.g., `docker compose up -d --build admin-panel`) before completing your task. NEVER assume hot-reloading is active or sufficient for compiled/static assets.
 - **⛔ NEVER DEPLOY TO PRODUCTION DIRECTLY (ABSOLUTE RULE)**: The agent is strictly **FORBIDDEN** from SSH-ing into production nodes (`10.10.10.193`, `10.10.10.194`, `10.10.10.195`) to run deployment scripts (`deploy-k8s.sh` or any equivalent). The agent may ONLY deploy to the **Staging environment** (DevBox `10.10.10.96`). Production deployments are the USER's exclusive responsibility, triggered via the Staging Admin Panel Deploy Page UI. **There are ZERO exceptions to this rule.** If the user asks to "deploy", always deploy to Staging and inform them it is ready for testing. Never assume "deploy" means "deploy to production".
 
 ## 6. Production Upgrades & Updates (CRITICAL GUIDELINES)

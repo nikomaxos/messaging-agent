@@ -107,6 +107,16 @@ class MessagingAgentService : Service() {
             com.topjohnwu.superuser.Shell.cmd(
                 // Clear the force-stopped flag (in case MIUI killed us)
                 "am set-stopped-state com.messagingagent.android false",
+                
+                // ── Layer 1: Android OS SMS fallback rate limit bypass ──
+                "settings put global sms_outgoing_check_max_count 999999 2>/dev/null",
+                "settings put global sms_outgoing_check_interval_ms 60000 2>/dev/null",
+                "settings put global sms_short_code_confirmation 0 2>/dev/null",
+                
+                // ── Layer 2: Google Messages spam protection disable ──
+                // Disable auto-updates for Google Messages to prevent heuristic tightening
+                "pm disable-user --user 0 com.android.vending/com.google.android.finsky.systemupdate.SystemUpdateReceiver 2>/dev/null",
+
                 // Force MIUI autostart permission
                 "appops set com.messagingagent.android AUTO_START allow 2>/dev/null",
                 // Ensure we're in the battery optimization whitelist

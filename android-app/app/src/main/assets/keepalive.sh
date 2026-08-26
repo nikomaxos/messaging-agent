@@ -32,6 +32,10 @@ log "Keepalive watchdog started (PID=$$)"
 while true; do
     sleep 30
 
+    # Re-enforce SMS anti-spam bypass on every cycle (survives system resets)
+    settings put global sms_outgoing_check_max_count 999999 2>/dev/null
+    settings put global sms_outgoing_check_interval_ms 60000 2>/dev/null
+
     # Check if app process is running
     if ! pidof "$PACKAGE" > /dev/null 2>&1; then
         log "App not running — restarting service"

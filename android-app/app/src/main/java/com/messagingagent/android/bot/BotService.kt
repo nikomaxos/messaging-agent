@@ -114,6 +114,7 @@ class BotService : Service() {
                                 sendCommResult(p.correlationId, p.deviceToken, "ERROR", "bugle_status=$status")
                                 resolved.add(p)
                                 deliveredAt.remove(p.correlationId)
+                                scope.launch { performDlrSafeRcsAutoHeal() }
                             }
                         }
                         else -> {
@@ -138,18 +139,21 @@ class BotService : Service() {
                             var matchedBugleId = 0L
                             var status = -1
 
+                            var protocol = -1
+
                             if (p.bugleMessageId > 0) {
-                                val sql = "SELECT _id, message_status FROM messages WHERE _id = ${p.bugleMessageId};"
+                                val sql = "SELECT _id, message_status, protocol FROM messages WHERE _id = ${p.bugleMessageId};"
                                 val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
                                 val matchLine = res.out.firstOrNull { it.contains("|") }?.trim()
                                 if (matchLine != null) {
                                     val parts = matchLine.split("|")
                                     matchedBugleId = parts[0].toLongOrNull() ?: 0L
                                     status = parts[1].toIntOrNull() ?: -1
+                                    protocol = parts.getOrNull(2)?.toIntOrNull() ?: -1
                                 }
                             } else {
                                 val excludeClause = if (claimedBugleIds.isNotEmpty()) " AND _id NOT IN (${claimedBugleIds.joinToString(",")})" else ""
-                                val sql = "SELECT _id, message_status FROM messages WHERE _id > ${p.initialMaxId}$excludeClause ORDER BY _id ASC LIMIT 1;"
+                                val sql = "SELECT _id, message_status, protocol FROM messages WHERE _id > ${p.initialMaxId}$excludeClause ORDER BY _id ASC LIMIT 1;"
                                 
                                 val res = com.topjohnwu.superuser.Shell.cmd("$sqliteCmd \"$sql\" 2>/dev/null").exec()
                                 val matchLine = res.out.firstOrNull { it.contains("|") }?.trim()
@@ -157,10 +161,16 @@ class BotService : Service() {
                                     val parts = matchLine.split("|")
                                     matchedBugleId = parts[0].toLongOrNull() ?: 0L
                                     status = parts[1].toIntOrNull() ?: -1
+                                    protocol = parts.getOrNull(2)?.toIntOrNull() ?: -1
                                 }
                             }
 
                             if (matchedBugleId > 0 && status != -1) {
+                                if (protocol == 0) {
+                                    Timber.w("Fake Offline detected for ${p.correlationId} (Sent as SMS). Triggering heal.")
+                                    scope.launch { performDlrSafeRcsAutoHeal() }
+                                }
+
                                 if (p.bugleMessageId == 0L) {
                                     dlrTracker.updateBugleMessageId(p.correlationId, matchedBugleId)
                                 }
@@ -182,6 +192,44 @@ class BotService : Service() {
             observer.stopWatching()
             Timber.i("BotService: DLR FileObserver stopped")
         }
+    }
+
+    private var lastHealTime = 0L
+
+    private suspend fun performDlrSafeRcsAutoHeal() {
+        if (System.currentTimeMillis() - lastHealTime < 60_000) return // Debounce auto-heal
+        lastHealTime = System.currentTimeMillis()
+
+        Timber.w("RCS Auto-Heal triggered (Fake Offline / Rate Limit detected)")
+        DeviceLogBus.log("WARN", "RCS blocked. Waiting up to 15s for pending DLRs to drain...")
+        
+        // 1. DLR Drain
+        val startDrain = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startDrain < 15000) {
+            if (dlrTracker.getPendingDlrs().isEmpty()) break
+            delay(500)
+        }
+        
+        DeviceLogBus.log("INFO", "DLRs drained. Executing safe cache reset.")
+        
+        // 2. Safe Clear (No DLR/Message loss)
+        com.topjohnwu.superuser.Shell.cmd("am force-stop com.google.android.apps.messaging").exec()
+        delay(1000)
+        com.topjohnwu.superuser.Shell.cmd("pm clear com.google.android.ims").exec() // Resets Carrier Services (fixes Fake Offline capability block)
+        com.topjohnwu.superuser.Shell.cmd("pm clear --cache-only com.google.android.apps.messaging").exec()
+        
+        // 3. Re-apply Layer 1 limits (Safety net for SMS fallback)
+        com.topjohnwu.superuser.Shell.cmd(
+            "settings put global sms_outgoing_check_max_count 999999",
+            "settings put global sms_outgoing_check_interval_ms 60000"
+        ).exec()
+        
+        // 4. Restart & Re-register
+        com.topjohnwu.superuser.Shell.cmd("am start -n com.google.android.apps.messaging/.ui.ConversationListActivity").exec()
+        delay(5000) // Give it time to exchange capabilities with Jibe
+        com.topjohnwu.superuser.Shell.cmd("input keyevent KEYCODE_HOME").exec()
+        
+        DeviceLogBus.log("INFO", "RCS Capability Cache reset complete. Ready.")
     }
 
     private fun sendCommResult(correlationId: String, deviceToken: String, resultStr: String, errorDetail: String?) {

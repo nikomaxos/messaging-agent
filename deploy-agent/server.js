@@ -95,6 +95,38 @@ async function runSshCommandBackground(ssh, cmd, onExit) {
   }
 }
 
+// Helper to execute local commands and append to global logs
+async function runLocalCommandBackground(cmd, onExit) {
+  appendLog(`> Executing Local Task...`);
+  const { spawn } = require('child_process');
+  
+  const child = spawn(cmd, { shell: true });
+  
+  child.stdout.on('data', (data) => {
+    const lines = data.toString('utf8').split('\n');
+    for (const line of lines) {
+      if (line.trim()) appendLog(line.trim());
+    }
+  });
+
+  child.stderr.on('data', (data) => {
+    const lines = data.toString('utf8').split('\n');
+    for (const line of lines) {
+      if (line.trim()) appendLog(line.trim(), true);
+    }
+  });
+
+  child.on('close', (code) => {
+    if (code !== 0) {
+      appendLog(`Command failed with exit code ${code}`, true);
+      if (onExit) onExit(code);
+    } else {
+      appendLog(`Command completed successfully.`);
+      if (onExit) onExit(0);
+    }
+  });
+}
+
 function finishDeploy(code) {
   activeDeploy.isRunning = false;
   activeDeploy.done = true;
@@ -103,10 +135,45 @@ function finishDeploy(code) {
 }
 
 // 1. Trigger Deployment (POST)
+const DEPLOY_CONFIG_PATH = '/app/backup-data/deploy-config.json';
+
+function readDeployConfig() {
+  if (fs.existsSync(DEPLOY_CONFIG_PATH)) {
+    try {
+      return JSON.parse(fs.readFileSync(DEPLOY_CONFIG_PATH, 'utf8'));
+    } catch (e) {}
+  }
+  return {};
+}
+
+function writeDeployConfig(config) {
+  fs.writeFileSync(DEPLOY_CONFIG_PATH, JSON.stringify(config));
+}
+
+app.get('/api/deploy/config', (req, res) => {
+  const deployConfig = readDeployConfig();
+  res.json({ hasProdToken: !!deployConfig.prodToken });
+});
+
 app.post('/api/deploy/trigger', async (req, res) => {
-  const { ip, username, password, env } = req.body;
+  const { ip, username, password, env, prodToken } = req.body;
   if (!ip || !username || !env) {
     return res.status(400).json({ error: 'IP, username, and env are required' });
+  }
+
+  let activeProdToken = prodToken;
+  if (env === 'build_apk') {
+    const deployConfig = readDeployConfig();
+    if (activeProdToken) {
+      deployConfig.prodToken = activeProdToken;
+      writeDeployConfig(deployConfig);
+    } else {
+      activeProdToken = deployConfig.prodToken;
+    }
+
+    if (!activeProdToken) {
+      return res.status(400).json({ error: 'Production API Token is required. Please provide it once to save it.' });
+    }
   }
 
   if (activeDeploy.isRunning) {
@@ -150,9 +217,54 @@ app.post('/api/deploy/trigger', async (req, res) => {
   // Start background process
   const isRollback = env === 'rollback_prod';
   const isUpgrade = env === 'upgrade';
+  const isBuildApk = env === 'build_apk';
   
-  const actionName = isRollback ? 'Rollback' : isUpgrade ? 'Package Upgrades' : 'Deployment';
+  const actionName = isBuildApk ? 'Build & Push APK' : isRollback ? 'Rollback' : isUpgrade ? 'Package Upgrades' : 'Deployment';
   appendLog(`>>> Initiating ${actionName} to ${ip}...`);
+
+  if (isBuildApk) {
+    const hostRepoDir = process.env.HOST_REPO_DIR || '/home/nick/Development/messaging-agent';
+    appendLog('Starting local Android APK build...');
+    const cmd = `
+      cd /repo && \\
+      echo "[TOTAL_STEPS] 4" && \\
+      echo "--- Step 1: Bumping APK Versions ---" && \\
+      echo "[STEP_DEF] 1|Bump Versions|Updating versions in package.json and build.gradle.kts" && \\
+      CURRENT_VERSION=\$(grep '"version"' admin-panel/package.json | head -1 | awk -F'"' '{print $4}') && \\
+      V_MAJOR=\$(echo \$CURRENT_VERSION | cut -d. -f1) && \\
+      V_MINOR=\$(echo \$CURRENT_VERSION | cut -d. -f2) && \\
+      V_PATCH=\$(echo \$CURRENT_VERSION | cut -d. -f3) && \\
+      NEXT_PATCH=\$((\$V_PATCH + 1)) && \\
+      NEXT_VERSION="\$V_MAJOR.\$V_MINOR.\$NEXT_PATCH" && \\
+      ./bump-version.sh \$NEXT_VERSION && \\
+      git config --global --add safe.directory /repo && \\
+      git config --global user.email "deploy-agent@messaging-agent.local" && \\
+      git config --global user.name "Deploy Agent" && \\
+      git remote set-url origin git@github.com:nikomaxos/messaging-agent.git && \\
+      git add . && \\
+      (git commit -m "Auto-Deploy: Version \$NEXT_VERSION (APK Build)" || true) && \\
+      GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push origin main && \\
+      cd /repo/android-app && \\
+      echo "--- Step 2: Building Android APKs using Docker ---" && \\
+      echo "[STEP_DEF] 2|Build APKs|Compiling code inside alpine-android container" && \\
+      docker run --rm -v ${hostRepoDir}/android-app:/project -w /project alvrme/alpine-android:latest-jdk21 bash -c "chmod +x gradlew && ./gradlew clean assembleDebug" && \\
+      echo "--- Step 3: Preparing APKs ---" && \\
+      echo "[STEP_DEF] 3|Prepare APKs|Copying APKs to root directory" && \\
+      cp app/build/outputs/apk/debug/app-debug.apk MessagingAgent-debug.apk && \\
+      cp guardian/build/outputs/apk/debug/guardian-debug.apk MessagingGuardian-debug.apk && \\
+      echo "--- Step 4: Pushing to Production ---" && \\
+      echo "[STEP_DEF] 4|Push to Production|Uploading APKs via API" && \\
+      curl -sS -X POST https://messaging-agent.globalnetservices.net/api/apk/upload -H "Authorization: Bearer ${activeProdToken}" -F "file=@MessagingAgent-debug.apk" -F "appName=MessagingAgent" && \\
+      echo "" && \\
+      curl -sS -X POST https://messaging-agent.globalnetservices.net/api/apk/upload -H "Authorization: Bearer ${activeProdToken}" -F "file=@MessagingGuardian-debug.apk" -F "appName=MessagingGuardian" && \\
+      echo ""
+    `;
+    
+    await runLocalCommandBackground(cmd, (code) => {
+      finishDeploy(code);
+    });
+    return; // Don't proceed to SSH
+  }
 
   // Ensure SSH keys exist
   try {

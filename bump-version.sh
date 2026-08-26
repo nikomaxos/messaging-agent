@@ -25,5 +25,18 @@ for module_dir in services/routing-engine services/core-service services/smpp-ed
   fi
 done
 
+# Bump Android APK versions
+for build_gradle in android-app/app/build.gradle.kts android-app/guardian/build.gradle.kts; do
+  if [ -f "$build_gradle" ]; then
+    sed -i -E "s/versionName = \"[0-9]+\.[0-9]+\.[0-9]+\"/versionName = \"$NEW_VERSION\"/g" "$build_gradle"
+    CURRENT_VCODE=$(grep -o 'versionCode = [0-9]*' "$build_gradle" | awk '{print $3}')
+    if [ -n "$CURRENT_VCODE" ]; then
+      NEW_VCODE=$((CURRENT_VCODE + 1))
+      sed -i -E "s/versionCode = $CURRENT_VCODE/versionCode = $NEW_VCODE/g" "$build_gradle"
+    fi
+    echo "Updated $build_gradle"
+  fi
+done
+
 echo "Version bump complete."
 echo "Please commit these changes before deploying, and ensure you rebuild the admin-panel container if deploying to staging."
