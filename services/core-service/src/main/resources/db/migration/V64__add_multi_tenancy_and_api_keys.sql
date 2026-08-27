@@ -26,25 +26,21 @@ CREATE INDEX idx_api_keys_tenant ON api_keys(tenant_id);
 -- Alter existing tables to include tenant_id
 -- We default them to 1 (System Default) to avoid null constraints on existing data
 
-ALTER TABLE accounts ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
-CREATE INDEX idx_accounts_tenant ON accounts(tenant_id);
+ALTER TABLE account ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
+CREATE INDEX idx_account_tenant ON account(tenant_id);
 
-ALTER TABLE devices ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
-CREATE INDEX idx_devices_tenant ON devices(tenant_id);
+ALTER TABLE device ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
+CREATE INDEX idx_device_tenant ON device(tenant_id);
 
-ALTER TABLE campaigns ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
-CREATE INDEX idx_campaigns_tenant ON campaigns(tenant_id);
-
-ALTER TABLE smsc_suppliers ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
-CREATE INDEX idx_smsc_suppliers_tenant ON smsc_suppliers(tenant_id);
+ALTER TABLE smsc_supplier ADD COLUMN tenant_id BIGINT DEFAULT 1 REFERENCES tenants(id);
+CREATE INDEX idx_smsc_supplier_tenant ON smsc_supplier(tenant_id);
 
 ALTER TABLE message_log ADD COLUMN tenant_id BIGINT DEFAULT 1;
 CREATE INDEX idx_message_log_tenant ON message_log(tenant_id);
 
 -- Make tenant_id NOT NULL for strict isolation going forward
 -- Note: Doing this in a single transaction after default assignment
-ALTER TABLE accounts ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE devices ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE campaigns ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE smsc_suppliers ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE account ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE device ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE smsc_supplier ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE message_log ALTER COLUMN tenant_id SET NOT NULL;
