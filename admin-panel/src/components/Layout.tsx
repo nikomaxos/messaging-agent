@@ -7,6 +7,7 @@ import {
   PanelLeftClose, PanelLeftOpen, Rocket, ChevronDown, Globe, Database, DollarSign, Sun, Moon
 } from 'lucide-react'
 import PushSubscriptionPrompt from './PushSubscriptionPrompt'
+import NotificationBell from './NotificationBell'
 
 const nav = [
   { to: '/dashboard',     icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
@@ -237,6 +238,7 @@ export default function Layout() {
                   <div className="text-[10px] text-slate-700 dark:text-slate-500">Admin</div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <NotificationBell />
                   <button onClick={toggleTheme} className="text-slate-700 dark:text-slate-500 hover:text-blue-400 transition p-1.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-100 dark:bg-white/[0.05]" title="Toggle Theme">
                     {themePreference === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
                   </button>
@@ -248,7 +250,8 @@ export default function Layout() {
             )}
           </div>
           {collapsed && (
-            <div className="mt-2 flex flex-col gap-1">
+            <div className="mt-2 flex flex-col gap-1 items-center">
+              <NotificationBell />
               <button
                 onClick={toggleTheme}
                 className="w-full flex justify-center text-slate-700 dark:text-slate-500 hover:text-blue-400 transition p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-100 dark:bg-white/[0.05]"
@@ -269,7 +272,7 @@ export default function Layout() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-y-auto bg-slate-100 dark:bg-[#0f0f1a]">
+      <main className="flex-1 overflow-y-auto bg-slate-100 dark:bg-[#0f0f1a] pt-4">
         <Outlet />
       </main>
 

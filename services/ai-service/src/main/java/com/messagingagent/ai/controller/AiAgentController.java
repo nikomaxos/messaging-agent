@@ -221,4 +221,54 @@ public class AiAgentController {
         memoryRepository.deleteAll();
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Webhook endpoint triggered by the Security Supervisor Notification Action.
+     * Starts an autonomous AI agent task to investigate and patch the CVE.
+     */
+    @PostMapping("/tasks/auto-patch")
+    public ResponseEntity<Map<String, String>> autoPatchCve(@RequestBody Map<String, String> payload) {
+        String cve = payload.getOrDefault("cve", "UNKNOWN");
+        String pkg = payload.getOrDefault("package", "UNKNOWN");
+        String summary = payload.getOrDefault("summary", "No details provided.");
+        
+        log.info("Received request to auto-patch {} in package {}", cve, pkg);
+
+        AiAgentConfig config = configRepository.findAll().stream().findFirst().orElse(null);
+        if (config == null || !config.isEnabled()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "AI Agent is not enabled"));
+        }
+
+        // Create a new session
+        AiChatSession session = chatSessionRepository.save(AiChatSession.builder()
+                .title("[SEC-OPS] Auto-Patching " + cve)
+                .build());
+
+        String initialPrompt = String.format(
+            "CRITICAL SECURITY TASK: A new vulnerability (%s) was discovered in the package '%s'. " +
+            "Summary: %s. \\n" +
+            "Please immediately search the codebase to identify where this package is used (check pom.xml files). " +
+            "Propose a version bump or configuration change to mitigate this vulnerability. " +
+            "If you have filesystem tools, apply the patch and verify.",
+            cve, pkg, summary
+        );
+
+        chatMessageRepository.save(AiChatMessage.builder()
+                .sessionId(session.getId())
+                .role("system")
+                .content("You are an autonomous Security AI Agent. Proceed to execute the user's security task.")
+                .build());
+
+        chatMessageRepository.save(AiChatMessage.builder()
+                .sessionId(session.getId())
+                .role("user")
+                .content(initialPrompt)
+                .build());
+
+        // In a real autonomous setup, we would trigger an async worker thread here to evaluate the prompt
+        // and loop through tools. For this setup, we prime the chat history so the admin sees the ongoing task
+        // and can interact with the AI to approve changes.
+
+        return ResponseEntity.ok(Map.of("status", "Task initiated", "sessionId", session.getId().toString()));
+    }
 }

@@ -193,6 +193,24 @@ services:
     volumes:
       - .:/repo
 
+  security-service:
+    build:
+      context: ./services/security-service
+      dockerfile: Dockerfile
+    container_name: ma-security-service
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      CORE_SERVICE_URL: http://core-service:8080
+      REDIS_HOST: redis
+    ports:
+      - "8087:8087"
+
   admin-panel:
     build:
       context: ./admin-panel

@@ -1,6 +1,7 @@
 package com.messagingagent.config;
 
 import com.messagingagent.security.JwtAuthFilter;
+import com.messagingagent.security.ApiKeyAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final ApiKeyAuthFilter apiKeyAuthFilter;
 
 
     @Bean
@@ -48,14 +50,15 @@ public class SecurityConfig {
                     "/api/public/**",
                     "/api/admin/smsc-suppliers", // Internal inter-service supplier sync for smpp-edge
                     "/api/system/health", // Internal inter-service health check for ai-service
-                    "/actuator/**",
                     "/ws/**",        // Android raw WebSocket
                     "/ws-admin/**",  // SockJS HTTP polling + WebSocket upgrade for admin panel
                     "/error"         // Spring error endpoint
                 ).permitAll()
+                .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(jwtAuthFilter, ApiKeyAuthFilter.class);
         return http.build();
     }
 

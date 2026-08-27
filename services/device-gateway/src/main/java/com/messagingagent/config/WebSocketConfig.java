@@ -3,10 +3,15 @@ package com.messagingagent.config;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.*;
+import org.springframework.messaging.simp.config.ChannelRegistration;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Autowired
+    private StompSecurityChannelInterceptor securityInterceptor;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -33,6 +38,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registration.setMessageSizeLimit(4 * 1024 * 1024);   // 4 MB max message
         registration.setSendBufferSizeLimit(4 * 1024 * 1024); // 4 MB send buffer
         registration.setSendTimeLimit(30 * 1000);              // 30s send timeout
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(securityInterceptor);
     }
 }
 

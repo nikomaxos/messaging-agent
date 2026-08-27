@@ -1,0 +1,26 @@
+# AI Agent Guidelines & Architecture Rules
+# Path: .antigravity/rules
+
+## 1. DTO & Payload Validation
+All incoming Data Transfer Objects (DTOs) MUST have strict validation using `javax.validation` or `jakarta.validation` annotations.
+- Strings: `@NotBlank`, `@Size(min = x, max = y)`
+- Numbers: `@Min`, `@Max`, `@Positive`
+- Complex structures: `@Valid` on nested objects.
+- Regular Expressions: `@Pattern` for specific formats (e.g., E.164 phone numbers).
+
+## 2. Database Queries & Tenancy
+- **No Raw SQL**: Forbid the use of raw SQL queries (`@Query(value = "...", nativeQuery = true)`) unless absolutely necessary for complex reporting.
+- **Tenant Scoping**: EVERY query (Spring Data JPA derived methods or JPQL) MUST include a `tenant_id` scope to prevent cross-tenant data leakage. Ensure that entities have a `@ManyToOne` mapping to `Tenant` or a `tenantId` field.
+
+## 3. Secrets & Database Identifiers
+- **No Hardcoded Secrets**: Do not hardcode JWT secrets, API keys, Keystore passwords, or database credentials. Always use `application.yml` placeholders (e.g., `${APP_JWT_SECRET}`) injected via environment variables.
+- **UUIDs in Public APIs**: Never expose auto-incrementing integer/Long database IDs in public-facing API responses or paths. Always use UUIDs or opaque tokens (e.g., `/api/campaigns/{uuid}` instead of `/api/campaigns/5`).
+
+## 4. Security Enforcement
+- **Method-level Security**: Enforce that all new API endpoints (Controllers) explicitly declare `@PreAuthorize` or are covered by scoped Security constraints in the `SecurityConfig`. Default to deny-all if unspecified.
+
+## 5. QA Validation Workflow
+Before concluding ANY task, the agent MUST perform a comprehensive validation of the entire system scope (backend logic + frontend UI assets across all relevant VMs/nodes). Check logs for regressions.
+
+## 6. Container Rebuilds
+Any changes to source code, `pom.xml`, or `docker-compose.yml` for containerized services MUST be followed by rebuilding the affected container in the DevBox Staging environment (`docker compose build <service>`).

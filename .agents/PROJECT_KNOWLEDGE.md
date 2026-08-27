@@ -20,7 +20,7 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
   - A Java Spring Boot application (Port 2776 mapped to 2775 locally).
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
   - **Connection Optimization**: SMSC Supplier connections rely exclusively on `EnquireLink` heartbeats to detect and sever ghost connections. Hard lifetime cutoffs (`maxSessionLifetime`) are disabled to avoid unnecessarily dropping healthy sessions.
-  - **Active Connection State Tracking**: Extracts and syncs real-time connection state to Redis (e.g. `smpp_client_binds:...`), formatting as `bindType|uptimeSeconds|ipAddress`. Remote IP extraction is achieved via reflection on the Cloudhopper `SmppSession` Netty channel.
+  - **Active Connection State Tracking**: Extracts and syncs real-time connection state to Redis in a Hash (e.g. `smpp:sessions:{systemId}` with fields `0`, `1`, etc.), formatting as `bindType|uptimeSeconds|ipAddress`. Remote IP extraction is achieved via reflection on the Cloudhopper `SmppSession` Netty channel.
 - **AI Service (`ma-ai-service`)**:
   - A Java Spring Boot application providing an LLM-powered context-aware assistant.
   - Features real-time system metrics ingestion (calling `/api/system/health` on the Core Service) to give the LLM real-world platform context.
@@ -80,7 +80,8 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
 4. **SMPP Edge Routing (Live Proxy)**:
    - **Domain:** `smpp.globalnetservices.net`
    - **Proxy Target:** All TCP traffic (ports 2775/2776) and HTTP (port 8085 for UI/API) routed via HAProxy to a dedicated Node.js proxy VM at **`10.10.10.105`**.
-   - **Management:** The live SMPP proxy targets can be managed via the REST API at `http://10.10.10.105:8085/api/config` or `http://10.10.10.105:8085/api/target`. Note: The local proxy copy in `~/Development/smpp-proxy/` on the DevBox is just a copy, not the active proxy serving external traffic.
+   - **Management:** The live SMPP proxy targets can be managed via the REST API at `http://10.10.10.105:8086/api/config` or `http://10.10.10.105:8086/api/status`. (Note: The admin API listens internally on port 8086 on the proxy VM).
+   - **Deployment:** The live proxy runs via `pm2` under the `ubuntu` user on `10.10.10.105`. The code in `~/Development/smpp-proxy/` on the DevBox is just a local copy. To deploy proxy updates, you must use `scp` to copy `server.js` to `ubuntu@10.10.10.105:~/smpp-proxy/server.js` and run `pm2 restart smpp-proxy` via SSH.
 
 
 ## 4. Deployment Dashboard, CI/CD, and Disaster Recovery
@@ -109,6 +110,7 @@ Traffic is natively routed at the hypervisor edge using HAProxy to avoid port co
   - You MUST write the updated knowledge into the vaults immediately. This ensures the vaults are ALWAYS perfectly synchronized with reality. No matter what happens or how small the patch, you always perform this continuous read/write cycle.
 - **Mandatory Container Rebuilds (CRITICAL)**: Whenever you modify source code, configuration files (e.g. `nginx.conf`), Dockerfiles, or dependencies (`package.json`, `pom.xml`) for a containerized service (such as `admin-panel`, `deploy-agent`, `core-service`, etc.), you MUST explicitly rebuild and restart that container in the Staging environment (e.g., `docker compose up -d --build admin-panel`) before completing your task. NEVER assume hot-reloading is active or sufficient for compiled/static assets.
 - **⛔ NEVER DEPLOY TO PRODUCTION DIRECTLY (ABSOLUTE RULE)**: The agent is strictly **FORBIDDEN** from SSH-ing into production nodes (`10.10.10.193`, `10.10.10.194`, `10.10.10.195`) to run deployment scripts (`deploy-k8s.sh` or any equivalent). The agent may ONLY deploy to the **Staging environment** (DevBox `10.10.10.96`). Production deployments are the USER's exclusive responsibility, triggered via the Staging Admin Panel Deploy Page UI. **There are ZERO exceptions to this rule.** If the user asks to "deploy", always deploy to Staging and inform them it is ready for testing. Never assume "deploy" means "deploy to production".
+- **Mandatory QA Validation & Architect Sign-Off (CRITICAL)**: Before concluding ANY request or declaring a fix complete, the internal QA persona MUST perform a comprehensive, end-to-end validation of the entire scope of the change. This means checking that both backend logic AND frontend UI assets are fully synced across all relevant nodes (e.g., preventing partial deployments where a backend file is copied to a remote VM but the frontend HTML/JS is forgotten). The QA persona must explicitly report its findings to the Architect persona internally. The Architect MUST ONLY give the final "Approve" and release the response to the user if the solution is 100% bug-free, fully deployed across all necessary layers, and functionally complete. NEVER deliver partial fixes or assume a deployment step was successful without verifying its actual impact on the live environment.
 
 ## 6. Production Upgrades & Updates (CRITICAL GUIDELINES)
 
@@ -227,3 +229,10 @@ To prevent downtime, missing data in the UI, or disconnections from upstream SMS
 - **Implementation**: A custom Netty 3 `ProxyProtocolDecoder` is injected dynamically (via Reflection) into the `DefaultSmppServer` pipeline during startup (`SmppServerService.java`). 
 - **Behavior**: If a connection starts with `PROXY TCP4 ...`, the decoder extracts the real IP, stores it as a Netty `Channel` attachment, and passes it to the Cloudhopper session. If the connection is a direct SMPP bind (without the proxy header), the decoder safely ignores the traffic and allows it to proceed natively.
 - **Proxy Configuration**: Any proxy sitting in front of `ma-smpp-edge` (e.g. Melrose custom Node proxy or Nginx) must explicitly send the PROXY protocol header (`PROXY TCP4 <src> <dst> <sport> <dport>\r\n`) upon connection establishment if it wants the backend to log the true client IP.
+
+## 12. Automated Security Scanner & AI Auto-Patching
+
+- **Scheduled OSV Scans (`ma-security-service`)**: The `CveScannerService` runs a scheduled cron job (or can be manually triggered via `POST /api/cve/scan`) that queries the public Google Open Source Vulnerabilities (OSV) API (`api.osv.dev`) for core dependencies (e.g., `spring-boot-starter-web`, `kafka-clients`, `jackson-databind`).
+- **Redis Duplicate Prevention**: Discovered CVEs are cached in Redis (`security:cve:seen:{cveId}`) to ensure the system only alerts the admins once per vulnerability.
+- **Actionable Notifications**: New vulnerabilities are dispatched via Kafka (`notifications.alerts`) as JSON payloads containing actionable webhook buttons. 
+- **Autonomous AI Remediation (`ma-ai-service`)**: The "Auto-Patch via AI" button hits the `POST /api/ai-agent/tasks/auto-patch` webhook on the AI service. This immediately initializes a new `AiChatSession` titled with the CVE ID, injecting a system prompt that orders the platform's internal AI Agent to analyze the codebase, locate the vulnerable dependency, and automatically propose or apply the patch. The admin can monitor this autonomous execution live via the Admin Panel's AI Chat UI.

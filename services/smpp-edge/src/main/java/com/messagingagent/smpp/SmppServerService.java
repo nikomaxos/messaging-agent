@@ -277,6 +277,25 @@ public class SmppServerService {
                     return resp;
                 }
                 
+                String tpsLimitStr = redis.opsForValue().get("config:client:" + systemId + ":tps");
+                if (tpsLimitStr != null) {
+                    try {
+                        int tpsLimit = Integer.parseInt(tpsLimitStr);
+                        String tpsKey = "smpp:tps:" + systemId + ":" + (System.currentTimeMillis() / 1000);
+                        Long currentTps = redis.opsForValue().increment(tpsKey);
+                        if (currentTps != null && currentTps == 1) {
+                            redis.expire(tpsKey, Duration.ofSeconds(2));
+                        }
+                        if (currentTps != null && currentTps > tpsLimit) {
+                            log.warn("Blocked SUBMIT_SM due to TPS limit ({} TPS) for systemId={}", tpsLimit, systemId);
+                            publishRejected(sm, "TPS limit exceeded", "0x00000058");
+                            SubmitSmResp resp = (SubmitSmResp) sm.createResponse();
+                            resp.setCommandStatus(SmppConstants.STATUS_THROTTLED);
+                            return resp;
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+                
                 if (dstAddr == null || dstAddr.trim().isEmpty()) {
                     log.warn("Blocked SUBMIT_SM due to empty destination address");
                     publishRejected(sm, "Empty destination address", "0x0000000B");
