@@ -31,7 +31,6 @@ interface RoutingRule {
   active: boolean;
   conditions: RuleCondition[];
   actions: RuleAction[];
-  enableRoutingPerCountryPrefix: boolean;
 }
 
 const REGEX_SNIPPETS = [
@@ -51,7 +50,6 @@ export default function RoutingRulesPage() {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(100);
   const [isActive, setIsActive] = useState(true);
-  const [enableRoutingPerCountryPrefix, setEnableRoutingPerCountryPrefix] = useState(false);
   const [conditions, setConditions] = useState<RuleCondition[]>([]);
   const [actions, setActions] = useState<RuleAction[]>([]);
   
@@ -86,7 +84,6 @@ export default function RoutingRulesPage() {
       setDescription(r.description);
       setPriority(r.priority);
       setIsActive(r.active);
-      setEnableRoutingPerCountryPrefix(r.enableRoutingPerCountryPrefix || false);
       setConditions(r.conditions || []);
       setActions(r.actions || []);
     } else {
@@ -95,7 +92,6 @@ export default function RoutingRulesPage() {
       setDescription('');
       setPriority(100);
       setIsActive(true);
-      setEnableRoutingPerCountryPrefix(false);
       setConditions([]);
       setActions([]);
     }
@@ -106,7 +102,7 @@ export default function RoutingRulesPage() {
 
   const handleSave = async () => {
     try {
-      const payload = { name, description, priority, active: isActive, enableRoutingPerCountryPrefix, conditions, actions };
+      const payload = { name, description, priority, active: isActive, conditions, actions };
       if (editingId) {
         await updateRoutingRule(editingId, payload);
       } else {
@@ -312,12 +308,6 @@ export default function RoutingRulesPage() {
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                         <span className="text-sm font-medium">Rule Active</span>
-                      </label>
-                    </div>
-                    <div className="flex items-end">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={enableRoutingPerCountryPrefix} onChange={e => setEnableRoutingPerCountryPrefix(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                        <span className="text-sm font-medium">Enable Routing Per Country Prefix</span>
                       </label>
                     </div>
                   </div>

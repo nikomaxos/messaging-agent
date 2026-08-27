@@ -168,7 +168,6 @@ public class RoutingRuleService {
         rule.setDescription(dto.getDescription());
         rule.setPriority(dto.getPriority());
         rule.setActive(dto.isActive());
-        rule.setEnableRoutingPerCountryPrefix(dto.isEnableRoutingPerCountryPrefix());
 
         if (dto.getConditions() != null) {
             for (RuleConditionDto cDto : dto.getConditions()) {
@@ -197,7 +196,6 @@ public class RoutingRuleService {
         dto.setDescription(rule.getDescription());
         dto.setPriority(rule.getPriority());
         dto.setActive(rule.isActive());
-        dto.setEnableRoutingPerCountryPrefix(rule.isEnableRoutingPerCountryPrefix());
 
         dto.setConditions(rule.getConditions().stream().map(c -> {
             RuleConditionDto cDto = new RuleConditionDto();
