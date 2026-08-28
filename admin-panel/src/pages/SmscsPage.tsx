@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSmscSuppliers, createSmscSupplier, updateSmscSupplier, deleteSmscSupplier, bindSmscSupplier, unbindSmscSupplier } from '../api/client'
 import api from '../api/client'
 import { SmscSupplier, SmscSupplierConfig } from '../types'
-import { Plus, Pencil, Trash2, X, Check, Server, RefreshCw, Play, Square, HelpCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Server, RefreshCw, Play, Square, HelpCircle, Eye, EyeOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { ConfirmModal } from '../components/ConfirmModal'
 
@@ -23,6 +23,7 @@ export default function SmscsPage() {
   
   // Form State
   const [formData, setFormData] = useState<Partial<SmscSupplierConfig>>({})
+  const [showPassword, setShowPassword] = useState(false)
 
   const createMut = useMutation({
     mutationFn: createSmscSupplier,
@@ -59,12 +60,14 @@ export default function SmscsPage() {
       throughput: 0, enquireLinkInterval: 30000, maxSessionLifetime: 5, active: true,
       triggerResendErrorCodes: '', accountId: undefined
     })
+    setShowPassword(false)
     setModalOpen(true)
   }
 
   const openEditModal = (s: SmscSupplierConfig) => {
     setEditingId(s.id)
     setFormData({ ...s, password: '' }) // blank out password for editing (only update if changed)
+    setShowPassword(false)
     setModalOpen(true)
   }
 
@@ -287,9 +290,15 @@ export default function SmscsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Password</label>
-                  <input type="password" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono"
-                    value={formData.password || ''} onChange={e => setFormData({ ...formData, password: e.target.value })} 
-                    placeholder={editingId ? '(unchanged)' : 'Required'} />
+                  <div className="relative">
+                    <input type={showPassword ? "text" : "password"} className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 pr-10 text-slate-900 dark:text-white text-sm font-mono"
+                      value={formData.password || ''} onChange={e => setFormData({ ...formData, password: e.target.value })} 
+                      placeholder={editingId ? '(unchanged)' : 'Required'} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-300">
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
