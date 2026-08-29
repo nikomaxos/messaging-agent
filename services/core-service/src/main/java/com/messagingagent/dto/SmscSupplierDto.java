@@ -10,6 +10,8 @@ public class SmscSupplierDto {
     private SmscSupplier supplier;
     private Long accountId;
     private Long uptimeSeconds;         // Connection duration if bound, null otherwise
+    private boolean bypassDuplicateFilter;
+    private boolean useSsl;
     private boolean connected;
     private long totalMessages;
     private long dlrsReceived;

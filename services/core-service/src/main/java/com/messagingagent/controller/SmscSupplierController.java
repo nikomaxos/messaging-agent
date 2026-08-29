@@ -59,6 +59,7 @@ public class SmscSupplierController {
                 .failed(0L)
                 .inQueue(0L)
                 .sentCount(supplier.getSentCount())
+                .useSsl(supplier.isUseSsl())
                 .triggerResendErrorCodes(supplier.getTriggerResendErrorCodes())
                 .build();
     }
@@ -83,6 +84,7 @@ public class SmscSupplierController {
         supplier.setEnquireLinkInterval(dto.getEnquireLinkInterval());
         supplier.setActive(dto.isActive());
         supplier.setBypassDuplicateFilter(dto.isBypassDuplicateFilter());
+        supplier.setUseSsl(dto.isUseSsl());
         supplier.setTriggerResendErrorCodes(dto.getTriggerResendErrorCodes());
         
         if (dto.getAccountId() != null) {
@@ -117,6 +119,7 @@ public class SmscSupplierController {
             existing.setEnquireLinkInterval(dto.getEnquireLinkInterval());
             existing.setActive(dto.isActive());
             existing.setBypassDuplicateFilter(dto.isBypassDuplicateFilter());
+            existing.setUseSsl(dto.isUseSsl());
             existing.setTriggerResendErrorCodes(dto.getTriggerResendErrorCodes());
             
             if (dto.getAccountId() != null) {

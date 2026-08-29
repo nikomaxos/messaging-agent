@@ -50,6 +50,16 @@ public class SmscConnectionManager {
     private final java.util.Set<Long> connectingSuppliers = ConcurrentHashMap.newKeySet();
     private final Map<Long, SmscSupplier> supplierCache = new ConcurrentHashMap<>();
     
+    private void logSystemEvent(String level, String event, String detail) {
+        try {
+            String payload = String.format("{\"level\":\"%s\", \"device\":\"%s\", \"event\":\"%s\", \"detail\":\"%s\"}", 
+                level, "SYSTEM", event, detail.replace("\"", "\\\""));
+            restTemplate.postForObject(coreServiceUrl + "/api/admin/system-logs/internal", payload, String.class);
+        } catch (Exception e) {
+            log.error("Failed to send system log: {}", e.getMessage());
+        }
+    }
+    
     public SmscConnectionManager(KafkaTemplate<String, String> kafkaTemplate, StringRedisTemplate redis) {
         this.restTemplate = new RestTemplate();
         this.kafkaTemplate = kafkaTemplate;
@@ -162,6 +172,7 @@ public class SmscConnectionManager {
             } catch (Exception e) {
                 log.error("Failed initial connect for Supplier [{}] (id={}): {}", 
                         supplier.getName(), supplier.getId(), e.getMessage());
+                logSystemEvent("ERROR", "SMSC_DISCONNECT", "Failed initial connect for " + supplier.getName() + ": " + e.getMessage());
             } finally {
                 connectingSuppliers.remove(supplier.getId());
             }
@@ -191,6 +202,13 @@ public class SmscConnectionManager {
             config.setSystemType(supplier.getSystemType());
         }
 
+        if (supplier.isUseSsl()) {
+            config.setUseSsl(true);
+            com.cloudhopper.smpp.ssl.SslConfiguration sslConfig = new com.cloudhopper.smpp.ssl.SslConfiguration();
+            sslConfig.setTrustAll(true); // Prevent self-signed cert validation issues
+            config.setSslConfiguration(sslConfig);
+        }
+
         config.getLoggingOptions().setLogBytes(false);
         config.getLoggingOptions().setLogPdu(true);
         
@@ -206,6 +224,7 @@ public class SmscConnectionManager {
         disconnectedAt.remove(supplier.getId());
         
         log.info("Successfully bound to SMSC [{}] (id={})", supplier.getName(), supplier.getId());
+        logSystemEvent("INFO", "SMSC_CONNECT", "Successfully bound to SMSC: " + supplier.getName());
     }
 
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 2000)
@@ -263,6 +282,7 @@ public class SmscConnectionManager {
                 
                 if (connectingSuppliers.add(supplier.getId())) {
                     log.warn("SMSC [{}] disconnected. Attempting reconnect...", supplier.getName());
+                    logSystemEvent("WARN", "SMSC_DISCONNECT", "SMSC " + supplier.getName() + " disconnected. Attempting reconnect.");
                     connectAsync(supplier);
                 }
             } else {
@@ -473,6 +493,7 @@ public class SmscConnectionManager {
         @Override
         public void fireChannelUnexpectedlyClosed() {
             log.warn("Upstream Channel unexpectedly closed for supplier [{}]", supplier.getName());
+            logSystemEvent("ERROR", "SMSC_DISCONNECT", "Channel unexpectedly closed for: " + supplier.getName());
             activeSessions.remove(supplier.getId());
             disconnectedAt.putIfAbsent(supplier.getId(), Instant.now());
         }

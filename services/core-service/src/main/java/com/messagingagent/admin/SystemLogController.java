@@ -2,11 +2,14 @@ package com.messagingagent.admin;
 
 import com.messagingagent.model.SystemLog;
 import com.messagingagent.repository.SystemLogRepository;
+import com.messagingagent.service.SystemLogService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -14,9 +17,11 @@ import java.time.Instant;
 @RestController
 @RequestMapping("/api/admin/system-logs")
 @RequiredArgsConstructor
+@Slf4j
 public class SystemLogController {
 
     private final SystemLogRepository repository;
+    private final SystemLogService systemLogService;
 
     @GetMapping
     public Page<SystemLog> getLogs(
@@ -27,5 +32,11 @@ public class SystemLogController {
             @RequestParam(defaultValue = "100") int size) {
         Pageable pageable = PageRequest.of(page, size);
         return repository.findWithFilters(level, startTime, endTime, pageable);
+    }
+
+    @PostMapping("/internal")
+    public ResponseEntity<Void> internalLog(@RequestBody com.messagingagent.dto.SystemLogEvent event) {
+        systemLogService.logAndBroadcast(event.getLevel(), event.getDevice(), event.getEvent(), event.getDetail());
+        return ResponseEntity.ok().build();
     }
 }

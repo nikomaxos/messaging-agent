@@ -22,5 +22,6 @@ public class SmscSupplierRequestDto {
     private int enquireLinkInterval = 30000;
     private boolean active = true;
     private boolean bypassDuplicateFilter = false;
+    private boolean useSsl = false;
     private String triggerResendErrorCodes;
 }

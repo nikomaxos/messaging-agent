@@ -155,6 +155,7 @@ export interface SmscSupplierConfig {
   throughput: number
   enquireLinkInterval: number
   maxSessionLifetime?: number
+  useSsl?: boolean
   active: boolean
   bypassDuplicateFilter?: boolean
   sentCount?: number

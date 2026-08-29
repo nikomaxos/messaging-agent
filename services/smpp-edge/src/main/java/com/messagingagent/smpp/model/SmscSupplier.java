@@ -19,7 +19,8 @@ public class SmscSupplier {
     private int destNpi;
     private int enquireLinkInterval;
     private Integer maxSessionLifetime;
-    private boolean bypassDuplicateFilter;
+    private boolean bypassDuplicateFilter = false;
+    private boolean useSsl = false;
     private boolean active;
     private long sentCount;
     private String triggerResendErrorCodes;

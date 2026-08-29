@@ -268,7 +268,7 @@ export default function SmscsPage() {
               </div>
 
               {/* Endpoint Details */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Host (IP or FQDN)</label>
                   <input className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono"
@@ -278,6 +278,21 @@ export default function SmscsPage() {
                   <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Port</label>
                   <input type="number" className="w-full bg-white dark:bg-[#12121f] border border-slate-300 dark:border-white/10 rounded px-3 py-2 text-slate-900 dark:text-white text-sm font-mono"
                     value={formData.port || ''} onChange={e => setFormData({ ...formData, port: parseInt(e.target.value) || 2775 })} />
+                </div>
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer group relative">
+                    <input type="checkbox" className="form-checkbox text-brand-500 rounded bg-white dark:bg-[#12121f] border-slate-300 dark:border-white/20"
+                      checked={formData.useSsl || false} 
+                      onChange={e => {
+                        const checked = e.target.checked;
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          useSsl: checked,
+                          port: checked ? (prev.port === 2775 ? 2776 : prev.port) : (prev.port === 2776 ? 2775 : prev.port)
+                        }));
+                      }} />
+                    <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">SSL / TLS</span>
+                  </label>
                 </div>
               </div>
 

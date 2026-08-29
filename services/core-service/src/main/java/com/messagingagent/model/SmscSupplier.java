@@ -88,6 +88,10 @@ public class SmscSupplier {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "use_ssl", nullable = false)
+    @Builder.Default
+    private boolean useSsl = false;
+
     @Column(name = "bypass_duplicate_filter", nullable = false)
     @Builder.Default
     private boolean bypassDuplicateFilter = false;
