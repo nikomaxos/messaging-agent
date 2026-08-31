@@ -21,6 +21,7 @@ The `messaging-agent` has been migrated from a Modular Monolith to an **Event-Dr
   - Handles TCP ingress/egress. Inbound traffic drops into Kafka `inbound.raw`. Egress traffic is read from `outbound.smpp` and dispatched via Cloudhopper.
   - **Connection Optimization**: SMSC Supplier connections rely exclusively on `EnquireLink` heartbeats to detect and sever ghost connections. Hard lifetime cutoffs (`maxSessionLifetime`) are disabled to avoid unnecessarily dropping healthy sessions.
   - **Active Connection State Tracking**: Extracts and syncs real-time connection state to Redis in a Hash (e.g. `smpp:sessions:{systemId}` with fields `0`, `1`, etc.), formatting as `bindType|uptimeSeconds|ipAddress`. Remote IP extraction is achieved via reflection on the Cloudhopper `SmppSession` Netty channel.
+  - **Heartbeat & Remote Management**: `ma-smpp-edge` continuously publishes its `uptimeStartedAt` to `smpp:edge:heartbeat` in Redis every 10 seconds. The Admin Panel API (`ma-core-service`) uses this to report accurate uptime. Additionally, `ma-core-service` can orchestrate an inner-server restart by setting the `smpp:edge:command` Redis key to `RESTART`, which `ma-smpp-edge` polls and executes without restarting the entire Docker container.
 - **AI Service (`ma-ai-service`)**:
   - A Java Spring Boot application providing an LLM-powered context-aware assistant.
   - Features real-time system metrics ingestion (calling `/api/system/health` on the Core Service) to give the LLM real-world platform context.

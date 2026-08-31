@@ -142,6 +142,18 @@ public class SmppServerService {
     public void syncSessionsToRedis() {
         if (smppServer == null) return;
         
+        String command = redis.opsForValue().get("smpp:edge:command");
+        if ("RESTART".equals(command)) {
+            redis.delete("smpp:edge:command");
+            log.info("Received RESTART command from Redis");
+            restart();
+            return;
+        }
+
+        if (uptimeStartedAt != null) {
+            redis.opsForValue().set("smpp:edge:heartbeat", uptimeStartedAt.toString(), Duration.ofSeconds(30));
+        }
+
         // Group sessions by systemId
         java.util.Map<String, java.util.Map<String, String>> clientSessions = new java.util.HashMap<>();
         

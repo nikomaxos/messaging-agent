@@ -80,6 +80,10 @@ public class SmppServerAdminController {
     @PostMapping("/restart")
     public ResponseEntity<?> restart() {
         SmppServerSettings settings = repository.findById(1L).orElseGet(SmppServerSettings::new);
+        
+        // Signal the edge node to restart itself
+        redis.opsForValue().set("smpp:edge:command", "RESTART", java.time.Duration.ofSeconds(60));
+        
         Map<String, Object> response = new HashMap<>();
         response.put("id", settings.getId());
         response.put("host", settings.getHost());
