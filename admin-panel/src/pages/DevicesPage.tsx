@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getDevices, getGroups, createDevice, updateDevice, deleteDevice, getDevicePerformance, bulkDeviceCommand, getSimCards, assignSimCard, getSmppRoutings } from '../api/client'
 import { Device, DeviceGroup, SimCard } from '../types'
 import { Plus, Pencil, Trash2, X, Check, RefreshCw, Wifi, WifiOff, Power, RefreshCcw, Upload, DownloadCloud, BatteryCharging, Battery, Info, ShieldCheck, VolumeX, PhoneOff, Activity, HeartPulse, Layers, MapPin, FileText, Smartphone, Monitor, QrCode, Settings, ChevronDown, Cpu } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { format } from 'date-fns'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -29,9 +29,20 @@ function LiveUptime({ connectedAt }: { connectedAt?: string }) {
   const [val, setVal] = useState('')
   useEffect(() => {
     if (!connectedAt) { setVal('—'); return }
-    const update = () => setVal(formatDistanceToNow(new Date(connectedAt)))
+    const update = () => {
+      const ms = new Date().getTime() - new Date(connectedAt).getTime();
+      const s = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      let display = '';
+      if (h > 0) display += `${h}h `;
+      if (m > 0 || h > 0) display += `${m}m `;
+      display += `${sec}s`;
+      setVal(display.trim() || '0s');
+    }
     update()
-    const int = setInterval(update, 60000)
+    const int = setInterval(update, 1000)
     return () => clearInterval(int)
   }, [connectedAt])
   return <span>{val}</span>

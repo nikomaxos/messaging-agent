@@ -2,14 +2,23 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getServerConfig, updateServerConfig, restartServer, getSmppMetrics } from '../api/client'
 import { Server, Activity, ArrowRightLeft, Clock, Save, RefreshCw, MessageSquare, CheckCircle, AlertTriangle, RefreshCcw, ToggleLeft, ToggleRight, Hourglass } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-
 function LiveUptime({ since }: { since: string }) {
   const [uptime, setUptime] = useState('')
   useEffect(() => {
-    const calc = () => setUptime(formatDistanceToNow(new Date(since)))
+    const calc = () => {
+      const ms = new Date().getTime() - new Date(since).getTime();
+      const s = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      let display = '';
+      if (h > 0) display += `${h}h `;
+      if (m > 0 || h > 0) display += `${m}m `;
+      display += `${sec}s`;
+      setUptime(display.trim() || '0s');
+    }
     calc()
-    const timer = setInterval(calc, 60000)
+    const timer = setInterval(calc, 1000)
     return () => clearInterval(timer)
   }, [since])
   return <span>{uptime}</span>
